@@ -16,3 +16,4 @@ for(const key of ['cr','shackleton','sdg']){
 const maxEl=Math.max(...rows.map(r=>Math.abs(r.delta_el))),maxAz=Math.max(...rows.map(r=>Math.abs(r.delta_az))),passed=maxEl<=.1&&maxAz<=.1;
 const columns=Object.keys(rows[0]);fs.writeFileSync(new URL('public/research/horizons-month-comparison.csv',root),columns.join(',')+'\n'+rows.map(r=>columns.map(c=>JSON.stringify(r[c])).join(',')).join('\n'));
 const result={horizonsMonthVerified:passed,period,sites:3,samples:rows.length,maxElevationErrorDeg:maxEl,maxAzimuthErrorDeg:maxAz,retrieved:new Date().toISOString(),reference:'Fresh NASA JPL Horizons observer tables, quantity 4; geometric terrain horizon is not part of this sky-direction check.'};fs.writeFileSync(new URL('public/research/verification-status.json',root),JSON.stringify(result,null,2));console.log(result);if(!passed)process.exitCode=1;
+
