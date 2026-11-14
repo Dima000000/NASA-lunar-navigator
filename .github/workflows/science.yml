@@ -1,0 +1,29 @@
+name: Independent JPL validation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['tools/verify-horizons.mjs']
+permissions:
+  contents: write
+jobs:
+  horizons:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tools/verify-horizons.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: independent-horizons-comparison
+          path: public/research/
+      - name: Save verified comparison
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/research/
+          git diff --cached --quiet || git commit -m 'Record independent monthly JPL Horizons validation'
+          git push
