@@ -31,7 +31,7 @@
       20
     ]
   },
-  "dem_sha256": "bbc9ac500b2a04395a132c5c16ab0b669989d73c1c3633c7472ab09e53738763",
+  "dem_sha256": "bce40c2f133062d3ade5a32283ddf7373dfd15601494e35503ff11cd6d4ec215",
   "atlas": {
     "file": "horizon-atlas.f32",
     "N": 31,

@@ -13,7 +13,7 @@
   "L_km": 16,
   "cell_m": 33.333333333333336,
   "height_units": "m relative to centre pixel",
-  "center_height_m": 1677.4002531054011,
+  "center_height_m": 1677.4002531054248,
   "grid": "row 0 south, column 0 west; local stereographic x east, y north",
   "projection": "site-centred stereographic on R=1737400 m sphere",
   "radius_m": 1737400.0,
@@ -31,7 +31,7 @@
       20
     ]
   },
-  "dem_sha256": "590661b4e5abdcd6d14cdafbb081ff015e9b65761d9407b34dae67afcf14bd34",
+  "dem_sha256": "5ecf2f6f59005715ce300d2afd6bb38c14eb0162282c9b6de4c7a917a6c6db97",
   "atlas": {
     "file": "horizon-atlas.f32",
     "N": 31,

@@ -14,8 +14,8 @@
   {
     "key": "shackleton",
     "name": "Shackleton rim \u00b7 DEM crest",
-    "lat": -89.77965812840394,
-    "lon": -156.30028220486045,
+    "lat": -89.78031764982126,
+    "lon": -156.30208440505098,
     "source": "https://pgda.gsfc.nasa.gov/products/90",
     "coordinate_role": "Maximum-height pixel inside the supplied Shackleton rim 20 m crop; DEM-derived, not an official landing point",
     "approx": false,

@@ -13,7 +13,7 @@
   "L_km": 16,
   "cell_m": 33.333333333333336,
   "height_units": "m relative to centre pixel",
-  "center_height_m": 6445.1832024372,
+  "center_height_m": 6445.183202437199,
   "grid": "row 0 south, column 0 west; local stereographic x east, y north",
   "projection": "site-centred stereographic on R=1737400 m sphere",
   "radius_m": 1737400.0,

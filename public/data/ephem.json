@@ -20,5 +20,6 @@
     "earth_y",
     "earth_z",
     "earth_dist_km"
-  ]
+  ],
+  "delivery": "Rebuilt directly from NASA JPL NAIF kernels"
 }

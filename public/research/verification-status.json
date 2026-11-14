@@ -8,7 +8,7 @@
   "sites": 3,
   "samples": 4326,
   "maxElevationErrorDeg": 0.00002677015124419313,
-  "maxAzimuthErrorDeg": 0.000002244632014480885,
-  "retrieved": "2026-11-14T18:09:01.237Z",
+  "maxAzimuthErrorDeg": 0.000002244348706881283,
+  "retrieved": "2026-11-14T18:18:00.500Z",
   "reference": "Fresh NASA JPL Horizons observer tables, quantity 4; geometric terrain horizon is not part of this sky-direction check."
 }

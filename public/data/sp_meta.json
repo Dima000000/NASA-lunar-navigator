@@ -45,7 +45,7 @@
   "source": {
     "file": "LDEM_80S_80MPP_ADJ.TIF",
     "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF",
-    "product": "NASA GSFC PGDA product 78, LOLA south pole 80S-90S, 80 m/pixel",
+    "product": "NASA GSFC PGDA product 90",
     "crs_wkt": "PROJCS[\"Moon (2015) - Sphere / Ocentric / South Polar\",GEOGCS[\"Moon (2015) - Sphere / Ocentric\",DATUM[\"Moon (2015) - Sphere\",SPHEROID[\"Moon (2015) - Sphere\",1737400,0,AUTHORITY[\"IAU\",\"30100\"]],AUTHORITY[\"IAU\",\"30100\"]],PRIMEM[\"Reference Meridian\",0,AUTHORITY[\"IAU\",\"30100\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"IAU\",\"30100\"]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH],AUTHORITY[\"IAU\",\"30135\"]]",
     "pixel_m": 80.0,
     "size": 7600,
@@ -53,6 +53,7 @@
     "resampling": {
       "L0": "exact area (box) average",
       "L1": "none (native pixels, crop)"
-    }
+    },
+    "delivery": "Direct authoritative NASA download"
   }
 }
