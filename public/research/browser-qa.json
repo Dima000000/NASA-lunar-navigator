@@ -1,0 +1,73 @@
+{
+  "terrain": {
+    "N": 481,
+    "atlas": 31,
+    "source": "NASA LOLA LDEM_80S_80MPP_ADJ.TIF + four 20 m crops",
+    "gl": "",
+    "psrArea": 5.801111111111111
+  },
+  "windows": [
+    {
+      "start": 1767225600000,
+      "end": 1767787200000,
+      "sun": 1,
+      "earth": 1,
+      "darkHours": 0,
+      "score": 1
+    },
+    {
+      "start": 1768910400000,
+      "end": 1769472000000,
+      "sun": 1,
+      "earth": 1,
+      "darkHours": 0,
+      "score": 1
+    },
+    {
+      "start": 1769472000000,
+      "end": 1770033600000,
+      "sun": 1,
+      "earth": 1,
+      "darkHours": 0,
+      "score": 1
+    },
+    {
+      "start": 1771286400000,
+      "end": 1771848000000,
+      "sun": 1,
+      "earth": 1,
+      "darkHours": 0,
+      "score": 1
+    },
+    {
+      "start": 1771848000000,
+      "end": 1772409600000,
+      "sun": 1,
+      "earth": 1,
+      "darkHours": 0,
+      "score": 1
+    }
+  ],
+  "route": {
+    "expanded": 1302,
+    "key": "-89.4399,-137.1476,Connecting Ridge · Gläser spot 2|h2|240|224|1794672000000|80",
+    "count": 369,
+    "contacts": 369
+  },
+  "routeAfter": {
+    "key": "-89.4399,-137.1476,Connecting Ridge · Gläser spot 2|h2|240|224|1794844800000|80",
+    "count": 291
+  },
+  "frames": {
+    "frames": 180,
+    "meanMs": 8.323888888893029,
+    "p95Ms": 8.5,
+    "fps": 120.13615430815624
+  },
+  "drivenKm": 0.00003864588200000002,
+  "landing": true,
+  "analysis": true,
+  "csvRows": 2164,
+  "runtimeError": null,
+  "errors": []
+}

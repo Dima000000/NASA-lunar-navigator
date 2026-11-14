@@ -1,0 +1,7 @@
+{
+  "samples": 4326,
+  "maxElevationErrorDeg": 0.0005237350000000252,
+  "maxAzimuthErrorDeg": 0.0005132219999950394,
+  "precision": "Website CSV exports 0.001 degree, so rounding dominates the difference",
+  "passed": true
+}

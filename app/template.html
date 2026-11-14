@@ -1,0 +1,576 @@
+
+<div class="{{appCls}}">
+  <div class="stage" ref="{{stageRef}}">
+    <canvas class="cv" ref="{{glRef}}" aria-hidden="true"></canvas>
+    <canvas class="cv ov" ref="{{ovRef}}" role="img" aria-label="{{stageLabel}}"></canvas>
+    <sc-if value="{{hasGlError}}" hint-placeholder-val="{{ false }}">
+      <div class="glerr mat">{{glError}}</div>
+    </sc-if>
+    <sc-if value="{{showTip}}" hint-placeholder-val="{{ true }}">
+      <div class="tip mat"><span>{{tipText}}</span><button class="xb" onClick="{{closeTip}}" aria-label="Hide tip"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+    </sc-if>
+    <sc-if value="{{notDrive}}" hint-placeholder-val="{{ true }}">
+      <div class="mapctl mat">
+        <button onClick="{{zoomIn}}" aria-label="Zoom in"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+        <button onClick="{{zoomOut}}" aria-label="Zoom out"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+        <button onClick="{{resetView}}" aria-label="Reset camera"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l3.5 9h-7z" fill="#FF6961" stroke="none"></path><path d="M12 21l-3.5-9h7z" fill="currentColor" stroke="none" opacity="0.6"></path></svg></button>
+      </div>
+    </sc-if>
+    <sc-if value="{{isDrive}}" hint-placeholder-val="{{ false }}">
+      <div class="hud mat" role="status">
+        <button class="{{hud.battCls}}" onClick="{{toggleDrain}}" aria-pressed="{{noDrain}}" aria-label="{{hud.battLabel}}" title="{{hud.battLabel}}"><span class="batt"><span class="battf" style="width: {{hud.battPct}}%"></span></span>{{hud.batt}}<span style="font-weight: 500; opacity: 0.85">{{hud.rate}}</span></button>
+        <span class="{{hud.sunCls}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>{{hud.sun}}</span>
+        <span class="{{hud.earthCls}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 19a10 10 0 0 1 0-14M8.5 15.5a5 5 0 0 1 0-7M19 19a10 10 0 0 0 0-14M15.5 15.5a5 5 0 0 0 0-7"></path><circle cx="12" cy="12" r="1.5"></circle></svg>{{hud.earth}}</span>
+        <sc-if value="{{hud.canSkip}}" hint-placeholder-val="{{ false }}">
+          <button class="hi hbtn" onClick="{{skipEarth}}" style="color: #64D2FF">{{hud.skipLabel}}</button>
+        </sc-if>
+        <span class="hi dim">{{hud.kmh}}</span>
+        <span class="hi dim">{{hud.dist}}</span>
+      </div>
+      <sc-if value="{{hud.hasMsg}}" hint-placeholder-val="{{ false }}">
+        <div class="hmsg">{{hud.msg}}</div>
+      </sc-if>
+      <div class="pad">
+        <button class="turbo" aria-pressed="{{turbo}}" onClick="{{toggleTurbo}}" aria-label="Fast mode"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 6l7 6-7 6M12 6l7 6-7 6"></path></svg></button>
+        <button onPointerDown="{{pad.upOn}}" onPointerUp="{{pad.upOff}}" onPointerLeave="{{pad.upOff}}" onPointerCancel="{{pad.upOff}}" aria-label="Drive forward"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5l7 10H5z"></path></svg></button>
+        <button onClick="{{resetRover}}" aria-label="Return rover to the landing site"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"></path><circle cx="12" cy="11" r="2"></circle></svg></button>
+        <button onPointerDown="{{pad.leftOn}}" onPointerUp="{{pad.leftOff}}" onPointerLeave="{{pad.leftOff}}" onPointerCancel="{{pad.leftOff}}" aria-label="Turn left"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 12l10-7v14z"></path></svg></button>
+        <button onPointerDown="{{pad.downOn}}" onPointerUp="{{pad.downOff}}" onPointerLeave="{{pad.downOff}}" onPointerCancel="{{pad.downOff}}" aria-label="Reverse"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 19L5 9h14z"></path></svg></button>
+        <button onPointerDown="{{pad.rightOn}}" onPointerUp="{{pad.rightOff}}" onPointerLeave="{{pad.rightOff}}" onPointerCancel="{{pad.rightOff}}" aria-label="Turn right"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 12L9 5v14z"></path></svg></button>
+      </div>
+    </sc-if>
+  </div>
+
+  <div class="topr">
+    <div class="seg" role="group" aria-label="View">
+      <button aria-pressed="{{isRegion}}" onClick="{{goRegion}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="9" cy="10" r="2"></circle><circle cx="15" cy="15" r="1.5"></circle></svg>Overview</button>
+      <button aria-pressed="{{terrainTabOn}}" onClick="{{goTerrainTab}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 19l6-10 4 6 3-4 5 8z"></path></svg>Terrain</button>
+      <button aria-pressed="{{isLanding}}" onClick="{{goLand}}" title="{{landTabTitle}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v10M8 9l4 4 4-4M5 20h14M8 17h8"></path></svg>Land</button>
+      <button aria-pressed="{{isDrive}}" onClick="{{goDrive}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.5"></rect><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle><path d="M14 9V5h3"></path></svg>Drive</button>
+    </div>
+    <button class="round mat" aria-pressed="{{sheetCharts}}" onClick="{{openCharts}}" aria-label="Analysis: scores and charts"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"></path></svg></button>
+    <button class="round mat" aria-pressed="{{sheetExpert}}" onClick="{{openExpert}}" aria-label="Details and settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7.5v.01"></path></svg></button>
+  </div>
+
+  <sc-if value="{{showPill}}" hint-placeholder-val="{{ false }}">
+    <button class="dpill mat" onClick="{{showCard}}" aria-expanded="false" aria-label="Show place details"><span class="dot" style="background: {{cur.color}}; width: 10px; height: 10px"></span><span>{{cur.name}}</span><span class="dpm">Details</span><span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></button>
+  </sc-if>
+  <sc-if value="{{cardShown}}" hint-placeholder-val="{{ true }}">
+  <aside class="card mat" aria-label="Selected place">
+    <sc-if value="{{isDrive}}" hint-placeholder-val="{{ false }}">
+      <button class="chide" onClick="{{hideCard}}" aria-label="Hide place details while driving"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
+    </sc-if>
+
+    <sc-if value="{{plistShown}}" hint-placeholder-val="{{ true }}">
+    <div class="plist">
+      <sc-for list="{{places}}" as="p" hint-placeholder-count="3">
+        <div class="{{p.cls}}">
+          <div class="plrow">
+          <button class="plbtn" onClick="{{p.select}}" aria-pressed="{{p.isSel}}">
+            <span class="dot" style="background: {{p.color}}"></span>
+            <span class="plname">{{p.name}}</span>
+            <span class="plm"><span style="color: #FFD60A">☀</span> {{p.sun}}<span style="color: #64D2FF; margin-left: 8px">⊕</span> {{p.ear}}</span>
+            <span class="plsc" style="color: {{p.scColor}}; border-color: {{p.scColor}}">{{p.num}}</span>
+          </button>
+          <button class="ibtn" style="background: none; box-shadow: none; border: 0" onClick="{{p.info}}" aria-expanded="{{p.open}}" aria-label="{{p.infoLabel}}" title="{{p.infoLabel}}"><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+          </div>
+          <sc-if value="{{p.open}}" hint-placeholder-val="{{ false }}">
+            <div class="plbody">
+              <div class="plviz">
+                <svg viewBox="0 0 64 64" width="76" height="76" role="img" aria-label="{{p.ringsLabel}}" style="flex: none">
+                  <circle cx="32" cy="32" r="27" fill="none" stroke="#FFD60A" stroke-opacity="0.2" stroke-width="7"></circle>
+                  <circle cx="32" cy="32" r="27" fill="none" stroke="#FFD60A" stroke-width="7" stroke-linecap="round" stroke-dasharray="{{p.rg0}}" transform="rotate(-90 32 32)"><title>Sunlight: {{p.sun}} of the time</title></circle>
+                  <circle cx="32" cy="32" r="19" fill="none" stroke="#40A8FF" stroke-opacity="0.2" stroke-width="7"></circle>
+                  <circle cx="32" cy="32" r="19" fill="none" stroke="#40A8FF" stroke-width="7" stroke-linecap="round" stroke-dasharray="{{p.rg1}}" transform="rotate(-90 32 32)"><title>Earth in view: {{p.ear}} of the time</title></circle>
+                  <circle cx="32" cy="32" r="11" fill="none" stroke="#BF5AF2" stroke-opacity="0.22" stroke-width="7"></circle>
+                  <circle cx="32" cy="32" r="11" fill="none" stroke="#BF5AF2" stroke-width="7" stroke-linecap="round" stroke-dasharray="{{p.rg2}}" transform="rotate(-90 32 32)"><title>{{p.ringsLabel}}</title></circle>
+                </svg>
+                <div class="rleg">
+                  <sc-for list="{{p.rows}}" as="f" hint-placeholder-count="3">
+                    <div class="rl" title="{{f.reason}}"><i style="background: {{f.color}}"></i><span>{{f.name}}</span><b>{{f.value}}</b></div>
+                  </sc-for>
+                </div>
+              </div>
+              <div class="pltl">
+                <div class="prib"><span style="color: #FFD60A">Sun</span><svg viewBox="0 0 300 36" preserveAspectRatio="none" role="img" aria-label="{{p.sRib.aria}}"><defs><linearGradient id="pgS-{{p.gid}}" gradientUnits="userSpaceOnUse" x1="0" y1="36" x2="0" y2="0"><stop offset="0" stop-color="#FF9F0A" stop-opacity="0.12"></stop><stop offset="0.55" stop-color="#FFB800" stop-opacity="0.55"></stop><stop offset="1" stop-color="#FFE45C" stop-opacity="1"></stop></linearGradient></defs><path d="{{p.sRib.a}}" fill="url(#pgS-{{p.gid}})"></path><path d="{{p.sRib.z}}" stroke="rgba(255,255,255,0.45)" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" fill="none"></path><path d="{{p.sRib.l}}" stroke="#FFD60A" stroke-width="1.5" vector-effect="non-scaling-stroke" fill="none"></path><path d="{{p.landM}}" stroke="#fff" stroke-opacity="0.7" stroke-dasharray="3 2" vector-effect="non-scaling-stroke" fill="none"></path><path d="{{p.curM}}" stroke="#fff" stroke-width="1.3" vector-effect="non-scaling-stroke" fill="none"></path></svg><b>{{p.sRib.now}}</b></div>
+                <div class="prib"><span style="color: #64D2FF">Earth</span><svg viewBox="0 0 300 36" preserveAspectRatio="none" role="img" aria-label="{{p.eRib.aria}}"><defs><linearGradient id="pgE-{{p.gid}}" gradientUnits="userSpaceOnUse" x1="0" y1="36" x2="0" y2="0"><stop offset="0" stop-color="#0A60FF" stop-opacity="0.12"></stop><stop offset="0.55" stop-color="#2F8CFF" stop-opacity="0.55"></stop><stop offset="1" stop-color="#8CCBFF" stop-opacity="1"></stop></linearGradient></defs><path d="{{p.eRib.a}}" fill="url(#pgE-{{p.gid}})"></path><path d="{{p.eRib.z}}" stroke="rgba(255,255,255,0.45)" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" fill="none"></path><path d="{{p.eRib.l}}" stroke="#40A8FF" stroke-width="1.5" vector-effect="non-scaling-stroke" fill="none"></path><path d="{{p.landM}}" stroke="#fff" stroke-opacity="0.7" stroke-dasharray="3 2" vector-effect="non-scaling-stroke" fill="none"></path><path d="{{p.curM}}" stroke="#fff" stroke-width="1.3" vector-effect="non-scaling-stroke" fill="none"></path></svg><b>{{p.eRib.now}}</b></div>
+                <div class="hinfo" tabindex="0" role="note" onMouseEnter="{{hinfoShow}}" onMouseLeave="{{hinfoHide}}" onFocus="{{hinfoShow}}" onBlur="{{hinfoHide}}" aria-label="About these graphs: height of the Sun and Earth above the local horizon over the period. Dashed line is the horizon; the vertical scale fits each place's range. White line is now, red dashed line is landing."><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 7.6v.01"></path></svg><span class="htip" aria-hidden="true">Height of the Sun and Earth above the local horizon over the period. Brighter = higher. Dashed line = horizon; the scale fits each place's range. White = now, dashed white = landing.</span></div>
+                <div class="pstrip"><span style="color: #30D158">Both</span><div class="pband"><sc-for list="{{p.bRuns}}" as="g" hint-placeholder-count="2"><span class="run b" style="left: {{g.l}}%; width: {{g.w}}%"></span></sc-for><span class="pcur" style="left: {{cursorPct}}%"></span></div></div>
+                <div class="pdates"><span>{{bandStart}}</span><span>{{bandMid}}</span><span>{{bandEnd}}</span></div>
+              </div>
+              <div class="plfoot"><span>{{p.grade}} · {{p.coords}}</span><button class="lnk" onClick="{{p.remove}}" disabled="{{p.noRemove}}">Remove</button></div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+    <sc-if value="{{plistShown}}" hint-placeholder-val="{{ true }}">
+      <button class="addpl" onClick="{{toggleSites}}" aria-expanded="{{sitesOpen}}">{{addLabel}}</button>
+      <sc-if value="{{sitesOpen}}" hint-placeholder-val="{{ false }}">
+        <div class="pop addpop">
+          <div class="addrow">
+            <label class="fl"><span>Latitude °</span><input class="inp" type="number" step="0.01" value="{{addLat}}" onChange="{{onAddLat}}" placeholder="-89.5"></label>
+            <label class="fl"><span>Longitude °E</span><input class="inp" type="number" step="0.01" value="{{addLon}}" onChange="{{onAddLon}}" placeholder="-137"></label>
+            <button class="btn sm pri" style="align-self: end; min-height: 40px" onClick="{{addSite}}" disabled="{{full}}">Add</button>
+          </div>
+          <sc-if value="{{hasAddErr}}" hint-placeholder-val="{{ false }}"><div class="err">{{addErr}}</div></sc-if>
+          <div class="chips">
+            <button class="chip" aria-pressed="{{pick}}" onClick="{{togglePick}}" disabled="{{pickDisabled}}">{{pickLabel}}</button>
+            <sc-for list="{{presetChips}}" as="p" hint-placeholder-count="2">
+              <button class="chip" onClick="{{p.add}}" disabled="{{p.disabled}}">+ {{p.name}}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{isTerrainOrDrive}}" hint-placeholder-val="{{ false }}">
+      <div class="sect" style="margin-top: 12px">
+        <sc-if value="{{isTerrain}}" hint-placeholder-val="{{ false }}">
+          <div class="{{targetCls}}">
+            <sc-if value="{{hasTarget}}" hint-placeholder-val="{{ false }}">
+              <div class="sh" style="margin-bottom: 4px; display: flex; align-items: center"><span class="tdot"></span>Your landing point<button class="xb" style="margin-left: auto; width: 28px; height: 28px" onClick="{{clearTarget}}" aria-label="Clear your landing point"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+              <div class="tinfo">{{targetTxt}}</div><div class="tdrive"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.5"></rect><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>{{tgt.drive}}</div>
+              <div class="tgrid">
+                <div><b>{{tgt.sun}}</b><span>sunlit</span></div>
+                <div><b>{{tgt.earth}}</b><span>Earth in view</span></div>
+                <div><b>{{tgt.slope}}</b><span>slope</span></div>
+                <div><b>{{tgt.score}}</b><span>score</span></div>
+              </div>
+              <p class="note" style="margin-top: 8px">{{tgt.verdict}}</p>
+              <div class="tacts"><button class="btn sm pri" onClick="{{landHere}}">Land here</button><button class="btn sm" onClick="{{addTgt}}" disabled="{{addTgtDisabled}}">{{addTgtLabel}}</button></div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+  </aside>
+  </sc-if>
+
+  <sc-if value="{{showLandBar}}" hint-placeholder-val="{{ false }}">
+    <div class="landbar mat" role="group" aria-label="After touchdown">
+      <button onClick="{{landAgain}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7M4 4v4h4"></path></svg>Land again</button>
+      <button onClick="{{pickAnother}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"></path><circle cx="12" cy="11" r="2"></circle></svg>Choose another spot</button>
+      <button class="pri" onClick="{{goDrive}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.5"></rect><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>Drive from here</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{htipOn}}" hint-placeholder-val="{{ false }}">
+    <div class="htipg" style="left: {{htipX}}px; top: {{htipY}}px" aria-hidden="true"><b>Sun &amp; Earth graphs</b>Height above the local horizon over the whole period. Brighter = higher. Dashed line = horizon; the scale fits each place's range.<span class="hk"><i class="hl"></i>now</span><span class="hk"><i class="hl d"></i>landing</span></div>
+  </sc-if>
+  <section class="{{timeCls}}" aria-label="Mission timeline">
+    <sc-if value="{{showLegendBox}}" hint-placeholder-val="{{ false }}">
+    <div class="legbox mat" aria-label="Map legend">
+      <div class="ramp"></div>
+      <div class="lr"><span>{{legendLo}}</span><span>{{legendHi}}</span></div>
+      <div class="lr lsm"><span>○ best spot</span><span><span class="hatch" style="background: #4D9BFF"></span>published PSRs</span><sc-if value="{{showNoGo}}" hint-placeholder-val="{{ true }}"><span><span class="hatch"></span>too steep</span></sc-if></div>
+    </div>
+    </sc-if>
+    <button class="playb" onClick="{{togglePlay}}" aria-label="{{playLabel}}">
+      <sc-if value="{{playing}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg></sc-if>
+      <sc-if value="{{notPlaying}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></sc-if>
+    </button>
+    <div class="tdate">
+      <div class="d1">{{dateBig}}</div>
+      <div class="d2">{{timeSmall}}</div>
+    </div>
+    <div class="tmain">
+      <div class="evrow">
+        <sc-for list="{{events}}" as="ev" hint-placeholder-count="3">
+          <button class="{{ev.cls}}" style="left: {{ev.l}}%" onClick="{{ev.go}}" title="{{ev.title}}"><span class="evdot" style="background: {{ev.color}}"></span>{{ev.label}}</button>
+        </sc-for>
+      </div>
+      <div class="strip tall" title="{{tl.sunTitle}}"><span class="slab" style="color: #FFD60A">Sun</span><div class="band rib"><svg viewBox="0 0 1000 24" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="tlgS" gradientUnits="userSpaceOnUse" x1="0" y1="24" x2="0" y2="0"><stop offset="0" stop-color="#FF9F0A" stop-opacity="0.18"></stop><stop offset="0.55" stop-color="#FFB800" stop-opacity="0.6"></stop><stop offset="1" stop-color="#FFE45C" stop-opacity="1"></stop></linearGradient></defs><path class="rgl" d="{{tl.minor}}"></path><path class="rgl mj" d="{{tl.major}}"></path><path d="{{tl.sunArea}}" fill="url(#tlgS)"></path><path class="rln" d="{{tl.sunLine}}" stroke="#FFD60A"></path></svg><span class="ymax">{{tl.sunMax}}</span><span class="mband" style="left: {{landPct}}%; width: {{missionW}}%"></span><span class="lmark" style="left: {{landPct}}%"></span></div></div>
+      <div class="strip tall" title="{{tl.earTitle}}"><span class="slab" style="color: #64D2FF">Earth</span><div class="band rib"><svg viewBox="0 0 1000 24" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="tlgE" gradientUnits="userSpaceOnUse" x1="0" y1="24" x2="0" y2="0"><stop offset="0" stop-color="#0A60FF" stop-opacity="0.18"></stop><stop offset="0.55" stop-color="#2F8CFF" stop-opacity="0.6"></stop><stop offset="1" stop-color="#8CCBFF" stop-opacity="1"></stop></linearGradient></defs><path class="rgl" d="{{tl.minor}}"></path><path class="rgl mj" d="{{tl.major}}"></path><path d="{{tl.earArea}}" fill="url(#tlgE)"></path><path class="rln" d="{{tl.earLine}}" stroke="#40A8FF"></path></svg><span class="ymax">{{tl.earMax}}</span><span class="mband" style="left: {{landPct}}%; width: {{missionW}}%"></span><span class="lmark" style="left: {{landPct}}%"></span></div></div>
+      <div class="strip"><span class="slab" style="color: #30D158">Both</span><div class="band"><sc-for list="{{bothRuns}}" as="g" hint-placeholder-count="2"><span class="run b" style="left: {{g.l}}%; width: {{g.w}}%"></span></sc-for><span class="mband" style="left: {{landPct}}%; width: {{missionW}}%"></span><span class="lmark" style="left: {{landPct}}%"></span></div></div>
+      <div class="trackw">
+        <div class="trk"><div class="trkf" style="width: {{cursorPct}}%"></div><span class="mspan" style="left: {{landPct}}%; width: {{missionW}}%" title="{{missionTitle}}"></span><span class="mpin land" style="left: {{landPct}}%">Landing · {{landTxt}}</span><span class="mpin lift" style="left: {{departPct}}%">Liftoff · {{departTxt}}</span></div>
+        <div class="wheel" aria-hidden="true">
+          <div class="wpast" style="width: {{cursorPct}}%"></div>
+          <span class="mband wb" style="left: {{landPct}}%; width: {{missionW}}%" title="{{missionTitle}}"></span>
+          <sc-for list="{{tl.fine}}" as="t" hint-placeholder-count="40"><span class="{{t.cls}}" style="left: {{t.l}}%"></span></sc-for>
+          <sc-for list="{{tl.labels}}" as="t" hint-placeholder-count="5"><span class="wlab" style="left: {{t.l}}%">{{t.label}}</span></sc-for>
+          <span class="wland" style="left: {{landPct}}%"></span>
+          <span class="wcur" style="left: {{cursorPct}}%"></span>
+        </div>
+        <div class="wevs">
+          <sc-for list="{{events}}" as="ev" hint-placeholder-count="3"><button class="wev" style="left: {{ev.l}}%; background: {{ev.wc}}" onClick="{{ev.go}}" title="{{ev.title}}" aria-label="{{ev.title}}"></button></sc-for>
+        </div>
+        <input class="scrub" type="range" min="0" max="{{maxTi}}" step="1" value="{{ti}}" onChange="{{onScrub}}" aria-label="Time" aria-valuetext="{{timeAria}}">
+      </div>
+      <div class="tl2">
+        <sc-for list="{{tl.ticks}}" as="t" hint-placeholder-count="8"><span class="{{t.cls}}" style="left: {{t.l}}%"></span></sc-for><sc-for list="{{ticks}}" as="t" hint-placeholder-count="6"><button class="{{t.cls}}" style="left: {{t.l}}%" onClick="{{t.go}}" title="{{t.title}}">{{t.label}}</button></sc-for>
+      </div>
+    </div>
+    <div class="tside">
+      <button class="spd tmbtn" onClick="{{toggleTimeMenu}}" aria-expanded="{{timeMenu}}" aria-haspopup="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="vertical-align: -3px; margin-right: 6px"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>Options</button>
+      <sc-if value="{{timeMenu}}" hint-placeholder-val="{{ false }}">
+      <div class="tmenu mat" role="menu" aria-label="Timeline options">
+      <button class="spd" onClick="{{setLanding}}" title="Plan the landing at the time shown on the left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="vertical-align: -2px; margin-right: 4px"><path d="M5 21V4M5 4h11l-2 4 2 4H5"></path></svg>Land at this time</button>
+      <button class="spd" onClick="{{setDepart}}" title="Plan the liftoff at the time shown on the left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="vertical-align: -2px; margin-right: 4px"><path d="M12 3v14M7 8l5-5 5 5M5 21h14"></path></svg>Lift off at this time</button>
+      <button class="spd" onClick="{{cycleSpeed}}" aria-label="Playback speed">{{speedLabel}}</button>
+      <button class="spd" aria-pressed="{{sheetDates}}" onClick="{{openDates}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="vertical-align: -2px; margin-right: 4px"><rect x="3.5" y="5" width="17" height="15" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>Dates</button>
+      </div>
+      </sc-if>
+    </div>
+  </section>
+
+  <sc-if value="{{sheetCharts}}" hint-placeholder-val="{{ false }}">
+    <div class="charts mat" role="dialog" aria-label="Compare places">
+      <div class="shead">
+        <div style="min-width: 0">
+          <h2 class="stitle">Compare places</h2>
+          <p class="note" style="margin-top: 4px">{{cmpHint}}</p>
+        </div>
+        <button class="xb" onClick="{{closeSheet}}" aria-label="Close comparison"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <aside class="cmplegend" aria-label="Chart legend">
+        <div class="clh">Legend</div>
+        <sc-for list="{{cmpChips}}" as="p" hint-placeholder-count="3"><div class="lgi" data-on="{{p.on}}"><span class="lsw" style="background: {{p.color}}"></span>{{p.name}}</div></sc-for>
+        <div class="clsep"></div>
+        <div class="lgi"><span class="lln"></span>Time shown now</div>
+        <div class="lgi"><span class="lln d"></span>Planned landing</div>
+        <div class="lgi"><span class="lln g"></span>Scenario target</div>
+        <div class="lgi"><span class="lln z"></span>Horizon (0°)</div>
+        <div class="clnote">X axis: date, UTC. Click a chart to jump to that moment.</div>
+      </aside>
+      <div class="cmpbar">
+        <div class="chips" style="padding: 0">
+          <sc-for list="{{cmpChips}}" as="p" hint-placeholder-count="3">
+            <button class="chip" aria-pressed="{{p.on}}" onClick="{{p.toggle}}"><span class="dot" style="background: {{p.color}}; display: inline-block; margin-right: 6px"></span>{{p.name}}</button>
+          </sc-for>
+        </div>
+        <div class="seg" role="group" aria-label="Chart layout">
+          <button aria-pressed="{{cmpOverlay}}" onClick="{{setOverlay}}">One chart</button>
+          <button aria-pressed="{{cmpSeparate}}" onClick="{{setSeparate}}">Side by side</button>
+        </div>
+      </div>
+      <div class="twoup">
+        <div class="ccard">
+          <div class="ctitle">Sunlight vs Earth contact</div>
+          <div class="csub">Each dot is a place over the period. Top-right is best. Green zone = passes both scenario screens (sunlight &gt; 65%, Earth ≥ 50%).</div>
+          <svg viewBox="0 0 640 300" width="100%" role="img" aria-label="{{sct.aria}}" style="display: block">
+            <path d="{{sct.zone}}" fill="#30D158" fill-opacity="0.1"></path>
+            <path d="{{sct.grid}}" stroke="rgba(255,255,255,0.07)" fill="none"></path>
+            <path d="{{sct.axes}}" stroke="rgba(255,255,255,0.35)" fill="none"></path>
+            <path d="{{sct.thr}}" stroke="#30D158" stroke-dasharray="5 4" stroke-opacity="0.85" fill="none"></path>
+            <text x="56" y="256" text-anchor="end" font-size="11" fill="#98989F">0</text>
+            <text x="56" y="140" text-anchor="end" font-size="11" fill="#98989F">50%</text>
+            <text x="56" y="24" text-anchor="end" font-size="11" fill="#98989F">100%</text>
+            <text x="64" y="268" text-anchor="middle" font-size="11" fill="#98989F">0</text>
+            <text x="342" y="268" text-anchor="middle" font-size="11" fill="#98989F">50%</text>
+            <text x="620" y="268" text-anchor="middle" font-size="11" fill="#98989F">100%</text>
+            <text x="342" y="292" text-anchor="middle" font-size="11" font-weight="600" fill="#C7C7CC">Sunlight (% of time)</text>
+            <text x="16" y="136" text-anchor="middle" font-size="11" font-weight="600" fill="#C7C7CC" transform="rotate(-90 16 136)">Earth in view (% of time)</text>
+            <text x="{{sct.t65x}}" y="30" font-size="10" fill="#30D158">65%</text>
+            <text x="606" y="{{sct.t50y}}" text-anchor="end" font-size="10" fill="#30D158">50%</text>
+            <circle cx="{{sct.p0.x}}" cy="{{sct.p0.y}}" r="{{sct.p0.r}}" fill="{{sct.p0.c}}" stroke="#000" stroke-width="1.5"></circle>
+            <circle cx="{{sct.p1.x}}" cy="{{sct.p1.y}}" r="{{sct.p1.r}}" fill="{{sct.p1.c}}" stroke="#000" stroke-width="1.5"></circle>
+            <circle cx="{{sct.p2.x}}" cy="{{sct.p2.y}}" r="{{sct.p2.r}}" fill="{{sct.p2.c}}" stroke="#000" stroke-width="1.5"></circle>
+            <circle cx="{{sct.p3.x}}" cy="{{sct.p3.y}}" r="{{sct.p3.r}}" fill="{{sct.p3.c}}" stroke="#000" stroke-width="1.5"></circle>
+            <circle cx="{{sct.p4.x}}" cy="{{sct.p4.y}}" r="{{sct.p4.r}}" fill="{{sct.p4.c}}" stroke="#000" stroke-width="1.5"></circle>
+            <circle cx="{{sct.p5.x}}" cy="{{sct.p5.y}}" r="{{sct.p5.r}}" fill="{{sct.p5.c}}" stroke="#000" stroke-width="1.5"></circle>
+            <text x="{{sct.p0.lx}}" y="{{sct.p0.ly}}" text-anchor="{{sct.p0.ta}}" font-size="11.5" font-weight="600" fill="#F5F5F7">{{sct.p0.t}}</text>
+            <text x="{{sct.p1.lx}}" y="{{sct.p1.ly}}" text-anchor="{{sct.p1.ta}}" font-size="11.5" font-weight="600" fill="#F5F5F7">{{sct.p1.t}}</text>
+            <text x="{{sct.p2.lx}}" y="{{sct.p2.ly}}" text-anchor="{{sct.p2.ta}}" font-size="11.5" font-weight="600" fill="#F5F5F7">{{sct.p2.t}}</text>
+            <text x="{{sct.p3.lx}}" y="{{sct.p3.ly}}" text-anchor="{{sct.p3.ta}}" font-size="11.5" font-weight="600" fill="#F5F5F7">{{sct.p3.t}}</text>
+            <text x="{{sct.p4.lx}}" y="{{sct.p4.ly}}" text-anchor="{{sct.p4.ta}}" font-size="11.5" font-weight="600" fill="#F5F5F7">{{sct.p4.t}}</text>
+            <text x="{{sct.p5.lx}}" y="{{sct.p5.ly}}" text-anchor="{{sct.p5.ta}}" font-size="11.5" font-weight="600" fill="#F5F5F7">{{sct.p5.t}}</text>
+          </svg>
+        </div>
+        <div class="ccard">
+          <div class="ctitle">Timeline by place</div>
+          <div class="csub">Read each row left to right. Long grey stretches are the dangerous gaps.</div>
+          <div class="blegend"><span><i style="background: #30D158"></i>Sun + Earth</span><span><i style="background: #FFD60A"></i>Sun only</span><span><i style="background: #40A8FF"></i>Earth only</span><span><i style="background: #3A3A3C"></i>Neither</span></div>
+          <sc-for list="{{bandAll}}" as="b" hint-placeholder-count="3">
+            <div class="brow">
+              <span class="bname"><span class="dot" style="background: {{b.color}}"></span>{{b.name}}</span>
+              <div class="bbar">
+                <sc-for list="{{b.sun}}" as="g" hint-placeholder-count="2"><span class="run s" style="left: {{g.l}}%; width: {{g.w}}%"></span></sc-for>
+                <sc-for list="{{b.ear}}" as="g" hint-placeholder-count="2"><span class="run e" style="left: {{g.l}}%; width: {{g.w}}%"></span></sc-for>
+                <sc-for list="{{b.both}}" as="g" hint-placeholder-count="2"><span class="run b" style="left: {{g.l}}%; width: {{g.w}}%"></span></sc-for>
+                <span class="lmark" style="left: {{cursorPct}}%"></span>
+              </div>
+            </div>
+          </sc-for>
+          <div class="brow"><span class="bname"></span><div class="bdates"><span>{{bandStart}}</span><span>{{bandMid}}</span><span>{{bandEnd}}</span></div></div>
+          <div class="bx"><span>Date (UTC) · white line = time shown now</span></div>
+        </div>
+      </div>
+      <p class="note" style="margin: 14px 0 0">Sky circles: yellow = Sun path, blue = Earth path, grey = hills.</p>
+      <div class="cols" style="grid-template-columns: repeat({{cmpN}}, minmax(0, 1fr))">
+        <sc-for list="{{cmpCols}}" as="k" hint-placeholder-count="3">
+          <div class="col">
+            <div class="colh"><span class="dot" style="background: {{k.color}}"></span><span class="pname">{{k.name}}</span></div>
+            <div class="srow" style="margin: 10px 0 8px">
+              <div class="ring sm" style="background: conic-gradient({{k.ringColor}} {{k.deg}}deg, rgba(118,118,128,0.28) 0deg)"><span class="rin">{{k.num}}</span></div>
+              <div><div class="sgrade" style="font-size: 16px">{{k.grade}}</div><div class="psub">Rank {{k.rank}} · {{k.coords}}</div></div>
+            </div>
+            <svg viewBox="0 0 220 220" width="100%" role="img" aria-label="{{k.sky.label}}" style="max-width: 200px; display: block; margin: 4px auto 6px">
+              <circle cx="110" cy="110" r="104" fill="#0B0B0D" stroke="rgba(255,255,255,0.1)"></circle>
+              <path d="{{k.sky.terrain}}" fill="#2C2C2E" fill-rule="evenodd"></path>
+              <circle cx="110" cy="110" r="{{k.sky.r0}}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-dasharray="2 3"></circle>
+              <path d="{{k.sky.sunTrack}}" fill="none" stroke="#FFD60A" stroke-opacity="0.75" stroke-width="1.3"></path>
+              <path d="{{k.sky.earTrack}}" fill="none" stroke="#40A8FF" stroke-opacity="0.85" stroke-width="1.3"></path>
+              <text x="110" y="15" text-anchor="middle" font-size="11" font-weight="700" fill="#FF6961">N</text>
+              <text x="208" y="114" text-anchor="end" font-size="10" fill="#98989F">E</text>
+              <text x="110" y="213" text-anchor="middle" font-size="10" fill="#98989F">S</text>
+              <text x="12" y="114" text-anchor="start" font-size="10" fill="#98989F">W</text>
+              <text x="114" y="{{k.sky.y0}}" font-size="9" fill="#98989F">horizon</text>
+            </svg>
+            <sc-for list="{{k.rows}}" as="f" hint-placeholder-count="6">
+              <div class="crow2"><span>{{f.name}}</span><b class="{{f.cls}}">{{f.value}}<span class="{{f.mkCls}}">{{f.mk}}</span></b></div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+      <div class="smgrid">
+      <sc-for list="{{chartRows}}" as="c" hint-placeholder-count="3">
+        <div class="ccard">
+          <div class="ctitle" title="{{c.sub}}">{{c.title}}</div>
+          <div class="panels" style="grid-template-columns: repeat({{c.n}}, minmax(0, 1fr))">
+            <sc-for list="{{c.panels}}" as="q" hint-placeholder-count="1">
+              <div class="pnl" style="border-top-color: {{q.color}}" title="{{q.name}}">
+                <sc-if value="{{q.hasName}}" hint-placeholder-val="{{ false }}"><div class="pnm"><span class="dot" style="background: {{q.color}}"></span>{{q.name}}</div></sc-if>
+                <svg viewBox="{{q.vb}}" width="100%" role="img" aria-label="{{q.aria}}" onClick="{{q.click}}" style="cursor: pointer; display: block">
+                  <path d="{{q.fill}}" fill="{{q.fillColor}}" fill-opacity="0.16"></path>
+                  <path d="{{q.grid}}" stroke="rgba(255,255,255,0.08)" fill="none"></path>
+                  <path d="{{q.axes}}" stroke="rgba(255,255,255,0.3)" fill="none"></path>
+                  <path d="{{q.zero}}" stroke="rgba(255,255,255,0.5)" stroke-dasharray="3 3" fill="none"></path>
+                  <defs><linearGradient id="{{q.g0}}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="{{q.c0}}" stop-opacity="0.04"></stop><stop offset="1" stop-color="{{q.c0}}" stop-opacity="{{q.ga}}"></stop></linearGradient><linearGradient id="{{q.g1}}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="{{q.c1}}" stop-opacity="0.04"></stop><stop offset="1" stop-color="{{q.c1}}" stop-opacity="{{q.ga}}"></stop></linearGradient><linearGradient id="{{q.g2}}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="{{q.c2}}" stop-opacity="0.04"></stop><stop offset="1" stop-color="{{q.c2}}" stop-opacity="{{q.ga}}"></stop></linearGradient></defs>
+                  <path d="{{q.a0}}" fill="url(#{{q.g0}})"></path>
+                  <path d="{{q.a1}}" fill="url(#{{q.g1}})"></path>
+                  <path d="{{q.a2}}" fill="url(#{{q.g2}})"></path>
+                  <path d="{{q.l0}}" stroke="{{q.c0}}" stroke-width="1.5" stroke-linejoin="round" fill="none"></path>
+                  <path d="{{q.l1}}" stroke="{{q.c1}}" stroke-width="1.5" stroke-linejoin="round" fill="none"></path>
+                  <path d="{{q.l2}}" stroke="{{q.c2}}" stroke-width="1.5" stroke-linejoin="round" fill="none"></path>
+                  <path d="{{q.thr}}" stroke="#30D158" stroke-dasharray="6 4" stroke-opacity="0.9" fill="none"></path>
+                  <text x="{{q.x1}}" y="{{q.thrY}}" text-anchor="end" font-size="10.5" font-weight="600" fill="#30D158">{{q.thrT}}</text>
+                  <path class="qland" d="{{q.land}}" stroke="#FFFFFF" stroke-opacity="0.75" stroke-dasharray="4 3" fill="none"></path>
+                  <path d="{{q.cur}}" stroke="#FFFFFF" stroke-width="1.3" fill="none"></path>
+                  <path d="{{q.evp}}" stroke="rgba(255,255,255,0.35)" stroke-dasharray="2 3" fill="none"></path>
+                  <text x="{{q.e0.x}}" y="10" text-anchor="middle" font-size="9.5" font-weight="700" fill="{{q.e0.c}}">{{q.e0.label}}</text>
+                  <text x="{{q.e1.x}}" y="10" text-anchor="middle" font-size="9.5" font-weight="700" fill="{{q.e1.c}}">{{q.e1.label}}</text>
+                  <text x="{{q.e2.x}}" y="10" text-anchor="middle" font-size="9.5" font-weight="700" fill="{{q.e2.c}}">{{q.e2.label}}</text>
+                  <text x="{{q.yLx}}" y="{{q.yTY}}" text-anchor="end" font-size="11" fill="#98989F">{{q.yT}}</text>
+                  <text x="{{q.yLx}}" y="{{q.yMY}}" text-anchor="end" font-size="11" fill="#98989F">{{q.yM}}</text>
+                  <text x="{{q.yLx}}" y="{{q.yBY}}" text-anchor="end" font-size="11" fill="#98989F">{{q.yB}}</text>
+                  <path d="{{q.xt}}" stroke="rgba(255,255,255,0.45)" fill="none"></path>
+                  <text x="{{q.t0.x}}" y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t0.label}}</text>
+                  <text x="{{q.t1.x}}" y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t1.label}}</text>
+                  <text x="{{q.t2.x}}" y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t2.label}}</text>
+                  <text x="{{q.t3.x}}" y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t3.label}}</text>
+                  <text x="{{q.t4.x}}" y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t4.label}}</text>
+                  <text x="{{q.t5.x}}" y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t5.label}}</text>
+                  <text x="{{q.t6.x}}" y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t6.label}}</text>
+                  <text x="{{q.x1}}" y="{{q.yTY}}" text-anchor="end" font-size="9.5" fill="#8E8E93">{{c.yTitle}}</text>
+                </svg>
+              </div>
+            </sc-for>
+          </div>
+          <div class="xcap">Date (UTC) →</div>
+          <div class="clegend">
+            <sc-for list="{{c.legend}}" as="lg" hint-placeholder-count="2"><span><span class="dot" style="background: {{lg.color}}"></span>{{lg.name}}</span></sc-for>
+          </div>
+        </div>
+      </sc-for>
+      </div>
+      <p class="note">Solid white line = time shown now, dashed = planned landing. Click a chart to jump to that moment. Geometric visibility only — not panel power or a link budget. {{modelNote}}</p>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isTerrainOrDrive}}" hint-placeholder-val="{{ false }}">
+  <div class="rcol">
+    <div class="layerbox mat">
+      <div class="mhead"><span>Colour the ground by</span><span class="lbtag">all places</span></div>
+      <div class="seg full" role="group" aria-label="Colour the ground by (applies to all places)">
+        <sc-for list="{{layers}}" as="l" hint-placeholder-count="5">
+          <button class="lic" aria-pressed="{{l.on}}" onClick="{{l.pick}}" title="{{l.tip}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{l.ic}}"></path></svg><span>{{l.label}}</span></button>
+        </sc-for>
+      </div>
+      <sc-if value="{{computing}}" hint-placeholder-val="{{ false }}">
+        <div class="status"><span class="spin"></span>{{terrainStatus}}</div>
+      </sc-if>
+    </div>
+  <sc-if value="{{showMini}}" hint-placeholder-val="{{ false }}">
+    <div class="mini2 mat">
+      <div class="mhead"><span>Top-down map · 16 km</span><button class="rtog" aria-pressed="{{reachOn}}" onClick="{{toggleReach}}" title="Show where the rover can drive and how long it takes"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.5"></rect><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>Range</button><button class="xb" style="width: 30px; height: 30px" onClick="{{openBigMap}}" aria-label="Enlarge map"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"></path></svg></button></div>
+      <canvas class="mmc" ref="{{miniRef}}" role="img" aria-label="Top-down map of the area: light, shadow, permanently shadowed regions and steep ground" onClick="{{onMapClick}}"></canvas>
+      <sc-if value="{{reachOn}}" hint-placeholder-val="{{ false }}"><div class="mleg rleg2"><span><i style="background: #5C9470"></i>&lt;1 h</span><span><i style="background: #F2C94C"></i>1–3 h</span><span><i style="background: #E3936B"></i>3–6 h</span><span><i style="background: #D9534F"></i>6–12 h</span></div></sc-if>
+      <div class="mleg"><span><i style="background: #D9D9DE"></i>Sunlit</span><span><i style="background: #3A3A3F"></i>Shadow</span><span><i style="background: #4D9BFF"></i>Published PSRs</span><span><i style="background: #C9574B"></i>Too steep</span></div>
+    </div>
+  </sc-if>
+  </div>
+  </sc-if>
+  <sc-if value="{{bigMap}}" hint-placeholder-val="{{ false }}">
+    <div class="bigmap mat" role="dialog" aria-label="Top-down map">
+      <div class="shead"><h2 class="stitle">{{bigMapPre}} · {{cur.name}}</h2><button class="xb" onClick="{{closeBigMap}}" aria-label="Close map"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+      <div class="bmwrap">
+        <canvas class="bmc" ref="{{bigRef}}" role="img" aria-label="Large top-down map of the area around the selected place" onClick="{{onMapClick}}"></canvas>
+        <div class="bmside">
+          <div class="rbox">
+            <button class="rtog big" aria-pressed="{{reachOn}}" onClick="{{toggleReach}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.5"></rect><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>Rover drive range</button>
+            <sc-if value="{{reachOn}}" hint-placeholder-val="{{ false }}">
+              <div class="rbands"><span><i style="background: #5C9470"></i>&lt;1 h</span><span><i style="background: #F2C94C"></i>1–3 h</span><span><i style="background: #E3936B"></i>3–6 h</span><span><i style="background: #D9534F"></i>6–12 h</span></div>
+              <p class="note" style="margin: 6px 0 0">From {{reachFrom}}. Click any point to see the drive time and route. Hypothetical rover: 0.7 km/h on flat ground, slope limit 20° (assumption), 160 Wh battery, 0.5 m² tracking panel, efficiency 28%, idle 10 W, drive +45 W. Routes sample moving shadows and Earth visibility on a 533 m / 5° horizon grid; battery uses conservative 5% buckets. Route segments: green = Earth geometrically visible at arrival, orange = obstructed.</p>
+            </sc-if>
+          </div>
+          <sc-if value="{{hasTarget}}" hint-placeholder-val="{{ false }}">
+            <div class="tcard">
+              <div class="sh" style="margin-bottom: 4px; display: flex; align-items: center"><span class="tdot"></span>Your landing point<button class="xb" style="margin-left: auto; width: 28px; height: 28px" onClick="{{clearTarget}}" aria-label="Clear your landing point"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+              <div class="tinfo">{{targetTxt}}</div><div class="tdrive"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.5"></rect><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>{{tgt.drive}}</div>
+              <div class="tgrid">
+                <div><b>{{tgt.sun}}</b><span>sunlit</span></div>
+                <div><b>{{tgt.earth}}</b><span>Earth in view</span></div>
+                <div><b>{{tgt.slope}}</b><span>slope</span></div>
+                <div><b>{{tgt.score}}</b><span>score</span></div>
+              </div>
+              <p class="note" style="margin-top: 8px">{{tgt.verdict}}</p>
+              <div class="tacts"><button class="btn sm pri" onClick="{{landHere}}">Land here</button><button class="btn sm" onClick="{{addTgt}}" disabled="{{addTgtDisabled}}">{{addTgtLabel}}</button></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{noTarget}}" hint-placeholder-val="{{ true }}">
+            <div class="tcard empty"><b>Click the map to choose a landing spot</b><span>You'll see its sunlight, Earth view and slope, then can land there or add it to the comparison.</span></div>
+          </sc-if>
+          <div class="mrow2"><i style="background: #D9D9DE"></i><div><b>Sunlit now</b><span>Bright ground has the Sun right now.</span></div></div>
+          <div class="mrow2"><i style="background: #3A3A3F"></i><div><b>In shadow now</b><span>Hills block the low Sun at this moment.</span></div></div>
+          <div class="mrow2"><i style="background: #4D9BFF"></i><div><b>Permanently shadowed</b><span>Published LRO/LOLA permanent-shadow mask, not a detection of ice. Source mask 120 m, supplied derivative 297 m; small patches may be unresolved.</span></div></div>
+          <div class="mrow2"><i style="background: #C9574B"></i><div><b>Too steep to drive</b><span>Scenario assumption: slopes over 20°. Landing exclusion at 15° is also a scenario assumption, not a NASA safety standard.</span></div></div>
+          <p class="note">{{routeStatus}}</p><div class="mstat"><b>{{psrStat}}</b><span>of this 16 × 16 km area is permanently shadowed</span></div>
+          <p class="note">Click the map to set your landing point or a rover waypoint. Markers: coloured dot = place pin, white ring = best landing spot, orange = your point, arrow = rover. LOLA terrain · 20–80 m source near the pole · 67 m display grid. Rover energy remains illustrative.</p>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{sheetDates}}" hint-placeholder-val="{{ false }}">
+    <div class="datepop mat" role="dialog" aria-label="Time period">
+      <div class="shead"><h2 class="stitle" style="font-size: 17px">Time period</h2><button class="xb" onClick="{{closeSheet}}" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+      <div class="chips" style="padding: 4px 0 0">
+        <sc-for list="{{rangePresets}}" as="r" hint-placeholder-count="3"><button class="chip" aria-pressed="{{r.on}}" onClick="{{r.pick}}">{{r.label}}</button></sc-for>
+      </div>
+      <div class="dgrid">
+        <label class="fl"><span>From</span><input class="inp" type="date" value="{{startStr}}" onChange="{{onStart}}"></label>
+        <label class="fl"><span>To</span><input class="inp" type="date" value="{{endStr}}" onChange="{{onEnd}}"></label>
+      </div>
+      <p class="note">Times are UTC. Positions are calculated every {{stepTxt}}.</p>
+    </div>
+  </sc-if>
+
+
+  <sc-if value="{{sheetExpert}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet mat" role="dialog" aria-label="Details and settings">
+      <div class="shead"><h2 class="stitle">Science details</h2><button class="xb" onClick="{{closeSheet}}" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+      <div class="sect"><div class="sh">Scientific verification</div><p class="note">{{ephemerisStatus}}</p><p class="note">{{scienceStatus}}</p><a class="btn sm" href="research/browser-vs-horizons.csv" target="_blank" rel="noopener">Browser CSV vs JPL · comparison table ↗</a><a class="btn sm" href="research/SCIENCE_REVIEW.md" target="_blank" rel="noopener">Methods, publications &amp; limits ↗</a></div>
+      <div class="sect"><div class="sh">Find the best landing dates</div><p class="note">Ranks stays by Sun visibility, Earth visibility and the longest night, using your ranking weights and observer height. These are geometric opportunities; no trajectory or landing-safety assessment.</p><label class="fl"><span>Search year</span><input class="inp" type="number" min="2024" max="2034" value="{{windowYear}}" onChange="{{onWindowYear}}"></label><label class="fl"><span>Stay duration · hours</span><input class="inp" type="number" min="1" max="720" value="{{stayHours}}" onChange="{{onStayHours}}"></label><button class="btn sm pri" onClick="{{findWindows}}">Find top 5 windows</button><p class="note">{{windowStatus}}</p><sc-for list="{{windowRows}}" as="w"><div class="sect"><button class="btn sm" onClick="{{w.pick}}">{{w.title}} ↗</button><p class="note">☀ {{w.sun}} · ⊕ {{w.earth}} · longest night {{w.dark}} · {{w.score}}</p></div></sc-for></div>
+      <p class="note" style="margin-top: 0">For mission planners and judges: how the numbers are calculated, the exact values behind the cards, and links to check them against NASA/JPL Horizons. You don’t need this panel to use the app.</p>
+      <div class="sect" style="margin-top: 16px">
+        <div class="sh">Horizon model</div>
+        <div class="seg full" role="group" aria-label="Horizon model">
+          <button aria-pressed="{{isG0}}" onClick="{{setG0}}">Ideal horizon (G0)</button>
+          <button aria-pressed="{{isG1}}" onClick="{{setG1}}">LOLA relief (G1)</button>
+        </div>
+      </div>
+      <div class="sect" style="margin-top: 16px">
+        <div class="sh">Panel / antenna height above ground</div>
+        <div class="seg full" role="group" aria-label="Observer height">
+          <sc-for list="{{obsOpts}}" as="o" hint-placeholder-count="3"><button aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for>
+        </div>
+        <p class="note">Gläser et al. report 92.3% and 95.66% time with any Sun visible at specific, different Connecting Ridge points over 19 years, at 2 m and 10 m. These are not annual values for every point. <a href="https://elib.dlr.de/94242/1/EPSC2014-136-1.pdf" target="_blank" rel="noopener">Source and exact coordinates</a>. <a href="research/annual-illumination.csv" target="_blank" rel="noopener">Annual results</a> and <a href="research/shackleton-literature-comparison.csv" target="_blank" rel="noopener">Shackleton publication comparison</a>.</p>
+      </div>
+      <div class="sect">
+        <div class="sh">How the metrics are defined</div>
+        <dl class="kv">
+          <div class="kvr"><dt>Sunlight / Earth in view</dt><dd>% of time steps visible</dd></div>
+          <div class="kvr"><dt>Longest darkness</dt><dd>longest gap without Sun</dd></div>
+          <div class="kvr"><dt>Quasi-continuous light (LQCIP, ESA)</dt><dd>Sun ≥50%, drop light &lt;10 h, then dark &lt;60 h</dd></div>
+          <div class="kvr"><dt>Longest Earth blackout</dt><dd>longest gap without Earth</dd></div>
+          <div class="kvr"><dt>Screening targets (scenario)</dt><dd>sunlight &gt;65%, Earth ≥50%</dd></div>
+        </dl>
+      </div>
+      <div class="sect">
+        <div class="sh">Sky at {{cur.name}}</div>
+        <div class="sky">
+          <svg viewBox="0 0 220 220" width="100%" role="img" aria-label="{{sky.label}}">
+            <circle cx="110" cy="110" r="104" fill="#0B0B0D" stroke="rgba(255,255,255,0.1)"></circle>
+            <path d="{{sky.terrain}}" fill="#2C2C2E" fill-rule="evenodd"></path>
+            <circle cx="110" cy="110" r="{{sky.r20}}" fill="none" stroke="rgba(255,255,255,0.08)"></circle>
+            <circle cx="110" cy="110" r="{{sky.r10}}" fill="none" stroke="rgba(255,255,255,0.1)"></circle>
+            <circle cx="110" cy="110" r="{{sky.r0}}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-dasharray="2 3"></circle>
+            <path d="{{sky.sunTrack}}" fill="none" stroke="#FFD60A" stroke-opacity="0.6" stroke-width="1.1"></path>
+            <path d="{{sky.earTrack}}" fill="none" stroke="#40A8FF" stroke-opacity="0.75" stroke-width="1.1"></path>
+            <circle cx="{{sky.ex}}" cy="{{sky.ey}}" r="5.5" fill="#40A8FF" stroke="#000" stroke-width="1.5"></circle>
+            <circle cx="{{sky.sx}}" cy="{{sky.sy}}" r="5.5" fill="#FFD60A" stroke="#000" stroke-width="1.5"></circle>
+            <text x="110" y="15" text-anchor="middle" font-size="10" font-weight="700" fill="#F5F5F7">N</text>
+            <text x="208" y="113" text-anchor="end" font-size="10" fill="#98989F">E</text>
+            <text x="110" y="212" text-anchor="middle" font-size="10" fill="#98989F">S</text>
+            <text x="12" y="113" text-anchor="start" font-size="10" fill="#98989F">W</text>
+            <text x="113" y="{{sky.y0}}" font-size="8" fill="#98989F">0°</text>
+            <text x="113" y="{{sky.y10}}" font-size="8" fill="#98989F">10°</text>
+          </svg>
+        </div>
+        <p class="note">Elevation runs from −8° (outer ring) to +30° (centre). Lines are the Sun and Earth paths over the period; grey is terrain below the horizon.</p>
+      </div>
+      <div class="sect">
+        <div class="sh">Elevation over the period</div>
+        <div class="sky">
+          <svg viewBox="0 0 320 130" width="100%" role="img" aria-label="Line chart of Sun and Earth elevation above the horizon over the selected period">
+            <path d="{{elc.grid}}" stroke="rgba(255,255,255,0.08)" fill="none"></path>
+            <path d="{{elc.zero}}" stroke="rgba(255,255,255,0.45)" stroke-dasharray="3 3" fill="none"></path>
+            <path d="{{elc.sun}}" stroke="#FFD60A" stroke-width="1.4" fill="none"></path>
+            <path d="{{elc.ear}}" stroke="#40A8FF" stroke-width="1.4" fill="none"></path>
+            <path d="{{elc.cur}}" stroke="#fff" stroke-width="1" fill="none"></path>
+            <text x="4" y="{{elc.y10}}" font-size="9" fill="#98989F">+10°</text>
+            <text x="4" y="{{elc.y0}}" font-size="9" fill="#98989F">0° {{horizonWord}}</text>
+            <text x="4" y="{{elc.ym10}}" font-size="9" fill="#98989F">−10°</text>
+          </svg>
+        </div>
+        <p class="note">Yellow: Sun, blue: Earth. Above the dashed line = above the {{horizonWord}}.</p>
+      </div>
+      <div class="sect">
+        <div class="sh">Windows with Sun and Earth up together</div>
+        <sc-if value="{{hasWin}}" hint-placeholder-val="{{ true }}">
+          <dl class="kv">
+            <sc-for list="{{wins}}" as="r" hint-placeholder-count="3"><div class="kvr"><dt>{{r.k}}</dt><dd>{{r.v}}</dd></div></sc-for>
+          </dl>
+        </sc-if>
+        <p class="note">{{winNote}}</p>
+      </div>
+      <div class="sect">
+        <div class="sh">Right now</div><p class="note"><a href="{{siteSource}}" target="_blank" rel="noopener">Source for this place ↗</a> · {{siteSourceLabel}}</p>
+        <dl class="kv">
+          <sc-for list="{{proRows}}" as="r" hint-placeholder-count="8"><div class="kvr"><dt>{{r.k}}</dt><dd>{{r.v}}</dd></div></sc-for>
+        </dl>
+      </div>
+      <div class="sect">
+        <div class="sh">Count the Sun or Earth as visible when</div>
+        <select class="sel" value="{{visDef}}" onChange="{{onVisDef}}">
+          <option value="any">any part of the disk is up</option>
+          <option value="center">the centre of the disk is up</option>
+          <option value="full">the whole disk is up</option>
+        </select>
+      </div>
+      <div class="sect">
+        <div class="sh">Ranking weights</div>
+        <label class="fl"><span>Sunlight · {{wSun}}</span><input class="rng" type="range" min="0" max="100" step="5" value="{{wSun}}" onChange="{{onWSun}}"></label>
+        <label class="fl" style="margin-top: 8px"><span>Earth contact · {{wEarth}}</span><input class="rng" type="range" min="0" max="100" step="5" value="{{wEarth}}" onChange="{{onWEarth}}"></label>
+        <label class="fl" style="margin-top: 8px"><span>Short darkness · {{wGap}}</span><input class="rng" type="range" min="0" max="100" step="5" value="{{wGap}}" onChange="{{onWGap}}"></label>
+      </div>
+      <div class="sect">
+        <div class="sh">Export &amp; verify</div><p class="note">Imagery: <a href="https://data.lroc.im-ldi.com/lroc/view_rdr/WAC_ROI_SOUTH_SUMMER" target="_blank" rel="noopener">LROC WAC summer mosaic, 100 m/pixel</a>. The photograph includes fixed acquisition shadows from 2010; calculated Sun visibility and power use the current date independently.</p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <button class="btn sm" onClick="{{prepCsv}}">Prepare CSV</button>
+          <sc-if value="{{csvReady}}" hint-placeholder-val="{{ false }}">
+            <a class="btn sm pri" href="{{csvUrl}}" download="{{csvName}}">Time series</a>
+            <a class="btn sm" href="{{csvSumUrl}}" download="{{csvSumName}}">Summary</a>
+          </sc-if>
+          <a class="btn sm" href="{{hzSun}}" target="_blank" rel="noopener">Sun in JPL Horizons ↗</a>
+          <a class="btn sm" href="{{hzEarth}}" target="_blank" rel="noopener">Earth in JPL Horizons ↗</a>
+        </div>
+        <p class="note">Data &amp; sources: Sun/Earth geometry from an hourly NASA/JPL SPICE DE440 MOON_ME vector table, with observer position correction, checkable against <a href="https://ssd.jpl.nasa.gov/horizons/app.html" target="_blank" rel="noopener">NASA/JPL Horizons</a>. Terrain uses measured NASA LOLA elevations (16 × 16 km, 33 m display grid; 20–80 m source near the pole) from <a href="https://pgda.gsfc.nasa.gov/products/69" target="_blank" rel="noopener">NASA Goddard PGDA</a>. Site coordinates: DLR Connecting Ridge study, LROC; ≈ marks approximate values. Font: Inter (SIL OFL). Data derivatives and exact coverage: <a href="data/PROVENANCE.md" target="_blank">provenance</a>. Catalogue site horizons include terrain to 300 km. Published PSRs are used directly. Vehicle capabilities and suitability thresholds are explicit scenario assumptions. Geometric visibility is not panel output or a certified radio link.</p>
+        <p class="note">Positions use hourly SPICE vectors for 2024–2036 UTC (DE440, MOON_ME). Live monthly Horizons verification status is shown above; archival checks alone do not certify a full month. Azimuth is clockwise from north; longitudes are east-positive. Sunlight is not panel power, Earth in view is not a guaranteed radio link, and this is not a landing-safety assessment.</p>
+      </div>
+    </div>
+  </sc-if>
+</div>

@@ -1,0 +1,12 @@
+{
+  "initial": {
+    "N": 241,
+    "atlas": 31,
+    "psr": true,
+    "horizon": 720,
+    "reach": 561
+  },
+  "height10": true,
+  "errors": [],
+  "runtimeError": null
+}

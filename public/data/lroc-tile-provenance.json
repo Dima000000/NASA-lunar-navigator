@@ -1,0 +1,125 @@
+{
+  "product_url": "https://data.lroc.im-ldi.com/lroc/view_rdr_product/WAC_ROI_SOUTH_SUMMER_100M",
+  "tiles": [
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-48-53.jpg",
+      "sha256": "3460de4e5b506d700c0f3fcbc39359d2a234cc8be486564a6071a8e99f6f7310"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup41/7-48-54.jpg",
+      "sha256": "4c49857144652e818d80298836b626676a0b06a27a450d9faee1b1329f787836"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-49-53.jpg",
+      "sha256": "c9ae4482b15e616a6f942f53f8049578a03f6c810bc54a6de70a3583373329a8"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup41/7-49-54.jpg",
+      "sha256": "8191f7080a5be448afcafdf0334614169a0fdfb6e65291dc38a57adebf52307c"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-54-52.jpg",
+      "sha256": "997f009a4e6fdc7f41fa4a84d03babf9e5bdf587b32b050374d3506922e54458"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-54-53.jpg",
+      "sha256": "bbc0bcb49c79a9b0c00760881d3450bc6310f9de8178954f7f842649888f1f73"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup41/7-54-55.jpg",
+      "sha256": "aab0714a096984614c109417a470cbce2d708d9db4b2b0e9ee0ae36eb966deec"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-55-52.jpg",
+      "sha256": "c31ce91f286064d432ab15a783830d87494f71a472283041ef856480e482f583"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-55-53.jpg",
+      "sha256": "466ad36a8f7b5253c421f9f87a11a63cd3a3b2bcb116a1977432187591e9920e"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup42/7-55-56.jpg",
+      "sha256": "f207c0bdf6cbcdea3721beeb8b8e93c1b786cc928c2dce33489ef7f87cbfb900"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup42/7-55-57.jpg",
+      "sha256": "363e80b0f482fcd3b134f00b9dfa7b6670ffaf4910f450be148fb71360bb9662"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup39/7-56-51.jpg",
+      "sha256": "5809c68575009dd2cb049299af0e0f54c469e146f99589762ae83e56fc6fd4a2"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup42/7-56-56.jpg",
+      "sha256": "9440c41222e26928df3890a721b8d4b91c7189d940f2c424a8e32b0d7f536e69"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup42/7-56-57.jpg",
+      "sha256": "276bf67ad62e81ed16bc4ffe55769227a9a35870fcafb018a0d92be4f094c351"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup39/7-58-50.jpg",
+      "sha256": "de2eae7d2aed5081638ea09282a60c5b130b7fd3590f1e0c86a90411ab19e20f"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup39/7-58-51.jpg",
+      "sha256": "6603601455934297dbed2c537f314da0ce2acee07f9ce9bdbbdc7a802833be71"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-58-52.jpg",
+      "sha256": "a5200bed199416800889452371f1f3bb80d474f7cba426006171788d7a70b9f8"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup42/7-58-57.jpg",
+      "sha256": "9219bcb38d8076545afc4def8092abd51f7912281adc6c505d5c758de82d1ce3"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup43/7-58-58.jpg",
+      "sha256": "2b58e1df5d76c2ed9b9a599fefa15719f63328df37aee31ac675857699ab8eae"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup39/7-59-50.jpg",
+      "sha256": "9f5b1b80df8183bbe52d392e969e3578c5c71ef0c5c7e359ee4189c521cc9314"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup39/7-59-51.jpg",
+      "sha256": "a76d794945057577782cc0023882021ddbb5581309edc9019d2a649064faaaec"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-59-52.jpg",
+      "sha256": "0857da8a337350b358f8cd39d5823ab6ebd96dd20a6258a7d52d80df53e7a40e"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup42/7-59-57.jpg",
+      "sha256": "0a0fb1f02bf82b3bca8b892dabe6173295f1bd2a5a30dba87e753a1db9e13cb4"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup43/7-59-58.jpg",
+      "sha256": "f19d54ef5b458669f75034593dd06d06fc2c70d3405da2ecf654a6a6b3f80ed4"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup39/7-60-51.jpg",
+      "sha256": "2d6b989a5da7f5ced0e74b2238ec4102489e6bc0603e838c5dd6e2491415d01b"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-60-52.jpg",
+      "sha256": "89931d1f9232f3cd0cea78bf51e41bb4420aa1970dd3b06526e2c422560128eb"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup39/7-61-51.jpg",
+      "sha256": "326043f0aff161115bbca7c2acde3c13d4dfaf17312059c6ad2b2ce4de0949fe"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-61-52.jpg",
+      "sha256": "adab2224d5e5b96fe152aaf56bb7d380d65649ca976a3aadbb36671cd1a74190"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup39/7-62-51.jpg",
+      "sha256": "82712b603f0a2cf893932791fc55201e0bde7e99113417c4e5fadd51b47958e7"
+    },
+    {
+      "url": "https://data.lroc.im-ldi.com/ptif/zoomify/ser/estore/lroc/web/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_100M.PYR.TIF/TileGroup40/7-62-52.jpg",
+      "sha256": "138bb12cb5b0ca669e503fb3bdab9d93b2252d1783fe2314aefecf5e451a5e82"
+    }
+  ]
+}

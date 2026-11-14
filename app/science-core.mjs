@@ -40,4 +40,3 @@ export function timeAwareReach({N,cellKm,slope,origin,sky,startMs,vehicle=VEHICL
  }
  return{T,best,parent,dist,contacts,expanded,buckets};
 }
-

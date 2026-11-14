@@ -1,0 +1,12 @@
+{
+  "verificationLabel": true,
+  "windowButtonDate": true,
+  "stress": {
+    "frames": 180,
+    "meanMs": 15.486666666683222,
+    "p95Ms": 17,
+    "fps": 64.5716745586912,
+    "method": "Edge headless, CPU throttled 4x; this is a stress test, not a measurement on a separate low-end laptop."
+  },
+  "errors": []
+}
