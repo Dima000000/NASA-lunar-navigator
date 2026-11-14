@@ -1,0 +1,52 @@
+name: Rebuild authoritative NASA data
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['tools/rebuild-nasa.py']
+permissions:
+  contents: write
+jobs:
+  scientific-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: pip install numpy pillow rasterio spiceypy
+      - run: python tools/rebuild-nasa.py
+      - name: Regenerate site products
+        run: |
+          python tools/reset-site-products.py
+          python tools/build_science.py
+          python tools/build_atlases.py
+          python tools/build_lroc.py
+          python tools/literature-profiles.py
+          node tools/science-report.mjs
+          node tools/literature-report.mjs
+      - run: npm ci
+      - run: npm test
+      - run: node tools/verify-horizons.mjs
+      - run: npm run build
+      - run: npm install --no-save --package-lock=false playwright
+      - run: node tools/export-in-browser.mjs
+      - run: node tools/verify-browser-csv.mjs
+      - name: Save rebuilt scientific products
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/data/ public/research/
+          git diff --cached --quiet || git commit -m 'Rebuild runtime science data directly from NASA archives'
+          git push
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: authoritative-science-rebuild
+          path: |
+            public/data/direct-source-audit.json
+            public/research/
