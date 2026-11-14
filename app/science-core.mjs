@@ -25,18 +25,23 @@ export function findWindows(ephem,site,profile,{year=2026,stayHours=156,weights=
 // Explicit scenario, not a real vehicle specification. Tracking panel; no thermal/eclipses model.
 export const VEHICLE=Object.freeze({capacityWh:160,initialFraction:.8,panelM2:.5,panelEfficiency:.28,idleW:10,driveW:45,maxSlopeDeg:20,flatSpeedKmh:.7});
 export function solarPower(visibleFraction,distanceKm=AU_KM,v=VEHICLE){return 1361*(AU_KM/distanceKm)**2*v.panelM2*v.panelEfficiency*clamp(visibleFraction)}
-export function batteryAfter(energyWh,visibleFraction,hours,driving=false,v=VEHICLE){return clamp(energyWh+(solarPower(visibleFraction)-v.idleW-(driving?v.driveW:0))*hours,0,v.capacityWh)}
-export function timeAwareReach({N,cellKm,slope,origin,sky,startMs,vehicle=VEHICLE,maxHours=24,buckets=20}){
- const NN=N*N,K=buckets+1,dist=new Float64Array(NN*K).fill(Infinity),parent=new Int32Array(NN*K).fill(-1),T=new Float32Array(NN).fill(Infinity),best=new Int32Array(NN).fill(-1),contacts=new Float32Array(NN).fill(NaN),heap=[];
+export function batteryAfter(energyWh,visibleFraction,hours,driving=false,v=VEHICLE,distanceKm=AU_KM){return clamp(energyWh+(solarPower(visibleFraction,distanceKm,v)-v.idleW-(driving?v.driveW:0))*hours,0,v.capacityWh)}
+export function timeAwareReach({N,cellKm,slope,origin,sky,startMs,vehicle=VEHICLE,maxHours=24,buckets=20,timeBinHours=1}){
+ const NN=N*N,K=buckets+1,states=NN*K*(Math.floor(maxHours/timeBinHours)+1),dist=new Float64Array(states).fill(Infinity),parent=new Int32Array(states).fill(-1),energyWh=new Float32Array(states),T=new Float32Array(NN).fill(Infinity),best=new Int32Array(NN).fill(-1),contacts=new Float32Array(NN).fill(NaN),heap=[];
  const push=(id,t)=>{let i=heap.length;heap.push([id,t]);while(i){const p=(i-1)>>1;if(heap[p][1]<=t)break;heap[i]=heap[p];i=p}heap[i]=[id,t]};
  const pop=()=>{const root=heap[0],last=heap.pop();if(heap.length){let i=0;while(true){let j=i*2+1;if(j>=heap.length)break;if(j+1<heap.length&&heap[j+1][1]<heap[j][1])j++;if(last[1]<=heap[j][1])break;heap[i]=heap[j];i=j}heap[i]=last}return root};
- const energyStep=vehicle.capacityWh/buckets,startBucket=Math.floor(vehicle.initialFraction*buckets),root=origin*K+startBucket;dist[root]=0;push(root,0);
+ const energyStep=vehicle.capacityWh/buckets,startBucket=Math.floor(vehicle.initialFraction*buckets),root=origin*K+startBucket;dist[root]=0;energyWh[root]=vehicle.capacityWh*vehicle.initialFraction;push(root,0);
  const moves=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];let expanded=0;
- while(heap.length){const [id,t]=pop();if(t!==dist[id]||t>maxHours)continue;const k=Math.floor(id/K),b=id%K,i=k%N,j=Math.floor(k/N);if(t<T[k]){T[k]=t;best[k]=id;contacts[k]=sky(k,startMs+t*3600000).earth}expanded++;
-  const relax=(kk,duration,driving)=>{const midSky=sky(kk,startMs+(t+duration/2)*3600000),energy=batteryAfter(b*energyStep,midSky.sun,duration,driving,vehicle),newBucket=Math.floor((energy+1e-9)/energyStep);if(energy<=0||newBucket<=0)return;const nd=t+duration,nid=kk*K+newBucket;if(nd<=maxHours&&nd<dist[nid]){dist[nid]=nd;parent[nid]=id;push(nid,nd)}};
-  // Waiting is a real edge: charging can trade time for later reachability. Energy is conservatively bucketed.
-  if(b<buckets)relax(k,.25,false);
+ while(heap.length){const [id,t]=pop();if(t!==dist[id]||t>maxHours)continue;const k=Math.floor(id/K)%NN,i=k%N,j=Math.floor(k/N);if(t<T[k]){T[k]=t;best[k]=id;contacts[k]=sky(k,startMs+t*3600000).earth}expanded++;
+  const relax=(kk,duration,driving)=>{const nd=t+duration;if(nd>maxHours)return;let energy=energyWh[id];const steps=Math.max(1,Math.ceil(duration/.25)),dt=duration/steps;
+   for(let n=0;n<steps;n++){const f=(n+.5)/steps,light=sky(f<.5?k:kk,startMs+(t+duration*f)*3600000);energy=batteryAfter(energy,light.sun,dt,driving,vehicle,light.sunDistanceKm);if(energy<=0)return;}
+   const newBucket=Math.min(buckets,Math.floor(energy/energyStep)),nid=(Math.floor(nd/timeBinHours)*NN+kk)*K+newBucket;
+   if(nd<dist[nid]){dist[nid]=nd;energyWh[nid]=energy;parent[nid]=id;push(nid,nd)}};
+  // Time bins keep later departures, including waiting at full charge for a shadow to move.
+  // Buckets prune labels only: battery energy stays continuous throughout each path.
+  // One earliest label per time/energy bin is an approximation, not an optimality guarantee.
+  relax(k,timeBinHours,false);
   for(const [di,dj] of moves){const ii=i+di,jj=j+dj;if(ii<0||jj<0||ii>=N||jj>=N)continue;const kk=jj*N+ii;if(slope[kk]>vehicle.maxSlopeDeg)continue;const speed=vehicle.flatSpeedKmh*Math.max(.15,1-.7*slope[kk]/vehicle.maxSlopeDeg),duration=cellKm*Math.hypot(di,dj)/speed;relax(kk,duration,true)}
  }
- return{T,best,parent,dist,contacts,expanded,buckets};
+ return{T,best,parent,dist,energyWh,contacts,expanded,buckets,timeBinHours};
 }

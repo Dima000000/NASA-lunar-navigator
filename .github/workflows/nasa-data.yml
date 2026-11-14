@@ -29,6 +29,8 @@ jobs:
           python tools/literature-profiles.py
           node tools/science-report.mjs
           node tools/literature-report.mjs
+          python tools/shackleton-10m.py
+          node tools/shackleton-10m.mjs
       - run: npm ci
       - run: npm test
       - run: node tools/verify-horizons.mjs
@@ -36,6 +38,7 @@ jobs:
       - run: npm install --no-save --package-lock=false playwright
       - run: node tools/export-in-browser.mjs
       - run: node tools/verify-browser-csv.mjs
+      - run: node tools/update-review.mjs
       - name: Save rebuilt scientific products
         run: |
           git config user.name 'github-actions[bot]'

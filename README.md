@@ -14,9 +14,9 @@ Original overview, terrain, animated landing, manual rover, comparisons, charts 
 
 ## Validation and limits
 
-Fresh JPL tables: 4326 hourly comparisons, three sites, 2026-11-14 to 2026-12-14. Maximum model elevation difference 0.00002678°. Actual browser CSV difference 0.000524°, including rounding. Raw answers and comparisons are committed.
+Fresh JPL tables: 4326 hourly comparisons, three sites, 2026-11-14 to 2026-12-14. Maximum model elevation difference 0.00002678°. Actual browser CSV difference 0.000520324°, including rounding. Raw answers and comparisons are committed.
 
-Annual Connecting Ridge and Shackleton results are compared with publications. The exact 10 m Shackleton benchmark, physical low-end laptop test, and team/event-specific submission checks remain open. The official challenge Details and Resources tabs have been checked. Historical Artemis regions are identified accurately; current Artemis III is an Earth-orbit test.
+Annual Connecting Ridge and Shackleton results are compared with publications. The physical low-end laptop test and team/event-specific submission checks remain open. The official challenge Details and Resources tabs have been checked. Historical Artemis regions are identified accurately; current Artemis III is an Earth-orbit test.
 
 Read [the scientific review](public/research/SCIENCE_REVIEW.md), [provenance](public/data/PROVENANCE.md), [CSV vs JPL](public/research/browser-vs-horizons.csv), and browser test records in public/research/. This is not landing or navigation certification.
 
@@ -28,4 +28,4 @@ Python preparation scripts require NumPy and Pillow. build_science.py and build_
 
 ## Credits
 
-NASA/GSFC LOLA Science Team, NASA/JPL NAIF and Horizons, NASA SVS / Ernie Wright, LROC team, Gläser et al., the published CLS-coordinate study (10.1029/2025JE009434), and the original NASAL authors. Encoded science derivatives were delivered via the attributed public mirror daniel27-space/lunar-navigator; no application code from that mirror is used. Consult individual data and font metadata. This repository does not assert a blanket licence over third-party material.
+NASA/GSFC LOLA Science Team, NASA/JPL NAIF and Horizons, NASA SVS / Ernie Wright, LROC team, Gläser et al., the published CLS-coordinate study (10.1029/2025JE009434), and the original NASAL authors. Runtime science arrays were rebuilt directly from NASA/JPL archives; direct-source-audit.json records the retrieval and encoding. Earlier mirror inputs were replaced; no application code from that mirror is used. Consult individual data and font metadata. This repository does not assert a blanket licence over third-party material.

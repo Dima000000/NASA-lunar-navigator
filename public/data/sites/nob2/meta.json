@@ -1,6 +1,6 @@
 {
   "key": "nob2",
-  "name": "Nobile Rim 2 \u00b7 NR201",
+  "name": "Nobile Rim 2 · NR201",
   "lat": -84.054,
   "lon": 56.481,
   "source": "https://doi.org/10.1029/2025JE009434",
@@ -16,9 +16,9 @@
   "center_height_m": 1346.0450318937344,
   "grid": "row 0 south, column 0 west; local stereographic x east, y north",
   "projection": "site-centred stereographic on R=1737400 m sphere",
-  "radius_m": 1737400.0,
+  "radius_m": 1737400,
   "source_dem": "NASA LOLA LDEM_80S_80MPP_ADJ.TIF + four 20 m crops",
-  "data_provenance": "Encoded derivatives via public mirror; see PROVENANCE.md",
+  "data_provenance": "Direct authoritative NASA archive extraction and encoding; see direct-source-audit.json",
   "source_resolution_m": "20 m within four crest crops, 80 m central polar square, 297 m outer polar overview; the 33.33 m display spacing does not add measured detail",
   "psr_source": "LRO/LOLA LPSR_75S_120M_201608.TIF; derivative majority mask at 296.875 m. Not an ice detection.",
   "horizon": {

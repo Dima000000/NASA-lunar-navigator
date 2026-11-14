@@ -1,0 +1,34 @@
+[
+  {
+    "key": "Saha-2023-site4",
+    "lat": -89.7797,
+    "lon": -156.351,
+    "height_m": 10,
+    "year": 2026,
+    "modelCentrePercent": 87.59132420091325,
+    "modelMeanDiscPercent": 87.55030347569408,
+    "modelAnyPercent": 91.2785388127854,
+    "paperPercent": 86.9,
+    "deltaCentrePercentagePoints": 0.6913242009132432,
+    "deltaMeanDiscPercentagePoints": 0.6503034756940735,
+    "reference": "https://doi.org/10.1109/ACCESS.2023.3239303",
+    "table": "Table 1, sites 4 and 8; 10 m tower",
+    "periodCaveat": "Table 1 does not give an unambiguous averaging interval for its compiled values. The paper explicitly uses a point Sun in its time-series methodology. Compare centre criterion and retain mean-disc result separately; this is a consistency check, not an identical-period replication."
+  },
+  {
+    "key": "Saha-2023-site8",
+    "lat": -89.6866,
+    "lon": -162.8618,
+    "height_m": 10,
+    "year": 2026,
+    "modelCentrePercent": 86.66666666666667,
+    "modelMeanDiscPercent": 86.65864188130426,
+    "modelAnyPercent": 90.28538812785388,
+    "paperPercent": 86.18,
+    "deltaCentrePercentagePoints": 0.4866666666666646,
+    "deltaMeanDiscPercentagePoints": 0.4786418813042559,
+    "reference": "https://doi.org/10.1109/ACCESS.2023.3239303",
+    "table": "Table 1, sites 4 and 8; 10 m tower",
+    "periodCaveat": "Table 1 does not give an unambiguous averaging interval for its compiled values. The paper explicitly uses a point Sun in its time-series methodology. Compare centre criterion and retain mean-disc result separately; this is a consistency check, not an identical-period replication."
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "nodes": 961,
+  "maxShadeError": 2.760759909570254e-8,
+  "maxInterpolationError": 0,
+  "route": {
+    "arrivalHours": 23.937227249145508,
+    "points": 19,
+    "minWh": 121.90440368652344,
+    "inBounds": true,
+    "timeOrdered": true
+  },
+  "errors": []
+}

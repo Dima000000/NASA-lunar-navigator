@@ -49,22 +49,22 @@
     }
   ],
   "route": {
-    "expanded": 1302,
-    "key": "-89.4399,-137.1476,Connecting Ridge · Gläser spot 2|h2|240|224|1794672000000|80",
-    "count": 369,
-    "contacts": 369
+    "expanded": 24150,
+    "key": "-89.4399,-137.1476,Connecting Ridge · Gläser spot 2|h2|240|224|1794679200000|80",
+    "count": 393,
+    "contacts": 393
   },
   "routeAfter": {
-    "key": "-89.4399,-137.1476,Connecting Ridge · Gläser spot 2|h2|240|224|1794844800000|80",
-    "count": 291
+    "key": "-89.4399,-137.1476,Connecting Ridge · Gläser spot 2|h2|240|224|1794852000000|80",
+    "count": 331
   },
   "frames": {
     "frames": 180,
-    "meanMs": 8.323888888893029,
-    "p95Ms": 8.5,
-    "fps": 120.13615430815624
+    "meanMs": 8.284999999975167,
+    "p95Ms": 8.400000000001455,
+    "fps": 120.70006035039196
   },
-  "drivenKm": 0.00003864588200000002,
+  "drivenKm": 0.00005127393800000001,
   "landing": true,
   "analysis": true,
   "csvRows": 2164,

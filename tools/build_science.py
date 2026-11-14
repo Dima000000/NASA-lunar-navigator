@@ -5,7 +5,7 @@ from pathlib import Path
 import json,math,csv,hashlib,shutil,time
 import numpy as np
 from PIL import Image
-ROOT=Path(__file__).resolve().parent.parent; OUT=ROOT/'public/data'; SRC=ROOT/'data' if (ROOT/'data').exists() else OUT; OUT.mkdir(parents=True,exist_ok=True)
+ROOT=Path(__file__).resolve().parent.parent; OUT=ROOT/'public/data'; SRC=OUT if (OUT/'moon_dem_4k.png').exists() else ROOT/'data'; OUT.mkdir(parents=True,exist_ok=True)
 R=1737400.; DEG=np.pi/180
 def decode(name,scale=.5,offset=-10000):
  a=np.asarray(Image.open(SRC/name)).astype(np.float64);return(a[:,:,0]*256+a[:,:,1])*scale+offset
@@ -62,7 +62,7 @@ for site in catalog:
  t=time.perf_counter();v=local_vectors(site,481);z=sample(v);center=float(sample(basis(site['lat'],site['lon'])[0]));rel=(z-center).astype('<f4');rel.tofile(path/'dem.f32');mask=mask_for(v);mask.tofile(path/'psr.u8')
  hz=horizon(site)
  for height,data in hz.items():(path/f'horizon_h{height}.json').write_text(json.dumps({'step_deg':.5,'observer_height_m':height,'ray_extent_m':300000,'elev_deg':data.tolist(),'source':'Measured LOLA-derived terrain; 20/80/297 m chain then coarse global terrain; finite radial sampling'},separators=(',',':')))
- meta={**site,'N':481,'L_km':16,'cell_m':16000/480,'height_units':'m relative to centre pixel','center_height_m':center,'grid':'row 0 south, column 0 west; local stereographic x east, y north','projection':'site-centred stereographic on R=1737400 m sphere','radius_m':R,'source_dem':'NASA LOLA LDEM_80S_80MPP_ADJ.TIF + four 20 m crops','data_provenance':'Encoded derivatives via public mirror; see PROVENANCE.md','source_resolution_m':'20 m within four crest crops, 80 m central polar square, 297 m outer polar overview; the 33.33 m display spacing does not add measured detail','psr_source':'LRO/LOLA LPSR_75S_120M_201608.TIF; derivative majority mask at 296.875 m. Not an ice detection.','horizon':{'azimuth_step_deg':.5,'ray_extent_m':300000,'minimum_distance_m':20,'heights_m':[2,10,20]},'dem_sha256':hashlib.sha256(rel.tobytes()).hexdigest()}
+ meta={**site,'N':481,'L_km':16,'cell_m':16000/480,'height_units':'m relative to centre pixel','center_height_m':center,'grid':'row 0 south, column 0 west; local stereographic x east, y north','projection':'site-centred stereographic on R=1737400 m sphere','radius_m':R,'source_dem':'NASA LOLA LDEM_80S_80MPP_ADJ.TIF + four 20 m crops','data_provenance':'Measured NASA-derived products; see PROVENANCE.md and direct-source-audit.json for the current delivery audit','source_resolution_m':'20 m within four crest crops, 80 m central polar square, 297 m outer polar overview; the 33.33 m display spacing does not add measured detail','psr_source':'LRO/LOLA LPSR_75S_120M_201608.TIF; derivative majority mask at 296.875 m. Not an ice detection.','horizon':{'azimuth_step_deg':.5,'ray_extent_m':300000,'minimum_distance_m':20,'heights_m':[2,10,20]},'dem_sha256':hashlib.sha256(rel.tobytes()).hexdigest()}
  (path/'meta.json').write_text(json.dumps(meta,indent=2));print(site['key'],'prepared',round(time.perf_counter()-t,2),'s',flush=True)
 (OUT/'catalog.json').write_text(json.dumps(catalog,indent=2))
 for file in SRC.iterdir():

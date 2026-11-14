@@ -19,6 +19,13 @@ test('routes respond to time-dependent light and terrain barriers',()=>{
  const slope=new Float32Array(81);for(let j=0;j<9;j++)slope[j*9+5]=21;
  const blocked=timeAwareReach({...common,slope,sky,startMs:0});assert.equal(blocked.T[4*9+6],Infinity);
 });
+test('slow charging accumulates below a bucket and later departures survive',()=>{
+ const vehicle={capacityWh:160,initialFraction:.3,panelM2:.5,panelEfficiency:.28,idleW:10,driveW:45,maxSlopeDeg:20,flatSpeedKmh:1};
+ const slope=new Float32Array([0,0,21,21]),r=timeAwareReach({N:2,cellKm:2,slope,origin:0,sky:k=>({sun:k===0?.1:0,earth:1}),startMs:0,vehicle,maxHours:24});
+ assert.ok(Number.isFinite(r.T[1]),'sub-bucket charging eventually permits a night crossing');
+ assert.ok(r.T[1]>2,'the rover must wait to accumulate enough charge');
+ let id=r.best[1],waited=false;while(r.parent[id]>=0){assert.ok(r.energyWh[id]>0);const p=r.parent[id];if(Math.floor(id/21)%4===Math.floor(p/21)%4)waited=true;id=p}assert.ok(waited);
+});
 test('top five windows are in year, ordered, non-overlapping, and have bounded metrics',()=>{
  const site=JSON.parse(fs.readFileSync(new URL('../public/data/sites/cr/meta.json',import.meta.url))),h=JSON.parse(fs.readFileSync(new URL('../public/data/sites/cr/horizon_h2.json',import.meta.url)));
  const rows=findWindows(e,{lat:site.lat,lon:site.lon,centerHeightM:site.center_height_m},h.elev_deg,{year:2026});assert.equal(rows.length,5);

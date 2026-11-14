@@ -413,7 +413,7 @@
             <button class="rtog big" aria-pressed="{{reachOn}}" onClick="{{toggleReach}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.5"></rect><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>Rover drive range</button>
             <sc-if value="{{reachOn}}" hint-placeholder-val="{{ false }}">
               <div class="rbands"><span><i style="background: #5C9470"></i>&lt;1 h</span><span><i style="background: #F2C94C"></i>1–3 h</span><span><i style="background: #E3936B"></i>3–6 h</span><span><i style="background: #D9534F"></i>6–12 h</span></div>
-              <p class="note" style="margin: 6px 0 0">From {{reachFrom}}. Click any point to see the drive time and route. Hypothetical rover: 0.7 km/h on flat ground, slope limit 20° (assumption), 160 Wh battery, 0.5 m² tracking panel, efficiency 28%, idle 10 W, drive +45 W. Routes sample moving shadows and Earth visibility on a 533 m / 5° horizon grid; battery uses conservative 5% buckets. Route segments: green = Earth geometrically visible at arrival, orange = obstructed.</p>
+              <p class="note" style="margin: 6px 0 0">From {{reachFrom}}. Click any point to see the drive time and route. Hypothetical rover: 0.7 km/h on flat ground, slope limit 20° (assumption), 160 Wh battery, 0.5 m² tracking panel, efficiency 28%, idle 10 W, drive +45 W. Routes sample moving shadows and Earth visibility on a 533 m / 5° horizon grid; continuous battery energy is integrated at ≤15 min steps; 1 h time / 5% energy label bins make this an approximate search. Route segments: green = Earth geometrically visible at arrival, orange = obstructed.</p>
             </sc-if>
           </div>
           <sc-if value="{{hasTarget}}" hint-placeholder-val="{{ false }}">
@@ -438,7 +438,7 @@
           <div class="mrow2"><i style="background: #4D9BFF"></i><div><b>Permanently shadowed</b><span>Published LRO/LOLA permanent-shadow mask, not a detection of ice. Source mask 120 m, supplied derivative 297 m; small patches may be unresolved.</span></div></div>
           <div class="mrow2"><i style="background: #C9574B"></i><div><b>Too steep to drive</b><span>Scenario assumption: slopes over 20°. Landing exclusion at 15° is also a scenario assumption, not a NASA safety standard.</span></div></div>
           <p class="note">{{routeStatus}}</p><div class="mstat"><b>{{psrStat}}</b><span>of this 16 × 16 km area is permanently shadowed</span></div>
-          <p class="note">Click the map to set your landing point or a rover waypoint. Markers: coloured dot = place pin, white ring = best landing spot, orange = your point, arrow = rover. LOLA terrain · 20–80 m source near the pole · 67 m display grid. Rover energy remains illustrative.</p>
+          <p class="note">Click the map to set your landing point or a rover waypoint. Markers: coloured dot = place pin, white ring = best landing spot, orange = your point, arrow = rover. LOLA terrain · 20–80 m source near the pole · 33 m catalogue / 67 m custom display grid. Rover energy remains illustrative.</p>
         </div>
       </div>
     </div>
@@ -484,7 +484,7 @@
         <dl class="kv">
           <div class="kvr"><dt>Sunlight / Earth in view</dt><dd>% of time steps visible</dd></div>
           <div class="kvr"><dt>Longest darkness</dt><dd>longest gap without Sun</dd></div>
-          <div class="kvr"><dt>Quasi-continuous light (LQCIP, ESA)</dt><dd>Sun ≥50%, drop light &lt;10 h, then dark &lt;60 h</dd></div>
+          <div class="kvr"><dt>Quasi-continuous light (scenario definition)</dt><dd>Sun ≥50%, drop light &lt;10 h, then dark &lt;60 h</dd></div>
           <div class="kvr"><dt>Longest Earth blackout</dt><dd>longest gap without Earth</dd></div>
           <div class="kvr"><dt>Screening targets (scenario)</dt><dd>sunlight &gt;65%, Earth ≥50%</dd></div>
         </dl>
@@ -568,7 +568,7 @@
           <a class="btn sm" href="{{hzSun}}" target="_blank" rel="noopener">Sun in JPL Horizons ↗</a>
           <a class="btn sm" href="{{hzEarth}}" target="_blank" rel="noopener">Earth in JPL Horizons ↗</a>
         </div>
-        <p class="note">Data &amp; sources: Sun/Earth geometry from an hourly NASA/JPL SPICE DE440 MOON_ME vector table, with observer position correction, checkable against <a href="https://ssd.jpl.nasa.gov/horizons/app.html" target="_blank" rel="noopener">NASA/JPL Horizons</a>. Terrain uses measured NASA LOLA elevations (16 × 16 km, 33 m display grid; 20–80 m source near the pole) from <a href="https://pgda.gsfc.nasa.gov/products/69" target="_blank" rel="noopener">NASA Goddard PGDA</a>. Site coordinates: DLR Connecting Ridge study, LROC; ≈ marks approximate values. Font: Inter (SIL OFL). Data derivatives and exact coverage: <a href="data/PROVENANCE.md" target="_blank">provenance</a>. Catalogue site horizons include terrain to 300 km. Published PSRs are used directly. Vehicle capabilities and suitability thresholds are explicit scenario assumptions. Geometric visibility is not panel output or a certified radio link.</p>
+        <p class="note">Data &amp; sources: Sun/Earth geometry from an hourly NASA/JPL SPICE DE440 MOON_ME vector table, with observer position correction, checkable against <a href="https://ssd.jpl.nasa.gov/horizons/app.html" target="_blank" rel="noopener">NASA/JPL Horizons</a>. Terrain uses measured NASA LOLA elevations (16 × 16 km, 33 m display grid; 20–80 m source near the pole) from <a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener">NASA Goddard PGDA</a>. Site coordinates: DLR Connecting Ridge study, LROC; ≈ marks approximate values. Font: Inter (SIL OFL). Data derivatives and exact coverage: <a href="data/PROVENANCE.md" target="_blank">provenance</a>. Catalogue site horizons include terrain to 300 km. Published PSRs are used directly. Vehicle capabilities and suitability thresholds are explicit scenario assumptions. Geometric visibility is not panel output or a certified radio link.</p>
         <p class="note">Positions use hourly SPICE vectors for 2024–2036 UTC (DE440, MOON_ME). Live monthly Horizons verification status is shown above; archival checks alone do not certify a full month. Azimuth is clockwise from north; longitudes are east-positive. Sunlight is not panel power, Earth in view is not a guaranteed radio link, and this is not a landing-safety assessment.</p>
       </div>
     </div>

@@ -315,11 +315,18 @@ window.NASALComponent = class Component extends DCLogic {
       setTimeout(chunk, 0);
     }
     function upsample(arr, Nc, stride, N) {
+      const cacheKey = Nc + '|' + stride + '|' + N;
+      if (upsample.key !== cacheKey) {
+        const index = new Uint16Array(N), weight = new Float64Array(N);
+        for (let i = 0; i < N; i++) { const f = i / stride; index[i] = Math.min(Nc - 2, Math.floor(f)); weight[i] = f - index[i]; }
+        upsample.key = cacheKey; upsample.index = index; upsample.weight = weight;
+      }
+      const index = upsample.index, weight = upsample.weight;
       const out = new Float32Array(N * N);
       for (let j = 0; j < N; j++) {
-        const fj = j / stride, j0 = Math.min(Nc - 2, Math.floor(fj)), wj = fj - j0;
+        const row = index[j] * Nc, wj = weight[j];
         for (let i = 0; i < N; i++) {
-          const fi = i / stride, i0 = Math.min(Nc - 2, Math.floor(fi)), wi = fi - i0, b = j0 * Nc + i0;
+          const wi = weight[i], b = row + index[i];
           out[j * N + i] = (arr[b] * (1 - wi) + arr[b + 1] * wi) * (1 - wj) + (arr[b + Nc] * (1 - wi) + arr[b + Nc + 1] * wi) * wj;
         }
       }
@@ -503,7 +510,7 @@ window.NASALComponent = class Component extends DCLogic {
       const job = this._tj;
       if (e.terrainKey() !== job.key) { e.setTerrain(job.dem, job.key); this._shadeKey = ''; this._heatKey = ''; this._hzKey = ''; }
       if (job.hmap && this._hzKey !== job.key) { e.setHorizon(job.hmap, job.Nc, job.B, job.stride); this._hzKey = job.key; }
-      if (o && job.hmap) {
+      if (o && job.hmap && !job.scienceShade) {
         const k = ser.key + '|' + ti + '|' + job.key;
         if (this._shadeKey !== k) {
           const Ncv = job.Nc * job.Nc, B = job.B, hm = job.hmap, arr = new Float32Array(Ncv);
@@ -748,14 +755,15 @@ window.NASALComponent = class Component extends DCLogic {
       }
       dem.hs = hs;
     }
-    const key = job.key + '|' + (this._shadeKey || '') + '|' + (H ? H.key : '');
+    const mapStep = els.some(el => el.clientWidth > 300) ? 1 : 2, mapN = Math.ceil((N - 1) / mapStep) + 1;
+    const key = job.key + '|' + (this._shadeKey || '') + '|' + (H ? H.key : '') + '|' + mapStep;
     if (!this._mapOff) this._mapOff = document.createElement('canvas');
     const off = this._mapOff;
     if (this._mapKey !== key) {
-      this._mapKey = key; off.width = N; off.height = N;
-      const g = off.getContext('2d'), img = g.createImageData(N, N), d = img.data, sh = this._shadeFull;
-      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-        const v = j * N + i, p = ((N - 1 - j) * N + i) * 4, base = 0.25 + 0.75 * dem.hs[v];
+      this._mapKey = key; off.width = mapN; off.height = mapN;
+      const g = off.getContext('2d'), img = g.createImageData(mapN, mapN), d = img.data, sh = this._shadeFull;
+      for (let y = 0; y < mapN; y++) for (let x = 0; x < mapN; x++) {
+        const v = Math.min(N - 1, y * mapStep) * N + Math.min(N - 1, x * mapStep), p = ((mapN - 1 - y) * mapN + x) * 4, base = 0.25 + 0.75 * dem.hs[v];
         let r, gg, b;
         if (H && H.psr[v]) { r = 40 + 50 * base; gg = 105 + 70 * base; b = 220 + 35 * base; }
         else {
@@ -1960,10 +1968,10 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         R.sun=scientific?scientific.sun:clamp(shadeAtW(R.pos[0],R.pos[2]),0,1);
         R.earth=scientific?scientific.earth>.0005:earthVisAtW(R.pos[0],R.pos[2]);R.earthWhy=R.earth?'':(S.tEarth.el < -S.tEarth.rad?'below':'hill');
         // Hypothetical tracking-panel rover in SI units: 160 Wh, 0.5 m², eta 0.28, idle 10 W, driving +45 W.
-        const solarW=1361*.5*.28*R.sun,loadW=10+(Math.abs(R.v)>1e-5?45:0),netW=solarW-loadW;
+        const solarW=1361*(149597870.7/(scientific?.sunDirection?.dist||149597870.7))**2*.5*.28*R.sun,loadW=10+(Math.abs(R.v)>1e-5?45:0),netW=solarW-loadW;
         let elapsedH=dt/3600;if(R.lastScienceUTC!==undefined&&S.simUTC!==undefined&&S.simUTC!==R.lastScienceUTC){const deltaH=(S.simUTC-R.lastScienceUTC)/3600000;if(deltaH<0){R.batt=80;elapsedH=0;}else elapsedH=deltaH;}
         R.lastScienceUTC=S.simUTC;R.rate=netW/160*100/60;
-        if(S.drain===false)R.batt=100;else if(elapsedH>1/60&&S.scienceAt){const samples=Math.max(1,Math.ceil(elapsedH*4)),step=elapsedH/samples;for(let a=0;a<samples;a++){const t=S.simUTC-(elapsedH-(a+.5)*step)*3600000,sky=S.scienceAt(R.pos[0],R.pos[2],t),power=1361*.5*.28*sky.sun-loadW;R.batt=clamp(R.batt+power*step/160*100,0,100);}}else R.batt=clamp(R.batt+netW*elapsedH/160*100,0,100);
+        if(S.drain===false)R.batt=100;else if(elapsedH>1/60&&S.scienceAt){const samples=Math.max(1,Math.ceil(elapsedH*4)),step=elapsedH/samples;for(let a=0;a<samples;a++){const t=S.simUTC-(elapsedH-(a+.5)*step)*3600000,sky=S.scienceAt(R.pos[0],R.pos[2],t),power=1361*(149597870.7/(sky.sunDirection?.dist||149597870.7))**2*.5*.28*sky.sun-loadW;R.batt=clamp(R.batt+power*step/160*100,0,100);}}else R.batt=clamp(R.batt+netW*elapsedH/160*100,0,100);
         let dh = R.heading - S.dc.hs; while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
         S.dc.hs += dh * (1 - Math.exp(-dt * 3.5));
         if (now - S.lastCb > 200) { S.lastCb = now; cb.onRover && cb.onRover({ x: R.pos[0], z: R.pos[2], heading: R.heading, batt: R.batt, rate: R.rate, sun: R.sun, earth: R.earth, earthWhy: R.earthWhy, kmh: Math.abs(R.v) * 3600, dist: R.dist, blocked: R.blocked }); }
