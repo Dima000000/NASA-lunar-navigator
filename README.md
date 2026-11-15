@@ -9,11 +9,24 @@
 
 ## What it is for
 
-**User:** lunar mission planners and student researchers exploring the lunar south pole.
+**Users:** lunar mission planners, plus educators, students and the public exploring the lunar south pole.
 
 **Decision:** where and when to stay on the surface to obtain sunlight and a geometric line of sight to Earth.
 
 **Result:** compare locations and dates against measured LOLA horizons, inspect 3D terrain and find five high-scoring surface-stay windows of a year. A hypothetical rover demonstrates constraints from moving shadows, energy and terrain.
+
+## How it answers the challenge
+
+| Challenge objective | What the navigator provides |
+|---|---|
+| Site selection and comparison | 12 sourced south-pole research sites, custom lunar coordinates, side-by-side comparison of sites and dates |
+| Date and time flexibility | Any hour 2024–2036; best 7-day surface-stay windows ranked over a year |
+| Sun and Earth position | Horizon panorama with Sun and Earth paths against the measured LOLA skyline; first Sunset / Earthset after landing |
+| Power and communication | Sun elevation, share of hours in sunlight, longest night, Earth-visibility share |
+| Multiple visualizations | 3D terrain, top-down light / shadow / permanent-shadow map, elevation timeline, CSV export |
+| Temporal dynamics | Time playback with moving shadows over a lunar day or longer |
+| Accessibility across skill levels | Guided tour for newcomers; method, limits and JPL Horizons validation for specialists |
+| No atmosphere, real topography | Airless geometry (no refraction); horizons traced through LOLA terrain to 300 km |
 
 ## Team — Dark Vector
 
