@@ -278,6 +278,7 @@
             <text data-bind-x="{{sct.p4.lx}}" data-bind-y="{{sct.p4.ly}}" data-bind-text-anchor="{{sct.p4.ta}}" font-size="11.5" font-weight="600" fill="#F5F5F7">{{sct.p4.t}}</text>
             <text data-bind-x="{{sct.p5.lx}}" data-bind-y="{{sct.p5.ly}}" data-bind-text-anchor="{{sct.p5.ta}}" font-size="11.5" font-weight="600" fill="#F5F5F7">{{sct.p5.t}}</text>
           </svg>
+          <div class="chart-site-legend"><sc-for data-bind-list="{{cmpChips}}" as="site"><span><i class="dot" data-bind-style="background:{{site.color}}"></i>{{site.name}}</span></sc-for></div>
         </div>
         <div class="ccard">
           <div class="ctitle">Timeline by place</div>
@@ -285,7 +286,7 @@
           <div class="blegend"><span><i style="background: #30D158"></i>Sun + Earth</span><span><i style="background: #FFD60A"></i>Sun only</span><span><i style="background: #40A8FF"></i>Earth only</span><span><i style="background: #3A3A3C"></i>Neither</span></div>
           <sc-for data-bind-list="{{bandAll}}" as="b" hint-placeholder-count="3">
             <div class="brow">
-              <span class="bname"><span class="dot" data-bind-style="background: {{b.color}}"></span>{{b.name}}</span>
+              <span class="bname" data-bind-title="{{b.name}}"><span class="dot" data-bind-style="background: {{b.color}}"></span>{{b.name}}</span>
               <div class="bbar">
                 <sc-for data-bind-list="{{b.sun}}" as="g" hint-placeholder-count="2"><span class="run s" data-bind-style="left: {{g.l}}%; width: {{g.w}}%"></span></sc-for>
                 <sc-for data-bind-list="{{b.ear}}" as="g" hint-placeholder-count="2"><span class="run e" data-bind-style="left: {{g.l}}%; width: {{g.w}}%"></span></sc-for>
@@ -328,7 +329,7 @@
       <div class="smgrid">
       <sc-for data-bind-list="{{chartRows}}" as="c" hint-placeholder-count="3">
         <div class="ccard">
-          <div class="ctitle" data-bind-title="{{c.sub}}">{{c.title}}</div>
+          <div class="ctitle" data-bind-title="{{c.sub}}">{{c.title}}</div><p class="csub">{{c.yTitle}}</p>
           <div class="panels" data-bind-style="grid-template-columns: repeat({{c.n}}, minmax(0, 1fr))">
             <sc-for data-bind-list="{{c.panels}}" as="q" hint-placeholder-count="1">
               <div class="pnl" data-bind-style="border-top-color: {{q.color}}" data-bind-title="{{q.name}}">
@@ -346,7 +347,7 @@
                   <path data-bind-d="{{q.l1}}" data-bind-stroke="{{q.c1}}" stroke-width="1.5" stroke-linejoin="round" fill="none"></path>
                   <path data-bind-d="{{q.l2}}" data-bind-stroke="{{q.c2}}" stroke-width="1.5" stroke-linejoin="round" fill="none"></path>
                   <path data-bind-d="{{q.thr}}" stroke="#30D158" stroke-dasharray="6 4" stroke-opacity="0.9" fill="none"></path>
-                  <text data-bind-x="{{q.x1}}" data-bind-y="{{q.thrY}}" text-anchor="end" font-size="10.5" font-weight="600" fill="#30D158">{{q.thrT}}</text>
+                  <text data-bind-x="{{q.thrLabelX}}" data-bind-y="{{q.thrY}}" text-anchor="start" font-size="10.5" font-weight="600" fill="#30D158">{{q.thrT}}</text>
                   <path class="qland" data-bind-d="{{q.land}}" stroke="#FFFFFF" stroke-opacity="0.75" stroke-dasharray="4 3" fill="none"></path>
                   <path data-bind-d="{{q.cur}}" stroke="#FFFFFF" stroke-width="1.3" fill="none"></path>
                   <path data-bind-d="{{q.evp}}" stroke="rgba(255,255,255,0.35)" stroke-dasharray="2 3" fill="none"></path>
@@ -364,7 +365,7 @@
                   <text data-bind-x="{{q.t4.x}}" data-bind-y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t4.label}}</text>
                   <text data-bind-x="{{q.t5.x}}" data-bind-y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t5.label}}</text>
                   <text data-bind-x="{{q.t6.x}}" data-bind-y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t6.label}}</text>
-                  <text data-bind-x="{{q.x1}}" data-bind-y="{{q.yTY}}" text-anchor="end" font-size="9.5" fill="#8E8E93">{{c.yTitle}}</text>
+                  
                 </svg>
               </div>
             </sc-for>

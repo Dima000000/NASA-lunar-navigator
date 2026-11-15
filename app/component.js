@@ -1067,7 +1067,7 @@ window.NASALComponent = class Component extends DCLogic {
     let chartRows = [];
     if (s.sheet === 'charts') {
       const sep = s.cmpMode === 'separate' && cmpSites.length > 1;
-      const W = 360, X0 = 34, X1 = W - 8, Y0 = 14, Y1 = sep ? 74 : 104;
+      const W = 400, X0 = 48, X1 = W - 70, Y0 = 14, Y1 = sep ? 74 : 104;
       const xi = (i) => (X0 + i / Math.max(1, n - 1) * (X1 - X0)).toFixed(1);
       const dlab = (i) => { const d = new Date(ser.times[i]); return d.getUTCDate() + ' ' + MN[d.getUTCMonth()]; };
       const nd = Math.max(1, Math.round(days));
@@ -1122,7 +1122,7 @@ window.NASALComponent = class Component extends DCLogic {
           q.yT = '+12°'; q.yM = '0°'; q.yB = '−12°';
           if (list.length === 1) { const o2 = ser.sites[list[0].id]; q.fill = ''; void this.runsOf((i) => def.vis(o2, i), n).map((r) => 'M' + xi(r.i0) + ' ' + Y0 + 'H' + xi(Math.min(n - 1, r.i1)) + 'V' + Y1 + 'H' + xi(r.i0) + 'Z').join(''); q.fillColor = list[0].color; }
         } else {
-          if (def.thr) { const ty = (Y1 - def.thr / 100 * (Y1 - Y0)).toFixed(1); q.thr = 'M' + X0 + ' ' + ty + 'H' + X1; q.thrY = (ty - 4).toFixed(1); q.thrT = def.thrT; }
+          if (def.thr) { const ty = (Y1 - def.thr / 100 * (Y1 - Y0)).toFixed(1); q.thr = 'M' + X0 + ' ' + ty + 'H' + X1; q.thrY = (ty + 3).toFixed(1); q.thrT = def.thrT; }
           q.zero = ''; q.grid = [0.25, 0.5, 0.75].map((f) => 'M' + X0 + ' ' + (Y1 - f * (Y1 - Y0)).toFixed(1) + 'H' + X1).join(''); q.yT = '100%'; q.yM = '50%'; q.yB = '0%';
         }
         return q;
