@@ -1,0 +1,10 @@
+{
+  "seed": 20261115,
+  "moments": 100,
+  "bodySamples": 200,
+  "coverage": "2024–2035; Connecting Ridge topocentric view at 2 m",
+  "maxElevationErrorDeg": 0.00010981541159527097,
+  "maxAzimuthErrorDeg": 0.00009726158737066726,
+  "reference": "Fresh JPL Horizons observer quantity 4, airless, irregular Julian-date UT inputs",
+  "passed": true
+}

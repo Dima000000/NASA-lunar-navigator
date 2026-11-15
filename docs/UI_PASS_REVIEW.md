@@ -56,6 +56,12 @@ R1/R3 routes snap the current rover or landing origin and destination to a 533 m
 - Touch input through browser touch events: **251 m**, a **1.48 rad** turn, no page scroll, two-finger zoom from 0.025 to 0.015625 km and reset to 0.025 km. [Result](ui-pass-evidence/touch-controls.json).
 - First visit, next/back/escape, persistent dismissal, reload and manual tour replay verified. [Result](ui-pass-evidence/performance-and-tour.json).
 
+## Published verification
+
+Implementation commit `4311aae1897a2e494658ec188ff5c3c29be8b07e` passed [GitHub's full build and deployment](https://github.com/Dima000000/NASA-lunar-navigator/actions/runs/43708411304). The independent irregular-time Horizons comparison **passed**: 100 seeded times, 200 Sun/Earth samples across 2024–2035, maximum elevation error **0.000109815°**, maximum azimuth error **0.000097262°**; both below 0.01°. Raw NASA replies, the actual request URLs, the [200-row table](ui-pass-evidence/jpl-fractional-time/visual-interpolation-horizons.csv) and [summary](ui-pass-evidence/jpl-fractional-time/visual-interpolation-horizons.json) are preserved in this repository. This checks topocentric directions, not the terrain-shadow model.
+
+The [public site](https://dima000000.github.io/NASA-lunar-navigator/) was then opened anonymously in fresh desktop and mobile browser contexts: first-run tour and keyboard back/next, measured terrain, touch controls, five valid chart SVG viewports and the published route worker passed, without runtime errors. [Check results](ui-pass-evidence/public-site-check.json), [desktop frame](ui-pass-evidence/published-drive-1440.png), [mobile frame](ui-pass-evidence/published-drive-390.png). This documentation/evidence update changes no application or scientific inputs.
+
 ## Frame timing
 
 Ten-second samples after warm-up on this Windows host, headless Edge. Play = 6 h/s; Drive = ×60 model time. Mobile is touch/viewport emulation with DPR 3 (renderer caps DPR at 1.75), **not a physical phone or weak-laptop benchmark**. These are measured animation-frame timings, not a guarantee for other hardware.

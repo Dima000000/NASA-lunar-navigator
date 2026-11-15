@@ -1,0 +1,10 @@
+{
+  "url": "https://dima000000.github.io/NASA-lunar-navigator/",
+  "errors": [],
+  "checks": [
+    "Desktop: public anonymous load, first tour, measured terrain, new Drive controls, charts and SVG viewports",
+    "Published route worker completes",
+    "Mobile: public anonymous load, first tour, measured terrain, new Drive controls, charts and SVG viewports"
+  ],
+  "checkedAt": "2026-11-15T11:23:53.929Z"
+}
