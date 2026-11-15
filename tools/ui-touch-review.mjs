@@ -29,7 +29,8 @@ try {
     }),
     p = await c.newPage();
   await p.addInitScript(() =>
-    localStorage.setItem("lunar-navigator-tour-v1", "done"),
+    (localStorage.setItem("lunar-navigator-tour-v1", "done"),
+    localStorage.setItem("lunar-navigator-drive-help-v1", "done")),
   );
   p.on("pageerror", (e) => report.errors.push(e.message));
   await p.goto(baseURL);
