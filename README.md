@@ -25,6 +25,8 @@ Lunar Landing Site Navigator was developed by **Dark Vector**:
 | Dmitry Belousov | @dimabel |
 | Ivan Ermolaev | @ermolaevivan |
 | Gleb Naumkin | @gnaum31415 |
+| Mair Gigolaev | @mairichg |
+| Maxim Zaleskiy | @mzalik |
 
 [Team credits](AUTHORS.md) · [Dark Vector on NASA Space Apps](https://www.spaceappschallenge.org/2026/find-a-team/dark-vector/?tab=members)
 
