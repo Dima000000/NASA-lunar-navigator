@@ -1,5 +1,12 @@
+import {interpolateVisualState} from "./visual-time.mjs";
 export function withUIPass(Base, science) {
  return class UIPass extends Base {
+  renderContinuousTime(ms,now=performance.now()){
+   this._visualUTC=ms;const site=this.selSite();if(!this.eng||!site)return;
+   const st=interpolateVisualState(science.ephem,ms),topo=this.eph().topo(st,site.lat,site.lon,(this.state.obsH||2)/1000);
+   this.eng.set({sunB:st.sun,earthB:st.earth,tSun:topo.sun,tEarth:topo.earth,simUTC:ms});
+   if(this._tj?.hmap&&this.state.view!=='region'&&now-(this._continuousShadeAt||0)>250){this._continuousShadeAt=now;this.sendShade({key:this._tj.key,utc:ms,sun:science.ephem.state(ms).sun,bigMap:!!this.state.bigMap});}
+  }
   renderVals(){
    const v=super.renderVals();v.appCls+=' ui-pass'+(this.state.view==='drive'?' ui-drive':'');
    v.hud={...v.hud,rate:v.hud.rate.replace('charging ','· ').replace('draining ','· '),sun:v.hud.sun.replace('In sunlight','Sunlit'),earth:v.hud.earth==='Earth link'?'Earth in view':v.hud.earth,skipLabel:v.hud.skipLabel.replace('Skip to Earthrise (','Earthrise in ').replace(')',' →')};

@@ -42,6 +42,7 @@ window.NASALComponent = class Component extends DCLogic {
       if (this._tf === undefined || this._tf === null) this._tf = s.ti;
       this._tf += dt * s.speed / s.stepH;
       if (this._tf > n - 1) this._tf = 0;
+      this.renderContinuousTime?.(s.start+this._tf*s.stepH*3600000,now);
       const ti = Math.floor(this._tf);
       if (ti !== s.ti && now - (this._lastSet || 0) > 45) { this._lastSet = now; this.setState({ ti: ti }); }
     };
@@ -1422,9 +1423,9 @@ void main(){
     gl_FragColor = vec4(col*edge + vec3(0.3, 0.55, 1.0)*halo, max(edge, halo)*hz);
   }
 }`;
-    const TER_VS = `attribute vec3 aP; attribute vec3 aN; attribute vec4 aD; uniform mat4 uPV;
+    const TER_VS = `attribute vec3 aP; attribute vec3 aN; attribute vec4 aD; uniform mat4 uPV; uniform float uShadeMix;
 varying vec3 vW; varying vec3 vN; varying float vS; varying float vH;
-void main(){ vW = aP; vN = aN; vS = aD.x; vH = aD.y; gl_Position = uPV*vec4(aP, 1.0); }`;
+void main(){ vW = aP; vN = aN; vS = mix(aD.z,aD.x,uShadeMix); vH = aD.y; gl_Position = uPV*vec4(aP, 1.0); }`;
     const TER_FS = `precision highp float;
 varying vec3 vW; varying vec3 vN; varying float vS; varying float vH;
 uniform vec3 uSun; uniform vec3 uCam; uniform float uHeat; uniform float uHalf; uniform sampler2D uImagery; uniform float uHasImagery;
@@ -1776,7 +1777,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (T && T.bp) {
           use(P.ter, [['aP', T.bp, 3], ['aN', T.bn, 3], ['aD', T.bd, 4]]);
           gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, T.bi);
-          U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
+          U(P.ter, 'uShadeMix',Math.min(1,(performance.now()-(S.shadeAt||0))/250)); U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
           gl.drawElements(gl.TRIANGLES, T.g.idx.length, gl.UNSIGNED_INT, 0);
         }
         if (S.view === 'drive' && S.rover) {
@@ -1978,7 +1979,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (!alive) return;
         raf = requestAnimationFrame(frame);
         const dt = Math.min(0.1, (now - last) / 1000); last = now;
-        let anim = false;
+        let anim = performance.now()-(S.shadeAt||0)<300;
         if (S.fly) {
           const F = S.fly, p = Math.min(1, (now - F.t0) / F.dur), e = ease(p);
           S.rc.yaw = lerp(F.from.yaw, F.to.yaw, e); S.rc.pitch = lerp(F.from.pitch, F.to.pitch, e);
@@ -2096,7 +2097,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           S.dirty = true;
         },
         setHorizon(hm, Nc, B, stride) { S.hz = { hm: hm, Nc: Nc, B: B, stride: stride }; },
-        setShade(arr) { if (!S.terr) return; const d = S.terr.g.dat; for (let i = 0; i < arr.length; i++) d[i * 4] = arr[i]; gl.bindBuffer(gl.ARRAY_BUFFER, S.terr.bd); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d); S.dirty = true; },
+        setShade(arr) { if (!S.terr) return; const d = S.terr.g.dat,mix=Math.min(1,(performance.now()-(S.shadeAt||0))/250);for(let i=0;i<arr.length;i++){d[i*4+2]=d[i*4+2]+(d[i*4]-d[i*4+2])*mix;d[i*4]=arr[i];}S.shadeAt=performance.now(); gl.bindBuffer(gl.ARRAY_BUFFER, S.terr.bd); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d); S.dirty = true; },
         setHeat(arr) {
           if (!S.terr) return; const d = S.terr.g.dat; S.heatOn = !!arr;
           if (arr) { for (let i = 0; i < arr.length; i++) d[i * 4 + 1] = arr[i]; gl.bindBuffer(gl.ARRAY_BUFFER, S.terr.bd); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d); }
