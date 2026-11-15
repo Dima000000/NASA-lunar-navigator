@@ -456,7 +456,6 @@ export function enhancedComponent(Base, S) {
       super.componentDidMount();
       this._detailHandler = () => {
         if (
-          this.state.view === "region" &&
           !this._detailLoading &&
           !window.RealMoon.detailReady
         ) {
@@ -478,6 +477,13 @@ export function enhancedComponent(Base, S) {
       });
       this._ovEl?.addEventListener("pointerdown", this._detailHandler, {
         passive: true,
+      });
+      this._detailFrame = requestAnimationFrame(() => {
+        this._detailFrame = requestAnimationFrame(() => {
+          if ("requestIdleCallback" in window)
+            this._detailIdle = requestIdleCallback(this._detailHandler, { timeout: 1500 });
+          else this._detailTimer = setTimeout(this._detailHandler, 300);
+        });
       });
     }
     syncWorkerYears() {
@@ -1102,6 +1108,9 @@ export function enhancedComponent(Base, S) {
       };
     }
     componentWillUnmount() {
+      cancelAnimationFrame(this._detailFrame);
+      if (this._detailIdle !== undefined) cancelIdleCallback(this._detailIdle);
+      clearTimeout(this._detailTimer);
       this._ovEl?.removeEventListener("wheel",this._detailHandler);
       this._ovEl?.removeEventListener("pointerdown",this._detailHandler);
       this._shadeWorker.terminate();
