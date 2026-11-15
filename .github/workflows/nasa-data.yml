@@ -31,19 +31,25 @@ jobs:
           node tools/literature-report.mjs
           python tools/shackleton-10m.py
           node tools/shackleton-10m.mjs
+      - run: python tools/update-input-manifest.py --tag data-${{ github.run_id }}
       - run: npm ci
       - run: npm test
       - run: node tools/verify-horizons.mjs
       - run: npm run build
-      - run: npm install --no-save --package-lock=false playwright
+      - run: npx playwright install --with-deps chromium
       - run: node tools/export-in-browser.mjs
       - run: node tools/verify-browser-csv.mjs
       - run: node tools/update-review.mjs
-      - name: Save rebuilt scientific products
+      - run: python tools/package-data.py
+      - name: Publish scientific arrays as a versioned asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "data-${{ github.run_id }}" .data-cache/authoritative-data.tar.gz .data-cache/authoritative-data.sha256 --target "${{ github.sha }}" --title "Scientific data ${{ github.run_id }}" --notes "Direct NASA/JPL rebuild; input hashes are recorded in tools/science-inputs.json." --prerelease
+      - name: Save rebuilt metadata and validation
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add public/data/ public/research/
+          git add tools/science-inputs.json public/data/ public/research/
           git diff --cached --quiet || git commit -m 'Rebuild runtime science data directly from NASA archives'
           git push
       - uses: actions/upload-artifact@v4

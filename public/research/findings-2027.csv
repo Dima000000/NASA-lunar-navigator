@@ -1,0 +1,4 @@
+kind,key,name,height_m,start_utc,end_utc,sun_any_fraction,earth_any_fraction,longest_dark_h,score
+best_window,cr,"Connecting Ridge · Gläser spot 2",2,2027-01-09T12:00:00.000Z,2027-01-16T12:00:00.000Z,1,1,0,1
+same_week_comparison,sdg,"de Gerlache rim 2 · dGR201",2,2027-01-09T12:00:00.000Z,2027-01-16T12:00:00.000Z,0.44047619047619047,1,85,
+best_window,sdg,"de Gerlache rim 2 · dGR201",2,2027-01-17T00:00:00.000Z,2027-01-24T00:00:00.000Z,1,1,0,1

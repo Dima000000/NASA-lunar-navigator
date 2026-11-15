@@ -1,0 +1,144 @@
+{
+  "profile": "Chrome DevTools Fast 4G, fresh browser context, cache disabled, production preview",
+  "conditions": {
+    "downloadBytesPerSecond": 1012500,
+    "uploadBytesPerSecond": 168750,
+    "latencyMs": 165
+  },
+  "readyMs": 3630.89999999851,
+  "bytes": 1152763,
+  "MB": 1.152763,
+  "initialUrls": [
+    "http://127.0.0.1:4210/",
+    "http://127.0.0.1:4210/assets/index-Co6NQZq4.js",
+    "http://127.0.0.1:4210/assets/index-CKHl50O-.css",
+    "http://127.0.0.1:4210/data/delivery-manifest.json",
+    "http://127.0.0.1:4210/data/overview/global.png",
+    "http://127.0.0.1:4210/data/overview/polar.png",
+    "http://127.0.0.1:4210/data/ephem/manifest.json",
+    "http://127.0.0.1:4210/data/catalog.json",
+    "http://127.0.0.1:4210/data/verification-status.json",
+    "http://127.0.0.1:4210/data/ephem/2026.bin.gz",
+    "http://127.0.0.1:4210/data/sites/cr/meta.json",
+    "http://127.0.0.1:4210/data/sites/shackleton/meta.json",
+    "http://127.0.0.1:4210/data/sites/sdg/meta.json",
+    "http://127.0.0.1:4210/data/sites/mal/meta.json",
+    "http://127.0.0.1:4210/data/sites/lbp/meta.json",
+    "http://127.0.0.1:4210/data/sites/mmp/meta.json",
+    "http://127.0.0.1:4210/data/sites/haw/meta.json",
+    "http://127.0.0.1:4210/data/sites/nob1/meta.json",
+    "http://127.0.0.1:4210/data/sites/nob2/meta.json",
+    "http://127.0.0.1:4210/data/sites/cabeus/meta.json",
+    "http://127.0.0.1:4210/data/sites/slater/meta.json",
+    "http://127.0.0.1:4210/data/sites/cr10/meta.json",
+    "http://127.0.0.1:4210/data/overview/color.jpg",
+    "http://127.0.0.1:4210/data/sites/cr/horizon_h2.json",
+    "http://127.0.0.1:4210/data/sites/shackleton/horizon_h2.json",
+    "http://127.0.0.1:4210/data/sites/sdg/horizon_h2.json",
+    "blob:http://127.0.0.1:4210/068e30ca-4f6a-41ce-94ea-27b634d23611",
+    "blob:http://127.0.0.1:4210/11b6c4b7-ec20-452c-b00b-9e6bebf05af3",
+    "blob:http://127.0.0.1:4210/b1f98bfe-cd81-41c5-b46f-be951f98c0a5",
+    "http://127.0.0.1:4210/app/moon.frag.glsl",
+    "http://127.0.0.1:4210/assets/science-worker-ahDMUw4j.js",
+    "http://127.0.0.1:4210/assets/shade-worker-DoDqgSeo.js",
+    "http://127.0.0.1:4210/assets/inter-400-C38fXH4l.woff2",
+    "http://127.0.0.1:4210/assets/inter-600-LgqL8muc.woff2",
+    "http://127.0.0.1:4210/assets/inter-700-Yt3aPRUw.woff2",
+    "http://127.0.0.1:4210/assets/inter-500-Cerq10X2.woff2"
+  ],
+  "top15": [
+    {
+      "url": "http://127.0.0.1:4210/data/overview/polar.png",
+      "start": 42824.747327,
+      "bytes": 422258,
+      "end": 42825.872779
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/ephem/2026.bin.gz",
+      "start": 42824.951365,
+      "bytes": 251808,
+      "end": 42825.796125
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/overview/global.png",
+      "start": 42824.747018,
+      "bytes": 247867,
+      "end": 42825.588867
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/overview/color.jpg",
+      "start": 42825.886076,
+      "bytes": 98757,
+      "end": 42826.447282
+    },
+    {
+      "url": "http://127.0.0.1:4210/assets/index-Co6NQZq4.js",
+      "start": 42824.293714,
+      "bytes": 56652,
+      "end": 42824.539243
+    },
+    {
+      "url": "http://127.0.0.1:4210/",
+      "start": 42824.103181,
+      "bytes": 13720,
+      "end": 42824.289702
+    },
+    {
+      "url": "http://127.0.0.1:4210/assets/index-CKHl50O-.css",
+      "start": 42824.294177,
+      "bytes": 12450,
+      "end": 42824.49612
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/sites/sdg/horizon_h2.json",
+      "start": 42826.220651,
+      "bytes": 6966,
+      "end": 42826.431302
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/sites/shackleton/horizon_h2.json",
+      "start": 42826.220435,
+      "bytes": 6939,
+      "end": 42826.430878
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/sites/cr/horizon_h2.json",
+      "start": 42826.220193,
+      "bytes": 6891,
+      "end": 42826.431129
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/delivery-manifest.json",
+      "start": 42824.548651,
+      "bytes": 4686,
+      "end": 42824.743087
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/sites/lbp/meta.json",
+      "start": 42825.799451,
+      "bytes": 1837,
+      "end": 42825.984321
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/sites/shackleton/meta.json",
+      "start": 42825.79889,
+      "bytes": 1810,
+      "end": 42825.980187
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/sites/cr10/meta.json",
+      "start": 42825.800761,
+      "bytes": 1808,
+      "end": 42826.218808
+    },
+    {
+      "url": "http://127.0.0.1:4210/data/sites/sdg/meta.json",
+      "start": 42825.799107,
+      "bytes": 1804,
+      "end": 42825.980677
+    }
+  ],
+  "errors": [],
+  "measurement": "First completed overview frame and usable interface",
+  "note": "Headline measurement from final browser review; URL breakdown below is an earlier equivalent build, retained as a diagnostic trace."
+}

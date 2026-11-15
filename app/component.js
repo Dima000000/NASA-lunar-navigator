@@ -1,3 +1,4 @@
+import {buildCSV} from './csv-export.mjs';
 
 window.NASALComponent = class Component extends DCLogic {
   constructor(...args) {
@@ -692,20 +693,7 @@ window.NASALComponent = class Component extends DCLogic {
     this.setState({ sites: sites, sel: s.sel === id ? sites[0].id : s.sel });
   }
   csv() {
-    const s = this.state, ser = this.series(), met = this.metrics(ser), f = (x, d) => x.toFixed(d);
-    const iso = (ms) => new Date(ms).toISOString().replace('.000Z', 'Z');
-    const rows = ['time_utc,site,lat_deg,lon_deg_east,sun_az_deg,sun_el_deg,sun_horizon_deg,sun_disk_visible_frac,earth_az_deg,earth_el_deg,earth_horizon_deg,earth_disk_visible_frac,earth_dist_km,horizon_model'];
-    for (const site of s.sites) {
-      const o = ser.sites[site.id];
-      for (let i = 0; i < ser.n; i++) {
-        rows.push([iso(ser.times[i]), '"' + site.name.replace(/"/g, '""') + '"', f(site.lat, 4), f(site.lon, 4), f(o.sAz[i], 3), f(o.sEl[i], 3), f(o.sH[i], 3), f(o.sF[i], 3), f(o.eAz[i], 3), f(o.eEl[i], 3), f(o.eH[i], 3), f(o.eF[i], 3), f(o.eDist[i], 0), s.model].join(','));
-      }
-    }
-    const sum = ['site,lat_deg,lon_deg_east,period_start_utc,period_end_utc,step_h,visibility_rule,horizon_model,sun_frac,earth_frac,both_frac,longest_dark_h,longest_earth_blackout_h,score,rank,w_sun,w_earth,w_gap'];
-    for (const site of s.sites) {
-      const m = met.res[site.id];
-      sum.push(['"' + site.name.replace(/"/g, '""') + '"', f(site.lat, 4), f(site.lon, 4), iso(ser.times[0]), iso(ser.times[ser.n - 1]), ser.stepH, s.visDef, s.model, f(m.sun, 4), f(m.ear, 4), f(m.both, 4), f(m.dark, 1), f(m.nocomm, 1), f(m.score, 4), m.rank, s.wSun, s.wEarth, s.wGap].join(','));
-    }
+    const s=this.state,{rows,sum,ser,met}=buildCSV(this,site=>this.terrainResolution(site));
     if (s.csvUrl) { try { URL.revokeObjectURL(s.csvUrl); URL.revokeObjectURL(s.csvSumUrl); } catch (err) { } }
     const d0 = new Date(ser.times[0]).toISOString().slice(0, 10);
     this.setState({
@@ -759,7 +747,8 @@ window.NASALComponent = class Component extends DCLogic {
     const key = job.key + '|' + (this._shadeKey || '') + '|' + (H ? H.key : '') + '|' + mapStep;
     if (!this._mapOff) this._mapOff = document.createElement('canvas');
     const off = this._mapOff;
-    if (this._mapKey !== key) {
+    if (job.mapPixels && this._mapKey !== key) { const m=job.mapPixels;off.width=m.M;off.height=m.M;off.getContext('2d').putImageData(new ImageData(m.data,m.M,m.M),0,0);this._mapKey=key; }
+    else if (this._mapKey !== key) {
       this._mapKey = key; off.width = mapN; off.height = mapN;
       const g = off.getContext('2d'), img = g.createImageData(mapN, mapN), d = img.data, sh = this._shadeFull;
       for (let y = 0; y < mapN; y++) for (let x = 0; x < mapN; x++) {
@@ -1768,7 +1757,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           use(P.moon,[['aP',mesh.pos,3],['aN',mesh.nrm,3]]);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.idx);
           gl.uniform1i(P.moon.u.uAlbedo,0);for(let ti=0;ti<3;ti++){gl.activeTexture(gl.TEXTURE1+ti);gl.bindTexture(gl.TEXTURE_2D,heightTextures[ti]);gl.uniform1i(P.moon.u[['uHeightGlobal','uHeightPolar','uHeightFine'][ti]],ti+1)}gl.activeTexture(gl.TEXTURE0);
           U(P.moon,'uPV',PV);U(P.moon,'uSun',sun);U(P.moon,'uEarth',earth);U(P.moon,'uCam',cam.eye);
-          U(P.moon,'uLineW',Math.max(.02,.16*alt));gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);
+          U(P.moon,'uFineExtent',window.RealMoon.detailReady?163840:304000);U(P.moon,'uLineW',Math.max(.02,.16*alt));gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);
         }
         return { PV: PV, cam: cam, B: B };
       }
@@ -2091,6 +2080,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           else { const s = S.sites.find((x) => x.id === S.sel); initRegion(s || null); S.lander = null; }
           S.fade = 1; S.fadeDir = -1; S.dirty = true;
         },
+        refreshMoon(){const models=window.RealMoon.meshes;for(let i=0;i<models.length;i++){const m=models[i],old=realMoonMeshes[i]||{pos:gl.createBuffer(),nrm:gl.createBuffer(),idx:gl.createBuffer()};for(const [key,data,target] of [['pos',m.pos,gl.ARRAY_BUFFER],['nrm',m.nrm,gl.ARRAY_BUFFER],['idx',m.idx,gl.ELEMENT_ARRAY_BUFFER]]){gl.bindBuffer(target,old[key]);gl.bufferData(target,data,gl.STATIC_DRAW);}old.count=m.idx.length;realMoonMeshes[i]=old;}gl.bindTexture(gl.TEXTURE_2D,moonTexture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,window.RealMoon.albedo);gl.generateMipmap(gl.TEXTURE_2D);window.RealMoon.heightImages.forEach((image,i)=>{gl.bindTexture(gl.TEXTURE_2D,heightTextures[i]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,image);});S.dirty=true;},
         terrainKey() { return S.terrKey; },
         setTerrain(dem, key) {
           S.terrKey = key; S.land = null; S.lander = null; S.dust0 = -1; S.best = null; S.spawn = null; S.hz = null;

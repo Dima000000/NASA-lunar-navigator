@@ -3,3 +3,17 @@ dist/
 .DS_Store
 work/
 *.log
+
+# Scientific binaries are restored from versioned data assets, never recommitted.
+.data-cache/
+public/data/**/*.bin
+public/data/**/*.f32
+public/data/**/*.u8
+public/data/**/*.png
+public/data/**/*.jpg
+public/data/**/*.gz
+public/data/overview/
+public/data/ephem/
+public/data/delivery-manifest.json
+public/data/verification-status.json
+public/data/sites/*/height.json

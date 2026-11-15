@@ -1,0 +1,39 @@
+name: Validate review candidate
+on:
+  push:
+    branches: [fix/review-quality]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-data.txt
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - run: node tools/verify-browser-csv.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: review-validation
+          path: |
+            public/research/review-browser-qa.json
+            public/research/browser-vs-horizons.json
+            public/research/browser-export.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: review-site-build
+          path: dist

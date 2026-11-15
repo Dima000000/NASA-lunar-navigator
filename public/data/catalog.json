@@ -1,7 +1,7 @@
 [
   {
     "key": "cr",
-    "name": "Connecting Ridge \u00b7 Gl\u00e4ser spot 2",
+    "name": "Connecting Ridge · Gläser spot 2",
     "lat": -89.4399,
     "lon": -137.1476,
     "source": "https://elib.dlr.de/94242/1/EPSC2014-136-1.pdf",
@@ -9,11 +9,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 20
   },
   {
     "key": "shackleton",
-    "name": "Shackleton rim \u00b7 DEM crest",
+    "name": "Shackleton rim · DEM crest",
     "lat": -89.78031764982126,
     "lon": -156.30208440505098,
     "source": "https://pgda.gsfc.nasa.gov/products/90",
@@ -21,11 +22,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 20
   },
   {
     "key": "sdg",
-    "name": "de Gerlache rim 2 \u00b7 dGR201",
+    "name": "de Gerlache rim 2 · dGR201",
     "lat": -88.389,
     "lon": -68.865,
     "source": "https://doi.org/10.1029/2025JE009434",
@@ -33,11 +35,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 80
   },
   {
     "key": "mal",
-    "name": "Mons Malapert \u00b7 MMA_K2023",
+    "name": "Mons Malapert · MMA_K2023",
     "lat": -85.992,
     "lon": 2.056,
     "source": "https://doi.org/10.1029/2025JE009434",
@@ -45,11 +48,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 80
   },
   {
     "key": "lbp",
-    "name": "Mons Mouton \u00b7 MMO01",
+    "name": "Mons Mouton · MMO01",
     "lat": -85.416,
     "lon": 31.851,
     "source": "https://doi.org/10.1029/2025JE009434",
@@ -57,11 +61,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 80
   },
   {
     "key": "mmp",
-    "name": "Mons Mouton Plateau \u00b7 MMP01",
+    "name": "Mons Mouton Plateau · MMP01",
     "lat": -85.111,
     "lon": 26.71,
     "source": "https://doi.org/10.1029/2025JE009434",
@@ -69,11 +74,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 80
   },
   {
     "key": "haw",
-    "name": "Haworth \u00b7 HW06",
+    "name": "Haworth · HW06",
     "lat": -87.05,
     "lon": -24.24,
     "source": "https://doi.org/10.1029/2025JE009434",
@@ -81,11 +87,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 80
   },
   {
     "key": "nob1",
-    "name": "Nobile Rim 1 \u00b7 NR101",
+    "name": "Nobile Rim 1 · NR101",
     "lat": -85.295,
     "lon": 36.917,
     "source": "https://doi.org/10.1029/2025JE009434",
@@ -93,11 +100,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 80
   },
   {
     "key": "nob2",
-    "name": "Nobile Rim 2 \u00b7 NR201",
+    "name": "Nobile Rim 2 · NR201",
     "lat": -84.054,
     "lon": 56.481,
     "source": "https://doi.org/10.1029/2025JE009434",
@@ -105,11 +113,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 80
   },
   {
     "key": "cabeus",
-    "name": "Peak near Cabeus B \u00b7 PCB01",
+    "name": "Peak near Cabeus B · PCB01",
     "lat": -83.763,
     "lon": -69.983,
     "source": "https://doi.org/10.1029/2025JE009434",
@@ -117,11 +126,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 296.875
   },
   {
     "key": "slater",
-    "name": "Slater Plain \u00b7 SP01",
+    "name": "Slater Plain · SP01",
     "lat": -87.478,
     "lon": 124.521,
     "source": "https://doi.org/10.1029/2025JE009434",
@@ -129,11 +139,12 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 80
   },
   {
     "key": "cr10",
-    "name": "Connecting Ridge \u00b7 Gl\u00e4ser spot 4",
+    "name": "Connecting Ridge · Gläser spot 4",
     "lat": -89.4544,
     "lon": -137.1555,
     "source": "https://elib.dlr.de/94242/1/EPSC2014-136-1.pdf",
@@ -141,6 +152,7 @@
     "approx": false,
     "region_catalog_source": "https://www.nasa.gov/news-release/nasa-provides-update-on-artemis-iii-moon-landing-regions/",
     "region_catalog_date": "2024-10-28",
-    "status": "Research comparison point; not an approved or current Artemis III landing site"
+    "status": "Research comparison point; not an approved or current Artemis III landing site",
+    "terrain_resolution_m": 20
   }
 ]

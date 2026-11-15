@@ -1,0 +1,34 @@
+{
+  "heightM": 2,
+  "initialBatteryPercent": 80,
+  "maxHours": 24,
+  "model": "Maximum subcell slope; up to six Pareto labels per time-energy group",
+  "rows": [
+    {
+      "site": "Connecting Ridge · Gläser spot 2",
+      "utc": "2026-11-14T18:00:00.000Z",
+      "origin": {
+        "i": 240,
+        "j": 224,
+        "from": "best"
+      },
+      "reachable": 179,
+      "incomplete": false,
+      "prunedLabels": 811,
+      "expanded": 10642
+    },
+    {
+      "site": "Connecting Ridge · Gläser spot 2",
+      "utc": "2026-11-16T18:00:00.000Z",
+      "origin": {
+        "i": 240,
+        "j": 224,
+        "from": "best"
+      },
+      "reachable": 169,
+      "incomplete": false,
+      "prunedLabels": 1420,
+      "expanded": 13705
+    }
+  ]
+}

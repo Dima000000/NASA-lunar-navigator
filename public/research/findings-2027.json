@@ -1,0 +1,50 @@
+{
+  "height_m": 2,
+  "stepHours": 1,
+  "startGridHours": 6,
+  "stayHours": 168,
+  "weights": [
+    50,
+    30,
+    20
+  ],
+  "source": "Actual browser search and CSV exports",
+  "rows": [
+    {
+      "kind": "best_window",
+      "key": "cr",
+      "name": "Connecting Ridge · Gläser spot 2",
+      "height_m": 2,
+      "start": 1799496000000,
+      "end": 1800100800000,
+      "sun": 1,
+      "earth": 1,
+      "darkHours": 0,
+      "score": 1
+    },
+    {
+      "kind": "same_week_comparison",
+      "key": "sdg",
+      "name": "de Gerlache rim 2 · dGR201",
+      "height_m": 2,
+      "start": 1799496000000,
+      "end": 1800100800000,
+      "sun": 0.44047619047619047,
+      "earth": 1,
+      "darkHours": 85
+    },
+    {
+      "kind": "best_window",
+      "key": "sdg",
+      "name": "de Gerlache rim 2 · dGR201",
+      "height_m": 2,
+      "start": 1800144000000,
+      "end": 1800748800000,
+      "sun": 1,
+      "earth": 1,
+      "darkHours": 0,
+      "score": 1
+    }
+  ],
+  "errors": []
+}

@@ -1,4 +1,4 @@
-# Scientific review — 14 November 2026
+# Scientific review — updated 15 November 2026
 
 This is a research and educational planner, preserving the NASAL PR interface. It is not a NASA product, a flight dynamics simulator, a certified landing assessment, or a guaranteed power/radio-link analysis.
 
@@ -47,19 +47,23 @@ Local photographic texture: official [LROC WAC South Pole Summer Mosaic](https:/
 
 G1 is the default, named “LOLA relief.” Site sources and coordinate roles are linked. The original NASAL CSS is preserved. Original “demo terrain” labels have been removed from real-data views. The hypothetical rover and descent animation remain scenarios, and are described accordingly.
 
-Browser tests exercise terrain, landing, manual driving, comparison, window selection, CSV export, time changes and mobile display. Measured initial driving rate was about 120 FPS on the development computer. After removing repeated PSR-area work, a 4× CPU-throttled browser run averaged 64.57 FPS with a 17 ms p95 frame interval. A separate 20 s test with driving and 6 h/s timeline playback under 4× CPU throttling averaged 63.27 FPS, but the p95 frame interval was 66.7 ms: intermittent pauses remain under this combined load. See `browser-qa.json`, `ui-check.json` and `dynamic-performance.json` for results and conditions. **A separate low-end laptop has not been physically tested, so that hardware criterion remains open.**
+The reviewed staged loader presents a measured overview and usable interface first, then a default-site background load; site grids, imagery, route atlases and ephemeris years are fetched on demand. The full measured globe upgrades on interaction. Scientific grids and yearly ephemerides use byte-preserving gzip; optional 0.1 m display quantization is audited separately. Photographs alone use grayscale JPEG. See [delivery provenance](../data/PROVENANCE.md).
+
+Cold production startup on Chromium Fast 4G, fresh context/cache disabled, measured **1.15 MB / 3.60 s**, including the first overview frame. The 4× CPU / driving + 6 h/s playback run improved from the previous 63 FPS / 66.7 ms p95 to **107 FPS / 16.7 ms p95** after worker lighting/map computation. This is development-hardware evidence, not a physical low-end laptop certification. See `initial-load.json`, `review-dynamic-performance.json`, and `review-browser-qa.json`. The missing-asset test confirms three retries and a readable error instead of endless loading.
+
 
 ## 7–8. Mission windows and rover
 
 The top-five search evaluates one year with 1 h visibility samples and start times every 6 h. The chosen mission duration and Sun/Earth/short-night weights determine the score. It returns five non-overlapping stays; clicking one selects its dates. It does not optimize launch trajectories or use a lander-specific safety model.
 
-Catalogue sites use 300 km spatial horizons. Custom points retain time-aware routes with explicitly labelled crop-limited spatial horizons (16 km square, 7.5° azimuth), while their selected-pin profiles still extend to 300 km. Their spatial maps can miss distant obstructions.
+Both catalogue and custom-point spatial atlases use measured terrain rays to 300 km. Atlas cells are 533 m with 5° azimuth samples; the selected-pin profile uses 0.5°. The earlier custom crop-limited atlas has been replaced. The custom worker's centre atlas profile exactly matches the independent pin profile at common azimuths in the browser regression. Finite ray sampling can still miss narrow obstacles.
 
-Time-dependent routes use a 31×31 grid (533 m), true node coordinates, precomputed terrain horizons at 5° azimuth, 1 h time bins and 5% energy label bins. Energy remains continuous (Wh), solar power includes Sun-distance variation, and integration steps are at most 15 min; slow charging can accumulate across waiting edges, including waiting at full charge for moving shadows. Only the earliest label per time/energy bin is retained, so the search is approximate and can miss feasible alternatives. A route follows the full time/energy state chain, including charging stops. Green/orange segments show geometric Earth visibility at arrival. Coarse paths can miss obstacles narrower than a cell and must not be used for operational driving.
+Routes use the maximum fine-display-grid slope within each coarse cell, preventing averaged slopes from hiding sampled scarps; diagonal edges cannot cross blocked orthogonal cells. Each hourly / 5%-charge group retains up to six Pareto labels. Dominance checks include energy required to wait until the later arrival. Front caps and an expansion budget still make this approximate; pruning counts and incomplete results are explicit. Energy remains continuous Wh, distance-dependent solar power is retained, and integration steps are at most 15 min. Route parent labels remain stable for reconstructing time, charge and Earth visibility along the path.
+
 
 Vehicle assumptions: 160 Wh battery, initial charge 80%, tracking solar panel 0.5 m² at 28% efficiency, idle 10 W, additional driving load 45 W, flat speed 0.7 km/h, slope limit 20°. The manual 6× mode is an explicit accelerated exploration control. The no-drain control remains an explicit exploration override. There is no thermal, eclipse, panel pointing limit, wheel/soil traction or radio link-budget model. Positive time scrubs integrate changing light; moving backwards resets the vehicle battery scenario.
 
-The browser check changed the start by 48 h: the number of reachable grid cells changed from **393 to 331**. This demonstrates time dependence; it is not a universal performance result.
+For Connecting Ridge, the same-origin 24 h search starting at 2026-11-14 18:00 UTC versus 2026-11-16 18:00 UTC, 2 m mast and 80% initial battery, changes reachable nodes from **179 to 169** (−5.6%). Both searches completed within their budget; front pruning remains approximate. See `rover-timing-findings.json`. The earlier 393→331 count belongs to the previous slope/label model and must not be advertised as the new result.
 
 ## 9. Candidate catalogue and mission naming
 
@@ -76,3 +80,6 @@ The implemented planner supports the central brief confirmed in the official cha
 Scientific sources are NASA/JPL NAIF, NASA LOLA/PGDA, NASA SVS and LROC; journal papers provide comparison values and research coordinates. The runtime elevation, ephemeris, PSR and global colour arrays were **rebuilt directly from authoritative NASA/JPL archives** in a successful GitHub Actions run, then tested against fresh JPL tables and a real browser CSV export. Official URLs, complete-download hashes and extracted COG-window hashes are in `data/direct-source-audit.json`. Local LROC imagery was downloaded directly from the official service. Earlier development used an attributed scientific mirror; its runtime arrays have been replaced. No application code from the data mirror is used. The original interface is the user-specified NASAL PR. [Detailed provenance](../data/PROVENANCE.md).
 
 Remaining submission gates: team/event-specific project-submission checks; physical low-end laptop testing; physical mission/vehicle validation beyond this educational model. The 10 m Shackleton publication consistency check and direct NASA runtime-data rebuild are complete.
+
+
+The 2027 seven-day window findings and actual browser exports are in `findings-2027.csv` / `findings-2027-export-*.csv`. They demonstrate a real site/date trade-off: de Gerlache has an 85 h longest night during the selected Connecting Ridge week, but no sampled night in its own best week.

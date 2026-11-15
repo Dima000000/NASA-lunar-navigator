@@ -1,1 +1,35 @@
-{"name":"nasal-science-planner","version":"0.2.0","private":true,"type":"module","scripts":{"start":"vite --host 127.0.0.1","build":"vite build","preview":"vite preview --host 127.0.0.1","test":"node tests/science.test.mjs"},"devDependencies":{"vite":"8.3.8"},"engines":{"node":">=22.12.0"}}
+{
+  "name": "nasal-science-planner",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node tests/science.test.mjs",
+    "prepare:data": "python tools/bootstrap-data.py && python tools/prepare-delivery.py",
+    "prestart": "npm run prepare:data",
+    "prebuild": "npm run prepare:data",
+    "pretest": "npm run prepare:data",
+    "test:browser": "node tools/browser-review.mjs",
+    "findings": "node tools/findings-in-browser.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1",
+    "prettier": "^3.10.1",
+    "vite": "8.3.8"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "license": "MIT",
+  "ai_assistance": {
+    "tools": [
+      "OpenAI Codex",
+      "Claude (user-described earlier prototype/review history)"
+    ],
+    "scope": "Implementation, preparation, validation scripts and documentation; team-supplied concept and requirements. See AI_USE.md.",
+    "human_acceptance": "Pending team review; automated validation is not human acceptance."
+  }
+}

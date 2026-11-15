@@ -5,6 +5,7 @@ uniform vec3 uSun;
 uniform vec3 uEarth;
 uniform vec3 uCam;
 uniform float uLineW;
+uniform float uFineExtent;
 uniform sampler2D uAlbedo;
 uniform sampler2D uHeightGlobal;
 uniform sampler2D uHeightPolar;
@@ -17,7 +18,8 @@ float elevation(vec3 u){
  if(lat<radians(-79.9)){
   float rho=2.*R*tan((PI/2.+lat)/2.);
   vec2 p=rho*vec2(sin(lon),cos(lon));
-  if(max(abs(p.x),abs(p.y))<163700.)return decodeHeight(texture2D(uHeightFine,(p+163840.)/327680.).rgb);
+  // Initial overview textures share the 608 km polar extent. Local scientific grids load separately.
+  if(max(abs(p.x),abs(p.y))<163700.)return decodeHeight(texture2D(uHeightFine,(p+uFineExtent)/(2.*uFineExtent)).rgb);
   if(max(abs(p.x),abs(p.y))<303700.)return decodeHeight(texture2D(uHeightPolar,(p+304000.)/608000.).rgb);
  }
  return decodeHeight(texture2D(uHeightGlobal,vec2(lon/(2.*PI)+.5,lat/PI+.5)).rgb);

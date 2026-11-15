@@ -1,0 +1,296 @@
+{
+  "baseline_commit": "7a6cc202bd612e1e6037d648cd12ca05332c5984",
+  "release_tag": "data-v20261115",
+  "files": [
+    {
+      "path": "connecting-ridge.png",
+      "bytes": 272787,
+      "sha256": "731d3dc0604e65ec662656b695e22d6ad1474492fb04feee0df6bbb2656b81ad"
+    },
+    {
+      "path": "de-gerlache-rim.png",
+      "bytes": 276915,
+      "sha256": "f80ebb3d80ea70c544b4f7b07117bd970b80a684222e704caf2da765beee5942"
+    },
+    {
+      "path": "ephem.bin",
+      "bytes": 3366176,
+      "sha256": "fd1b472bf2a2bf0fae30ac72ab7ebf73685ba385fcbf9db26660fc762f6684cc"
+    },
+    {
+      "path": "malapert-massif.png",
+      "bytes": 267245,
+      "sha256": "4c5204a2d57016ae4ac25beba0d50cfed1d8d4b33ea9a0af7fd8ee7ad4c6e55e"
+    },
+    {
+      "path": "moon_color_4k.jpg",
+      "bytes": 2862078,
+      "sha256": "3b93e610e5f27ad82badc7830460d0bb0d3400df22dbb0fa9b2803a834a35f03"
+    },
+    {
+      "path": "moon_dem_4k.png",
+      "bytes": 13178575,
+      "sha256": "9b902e50910bee454dfadcc7c029b759502207c20fe59e2abe3f8da82237f0de"
+    },
+    {
+      "path": "psr.png",
+      "bytes": 89052,
+      "sha256": "093cff5ceefcd07fadccb1ee7b00160fa5d88a70f6fb257fbbf8cc874eb6a2bb"
+    },
+    {
+      "path": "shackleton-rim.png",
+      "bytes": 290343,
+      "sha256": "2f1f66458a4418e0ff5f40452082d3242b78fa34e85d9934a6fb27d675379b05"
+    },
+    {
+      "path": "sp_dem_L0.png",
+      "bytes": 5740160,
+      "sha256": "d6d460ba908586d8309800c088daaf2d3d1e06ed319680a7856076639a84596b"
+    },
+    {
+      "path": "sp_dem_L1.png",
+      "bytes": 16160510,
+      "sha256": "56f8b94109e08fda8772cf8501a52c0eac375f8666b0fe37ac368bad58cb101f"
+    },
+    {
+      "path": "sites/cabeus/dem.f32",
+      "bytes": 925444,
+      "sha256": "43ba3265acd33e6179a8890f5ca13a14b51a461000e5580c5b1c9fa59dfeace6"
+    },
+    {
+      "path": "sites/cabeus/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "b497e2cb1ab1339cafdce669542d7e26f1635b5b8977ccc9a5bb6d4a7d1c81b9"
+    },
+    {
+      "path": "sites/cabeus/lroc-wac.png",
+      "bytes": 82479,
+      "sha256": "a7af4f6370c19d08d1cbec32ac9fbd3d7cf0432b30d7094984277e327d9a3eb2"
+    },
+    {
+      "path": "sites/cabeus/psr.u8",
+      "bytes": 231361,
+      "sha256": "773cccf31283c8b23c8170fdf07b5dc5e3dc50bfd7a079a6e8270497cb8fd7e5"
+    },
+    {
+      "path": "sites/cr/dem.f32",
+      "bytes": 925444,
+      "sha256": "c27abd4497f56aa421e6c0bca2a62e6d6a820dea076563250da97412e9ee4a35"
+    },
+    {
+      "path": "sites/cr/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "fe2a6970f1551272c1aaada487ccf3b6715900da44a65eb61508d93b960887d3"
+    },
+    {
+      "path": "sites/cr/lroc-wac.png",
+      "bytes": 90723,
+      "sha256": "6fac332deab30c3ac8964b09676bb05e50ad41548a75e20cff7e4d5b8b6d2fa0"
+    },
+    {
+      "path": "sites/cr/psr.u8",
+      "bytes": 231361,
+      "sha256": "6347d9fc0fa635d0f31b6944419fddcd4b4483e12bdc468e8465a2f98acbf212"
+    },
+    {
+      "path": "sites/cr10/dem.f32",
+      "bytes": 925444,
+      "sha256": "2c1d2e77de6f0926d4ba14430a79d147c49f2d017bb282a0234a063803cae5a5"
+    },
+    {
+      "path": "sites/cr10/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "6378a011c71a5b3709aaad50d0ac3e7226d156fd9d9f301e87903dd6665ceaeb"
+    },
+    {
+      "path": "sites/cr10/lroc-wac.png",
+      "bytes": 89501,
+      "sha256": "cc732d245d3aded98588a333cbcafcda2eb941af5d9b750c1c28fed3448113bb"
+    },
+    {
+      "path": "sites/cr10/psr.u8",
+      "bytes": 231361,
+      "sha256": "94934c264745a21d48104da8297e2173d4c7ec3292be1b9150993272430f19c6"
+    },
+    {
+      "path": "sites/haw/dem.f32",
+      "bytes": 925444,
+      "sha256": "5ecf2f6f59005715ce300d2afd6bb38c14eb0162282c9b6de4c7a917a6c6db97"
+    },
+    {
+      "path": "sites/haw/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "2994c97c8955825f795e50666f4e33b064b77e080819d7a4f4aafe24a33b51cb"
+    },
+    {
+      "path": "sites/haw/lroc-wac.png",
+      "bytes": 79128,
+      "sha256": "38d32f87fc0393e258357b46737d8a442cb5f084c41285521403b15ecf4aee0e"
+    },
+    {
+      "path": "sites/haw/psr.u8",
+      "bytes": 231361,
+      "sha256": "6353637879899dee3f2b63a5f38838a423e5da7c0308f013b990bea170b90f18"
+    },
+    {
+      "path": "sites/lbp/dem.f32",
+      "bytes": 925444,
+      "sha256": "4a07e8360a23bffbbcb77d8cffe383cdde79d5b894cdf90f5ba84261e99062d3"
+    },
+    {
+      "path": "sites/lbp/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "1ad70b8363ab030b2503b33601c8c00ee4e34f8180afd88ae5d45c3445f384fc"
+    },
+    {
+      "path": "sites/lbp/lroc-wac.png",
+      "bytes": 84997,
+      "sha256": "c989e79a93da080a5174a62d2bf6e7b905622f7b55b4f8f74e0f39145340fa0e"
+    },
+    {
+      "path": "sites/lbp/psr.u8",
+      "bytes": 231361,
+      "sha256": "998e9f42aee71733ed46231f51ee07ac0c04ea4fe920117e9e6d5f13b8082195"
+    },
+    {
+      "path": "sites/mal/dem.f32",
+      "bytes": 925444,
+      "sha256": "9d2013c29a73ee6f1ab6d082eb2031b5262b947d5fe010fe2a0281b86e73deae"
+    },
+    {
+      "path": "sites/mal/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "17361bb426284d3b8bff4d9bf403a593225768cd8295c909f678fecb0ab804c8"
+    },
+    {
+      "path": "sites/mal/lroc-wac.png",
+      "bytes": 73283,
+      "sha256": "568f61a41347d9c3950438db95248c0f823a8a402df412463ce6215bd845dc1d"
+    },
+    {
+      "path": "sites/mal/psr.u8",
+      "bytes": 231361,
+      "sha256": "e12d5a7037a316968a70c02f19a38f81c8150643176820b0791ec1d7bb6bf4f8"
+    },
+    {
+      "path": "sites/mmp/dem.f32",
+      "bytes": 925444,
+      "sha256": "794a5810763ac43f9310ff61660b5f368415d7cb10c36464025fbbea9c10d225"
+    },
+    {
+      "path": "sites/mmp/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "79677cce0991aa9fde74ce7e38dd16dc5d4f90f9bad270cd355057fa8b13042e"
+    },
+    {
+      "path": "sites/mmp/lroc-wac.png",
+      "bytes": 110379,
+      "sha256": "d48190be6f3b09234f508671aaa392b2d558aeaa19921354c7710a67eb3a3d32"
+    },
+    {
+      "path": "sites/mmp/psr.u8",
+      "bytes": 231361,
+      "sha256": "2176c929182ee5edefd09d3a0a74f43c3cef22bcfe519b53f23894d0ed15b7a1"
+    },
+    {
+      "path": "sites/nob1/dem.f32",
+      "bytes": 925444,
+      "sha256": "a1db963ed75a0c5bcb57a859a882ba874b5bde8eeeb167c300cc23657c1296a8"
+    },
+    {
+      "path": "sites/nob1/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "b72ddc597eaa349e8641ca812ca21758e1faef6492c4312b3fd0877725a31a2a"
+    },
+    {
+      "path": "sites/nob1/lroc-wac.png",
+      "bytes": 89475,
+      "sha256": "abf0cbe4a1b38a77df100dc35f126af90153d343fa67f0447ae3a2eca6c727a6"
+    },
+    {
+      "path": "sites/nob1/psr.u8",
+      "bytes": 231361,
+      "sha256": "33ab0079c5a05d4b615016837909d5ce82114669cc18ee8c3bbb999022d76da2"
+    },
+    {
+      "path": "sites/nob2/dem.f32",
+      "bytes": 925444,
+      "sha256": "975e0b107743716c99cc86494e59235ce612b27899db3ade8734ae7cd3751ea7"
+    },
+    {
+      "path": "sites/nob2/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "23d6b3afdc071cc2e3a6d6e8532ac3f8917eb716b745a7fcc2851ffdf521c66f"
+    },
+    {
+      "path": "sites/nob2/lroc-wac.png",
+      "bytes": 74568,
+      "sha256": "99ce3e4f9a08db761f6f32368ce5bfcf85a5c4b6240871542be2088411db0cea"
+    },
+    {
+      "path": "sites/nob2/psr.u8",
+      "bytes": 231361,
+      "sha256": "39e5b6a6d07aaf2a83a4ffc78baa29934479ff6982f16caa2e6da2392baccc1d"
+    },
+    {
+      "path": "sites/sdg/dem.f32",
+      "bytes": 925444,
+      "sha256": "34825f11d4bee66d8ce0d57a8ead59319fbb9bc6ae9ad2112a74e0769f443ad1"
+    },
+    {
+      "path": "sites/sdg/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "f049cb4db7bad69839ba534792bab2e5a7f7902cbb93397bac2a6ee890dace1d"
+    },
+    {
+      "path": "sites/sdg/lroc-wac.png",
+      "bytes": 94216,
+      "sha256": "0792d2b33bb049608fb7d2edce7641c3cca48169a8e86b6a8edf06563205b390"
+    },
+    {
+      "path": "sites/sdg/psr.u8",
+      "bytes": 231361,
+      "sha256": "6e014aa13dcea95060eebafb9da9a2e44935378ce3c0b87861dd0598a465d2e0"
+    },
+    {
+      "path": "sites/shackleton/dem.f32",
+      "bytes": 925444,
+      "sha256": "2fe02bc9f0713a0bdff44d6a6a08c1fa77d06715500f3bc5e1e5542c7f646bc9"
+    },
+    {
+      "path": "sites/shackleton/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "9eedb57e4f541bbee71268d1770239525727dd31efe0d143f860eef52e83caab"
+    },
+    {
+      "path": "sites/shackleton/lroc-wac.png",
+      "bytes": 74281,
+      "sha256": "eedb60b2fc5560c22bd3267b5dfb1e1818cd96b2fb5f3d48b5e17d1690847c35"
+    },
+    {
+      "path": "sites/shackleton/psr.u8",
+      "bytes": 231361,
+      "sha256": "915a44908c1c66a530a531d31da812800a6d5a331758733603b6848568f79667"
+    },
+    {
+      "path": "sites/slater/dem.f32",
+      "bytes": 925444,
+      "sha256": "bce40c2f133062d3ade5a32283ddf7373dfd15601494e35503ff11cd6d4ec215"
+    },
+    {
+      "path": "sites/slater/horizon-atlas.f32",
+      "bytes": 830304,
+      "sha256": "c466e4ef4d8bd766be5776ef87810c7a7b87cabf4fa053978a821189618f9153"
+    },
+    {
+      "path": "sites/slater/lroc-wac.png",
+      "bytes": 74652,
+      "sha256": "be06723af9e0c0d448aa029879f2ac99495d9d2efe3916f3bde93decb2250a38"
+    },
+    {
+      "path": "sites/slater/psr.u8",
+      "bytes": 231361,
+      "sha256": "fb5fcdf483507ecd606421155c02ea608ec998c3968b91a09386e4b7ecff0b25"
+    }
+  ]
+}

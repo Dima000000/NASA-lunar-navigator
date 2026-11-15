@@ -1,0 +1,11 @@
+{
+  "conditions": "1440x1000 Edge headless, 4x CPU throttle, driving + 6x timeline playback, 20 s sample; not a separate low-end laptop",
+  "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics     ",
+  "durationMs": 20002.10000000149,
+  "frames": 2147,
+  "meanMs": 9.316301816488796,
+  "p95Ms": 16.700000000000728,
+  "p99Ms": 24,
+  "fps": 107.33872943340174,
+  "errors": []
+}
