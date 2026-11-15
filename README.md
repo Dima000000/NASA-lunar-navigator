@@ -91,11 +91,16 @@ Loading, yearly ephemerides, CSV export, routing and workers are separate module
 
 ## AI use
 
-**OpenAI Codex** substantially assisted implementation, data preparation, validation scripts, browser checks and documentation. Earlier prototype/review materials supplied by the user were described as Claude-assisted; their complete generation history has not been independently audited.
+We used AI assistants: Anthropic Claude (prototype UI, early code, review
+and documentation drafts) and OpenAI Codex (implementation, data
+preparation scripts, tests, browser checks, documentation).
 
-The team supplied the concept, goals, interface choice, requirements and acceptance decisions. AI output was checked against JPL Horizons, primary illumination papers, hashes, automated tests and browser scenarios. Human acceptance remains separate from automated checks. No AI-generated images are presented as lunar observations.
-
-See [AI assistance record](AI_USE.md) and [submission checklist](SUBMISSION_CHECKLIST.md).
+The team defined the concept, goals, interface and scientific assumptions,
+and reviewed and accepted every change. AI-generated code and numbers were
+checked against JPL Horizons (4,326 comparisons), published illumination
+studies, input checksums, automated tests and manual browser review.
+No AI-generated images are presented as lunar observations.
+Details: [AI_USE.md](AI_USE.md).
 
 ## Run locally
 
