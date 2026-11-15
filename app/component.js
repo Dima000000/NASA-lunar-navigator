@@ -799,6 +799,7 @@ window.NASALComponent = class Component extends DCLogic {
           const ox = X(rc.o.i), oy = Y(rc.o.j); ctx.beginPath(); ctx.arc(ox, oy, W > 300 ? 6 : 4.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
         }
       }
+      for(const [rank,p]of (s.bestSpots||[]).entries()){const x=X(p.i*(N-1)/30),y=Y(p.j*(N-1)/30);ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fillStyle='#F2C94C';ctx.fill();ctx.fillStyle='#111';ctx.font='bold 11px Inter';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(rank+1),x,y);}
       const fs = W > 300 ? 13 : 11;
       ctx.font = '700 ' + fs + 'px -apple-system, Inter, sans-serif'; ctx.fillStyle = '#FF6961'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText('N', W - 14, 6);
       const kmPx = W / dem.L * 2, bx = 10, by = W - 10;
@@ -2121,6 +2122,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         key(name, on) { S.keys[name] = on; },
         joystick(x,y){S.joyTarget={x,y};},
         resetRover() { S.spawn = null; if (S.view === 'drive') initDrive(); S.dirty = true; },
+        focusGrid(i,j){S.tc.tgt=gridToWorld(i,j);S.tc.dist=2.5;S.tc.pitch=.4;S.dirty=true;},
         zoom(k) { zoom(k); },
         setDriveZoom(value){S.dc.zoomTarget=clamp(value,.005,24);S.dirty=true;},
         getDriveZoom(){return S.dc.zoomTarget||S.dc.dist;},

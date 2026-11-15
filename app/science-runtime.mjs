@@ -388,6 +388,8 @@ export function enhancedComponent(Base, S) {
       );
       this.syncWorkerYears();
       this._scienceWorker.onmessage = ({ data: m }) => {
+        if(m.type==='bestProgress'&&m.job===this._bestJob){this._bestProgress=m.progress;return;}
+        if(m.type==='bestSpots'&&m.job===this._bestJob){this.setState({bestSpots:m.rows,bestStatus:'Top five spots · 533 m grid · hourly samples'});return;}
         if(m.type==='trip'){this._trip=m;this.setState({});return;}
         if(m.type==='routeProgress'&&m.job===this._routeJob){this._routeExpanded=m.expanded;return;}
         if (m.type === "windows") {
