@@ -41,6 +41,7 @@ try {
     );
     NASAL.setState({ ti: 13 });
     NASAL._tf = 13;
+    NASAL.setState({ driveTimeScale: 300 });
   });
   await p.getByRole("button", { name: "Drive", exact: true }).click();
   await p.waitForFunction(() => NASAL.terrReady());
@@ -85,6 +86,7 @@ try {
     ({ start, heading }) => ({
       metres: (NASAL.state.rover.dist - start.distance) * 1000,
       modelSeconds: (NASAL._visualUTC - start.time) / 1000,
+      selectedTimeMultiplier: NASAL.state.driveTimeScale,
       headingChange: NASAL.state.rover.heading - heading,
       scrollY,
       joystick: document.querySelector(".joystick").style.cssText,

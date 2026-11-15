@@ -35,6 +35,18 @@ try {
     NASAL._shadeWorker.terminate();
     NASAL._scienceWorker.terminate();
     NASAL._navWorker.terminate();
+    // Detach the live component: an already queued update must not replace the fixture.
+    window.fixtureEngine = NASAL.eng;
+    NASAL.eng = null;
+    NASAL.setState = () => {};
+    NASAL.componentDidUpdate = () => {};
+    const glCanvas = NASAL._glEl;
+    for (const el of document.querySelectorAll("body *"))
+      el.style?.setProperty(
+        "visibility",
+        el === glCanvas ? "visible" : "hidden",
+        "important",
+      );
   });
   await p.addStyleTag({
     content:
@@ -54,8 +66,8 @@ try {
               ? 2 * Math.exp(-Math.pow((L / 2 - j * cell) / 0.16, 2))
               : 0;
         const d = { N, L, cell, h, slope };
-        NASAL.eng.setTerrain(d, key);
-        NASAL.eng.set({
+        window.fixtureEngine.setTerrain(d, key);
+        window.fixtureEngine.set({
           view: "terrain",
           rover: null,
           drivePaused: true,
@@ -78,7 +90,21 @@ try {
       },
       { ridge, route, key },
     );
-    await p.waitForTimeout(200);
+    // Wait for a new painted frame, independent of the renderer's wall-clock speed.
+    await p.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    assert.equal(
+      await p.evaluate(() => window.fixtureEngine.terrainKey()),
+      key,
+    );
+    assert.equal(
+      await p.evaluate(() => window.fixtureEngine.getDriveState()),
+      null,
+    );
     const bytes = await p.screenshot({ path: `${out}/${key}.png` });
     return p.evaluate(async (base64) => {
       const im = new Image();
