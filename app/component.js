@@ -1924,6 +1924,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         const goal = S.target || S.best;
         if (!S.terr || !goal) return false;
         const T = gridToWorld(goal.i, goal.j), a = (S.tSun.az + 120) * D2R, dh = [Math.sin(a), 0, -Math.cos(a)];
+        S.descentTrail=[];S.trailEnded=0;
         S.land = { t0: performance.now(), T: T, P0: add(T, add(scl(dh, 2.8), [0, 2.1, 0])), P1: add(T, add(scl(dh, 1.2), [0, 1.3, 0])), P2: add(T, add(scl(dh, 0.12), [0, 0.45, 0])), P3: add(T, [0, 0.13, 0]), yaw: a, lastY: null, vs: 0 };
         S.dust0 = -1; S.landLit = Math.max(0.03, shadeAtW(T[0], T[2]));
         S.tc.yaw = a + 1.9; S.tc.pitch = 0.3; S.dirty = true;
@@ -1939,10 +1940,13 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (t > 7.3 && S.dust0 < 0) S.dust0 = now;
         if (L.lastY !== null && dt > 0) L.vs = lerp(L.vs, (L.lastY - pos[1]) * 1000 / dt, 0.15);
         L.lastY = pos[1];
+        if(!S.lastTrailPoint||now-S.lastTrailPoint>80){S.lastTrailPoint=now;S.descentTrail.push({pos:pos.slice(),time:now});}
         S.lander = { pos: pos, base: L.T, yaw: L.yaw, tilt: tilt, thr: thr, lit: S.landLit };
         S.tc.tgt = add(pos, [0, 0.003, 0]); S.tc.dist = Math.exp(lerp(Math.log(2.6), Math.log(0.045), ease(Math.min(1, t / 8.4)))); S.tc.yaw += dt * 0.12;
-        if (t > 10.5) { S.land = null; S.spawn = add(L.T, [0.012, 0, 0.012]); cb.onLanded && cb.onLanded(); }
+        if (t > 10.5) { S.trailEnded=now;S.land = null; S.spawn = add(L.T, [0.012, 0, 0.012]); cb.onLanded && cb.onLanded(); }
       }
+
+      function drawDescentTrail(F,now){const points=S.descentTrail;if(!points?.length)return;const fade=S.trailEnded?Math.max(0,1-(now-S.trailEnded)/6000):1;if(!fade)return;for(let i=1;i<points.length;i++){const a=toScreen(F.PV,points[i-1].pos),b=toScreen(F.PV,points[i].pos);if(!a||!b)continue;g2.globalAlpha=fade*(i/points.length)*.8;g2.strokeStyle='#F2C94C';g2.shadowColor='#FFD60A';g2.shadowBlur=8;g2.lineWidth=2;g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();}g2.globalAlpha=fade;g2.shadowBlur=0;pill(18,S.H-220,'Illustrative descent path, not a computed trajectory',{size:11});g2.globalAlpha=1;}
 
       // ---- driving ----
       function stepDrive(now, dt) {
@@ -2001,6 +2005,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           if (S.fade <= 0) { S.fade = 0; S.fadeDir = 0; }
           anim = true;
         }
+        if(S.trailEnded&&now-S.trailEnded<6000)anim=true;
         if (S.land) { stepLanding(now, dt); anim = true; }
         if (S.dust0 > 0 && now - S.dust0 < 4500) anim = true;
         if (S.view === 'drive' && S.rover) { if(S.dc.zoomTarget)S.dc.dist=lerp(S.dc.dist,S.dc.zoomTarget,1-Math.exp(-dt*16));stepDrive(now, dt); anim = true; }
@@ -2014,7 +2019,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         g2.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); g2.clearRect(0, 0, S.W, S.H);
         if (S.view === 'region') { const F = drawRegion(); drawOverlayRegion(F, now); lastF = F; }
-        else { const cam = S.view === 'drive' && S.rover ? driveCam() : terrCam(); const F = drawGround(cam, now); drawOverlayGround(F, now); lastF = null; }
+        else { const cam = S.view === 'drive' && S.rover ? driveCam() : terrCam(); const F = drawGround(cam, now); drawOverlayGround(F, now); drawDescentTrail(F,now); lastF = null; }
         if (S.fade > 0) { g2.fillStyle = 'rgba(0,0,0,' + S.fade.toFixed(3) + ')'; g2.fillRect(0, 0, S.W, S.H); }
       }
       raf = requestAnimationFrame(frame);
