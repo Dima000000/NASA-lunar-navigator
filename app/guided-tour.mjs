@@ -1,14 +1,14 @@
 const KEY = "lunar-navigator-tour-v1";
 const steps = [
   [
-    ".stage",
+    null,
     "Explore the real Moon",
-    "This is the real south pole of the Moon, from NASA LOLA terrain. Drag the scene to look around.",
+    "This is the real Moon, built from NASA LOLA terrain. Drag to look around and scroll to zoom; click a place pin to fly down to its terrain.",
   ],
   [
-    ".plist",
+    ".card:has(.plist)",
     "Pick a landing site",
-    "Choose a named place here, or select a point on the map to inspect the terrain.",
+    "Choose a named place here, or use + Add place to drop your own point on the Moon.",
   ],
   [
     ".mission-selector",
@@ -21,9 +21,9 @@ const steps = [
     "Press play to watch the Sun, Earth and shadows move. Playback speed is in Options.",
   ],
   [
-    ".planning-actions",
+    ".sheet .sect:has(.planning-actions)",
     "Find a useful opportunity",
-    "Find top 5 windows searches dates for this place. Best spots for these dates searches positions for your mission.",
+    "Find top 5 windows ranks the best landing dates for the selected place. Best spots for these dates ranks nearby positions for your mission dates.",
   ],
   [
     ".topr .seg",
@@ -37,6 +37,13 @@ export class GuidedTour {
     this.index = -1;
     this.key = (e) => {
       if (this.index < 0 || e.target.matches("input,select,textarea")) return;
+      // Keys on app controls (e.g. the mission handles) belong to those controls.
+      if (
+        e.key !== "Escape" &&
+        e.target !== document.body &&
+        !this.card?.contains(e.target)
+      )
+        return;
       if (
         ["Enter", "ArrowRight", "ArrowLeft", "Escape", "Tab"].includes(e.key)
       ) {
@@ -54,6 +61,18 @@ export class GuidedTour {
       }
     };
     this.resize = () => this.position();
+    // Targets move when panels open or reflow; keep the outline glued to them.
+    this.track = () => {
+      if (this.index < 0) return;
+      const r = this.selector
+        ? document.querySelector(this.selector)?.getBoundingClientRect()
+        : null;
+      const key = r
+        ? [r.left, r.top, r.width, r.height].map(Math.round).join()
+        : "";
+      if (key !== this.lastRect) this.position();
+      this.trackFrame = requestAnimationFrame(this.track);
+    };
     window.addEventListener("keydown", this.key, true);
     window.addEventListener("resize", this.resize);
     window.addEventListener("scroll", this.resize, true);
@@ -105,43 +124,77 @@ export class GuidedTour {
     this.selector = selector;
     cancelAnimationFrame(this.frame);
     this.frame = requestAnimationFrame(() => {
-      document.querySelector(selector)?.scrollIntoView({ block: "nearest" });
+      if (selector)
+        document.querySelector(selector)?.scrollIntoView({ block: "nearest" });
       this.position();
       this.card.querySelector(".tour-next").focus({ preventScroll: true });
+      cancelAnimationFrame(this.trackFrame);
+      this.trackFrame = requestAnimationFrame(this.track);
     });
   }
   position() {
     if (this.index < 0 || !this.root) return;
-    const el = document.querySelector(this.selector),
+    const el = this.selector ? document.querySelector(this.selector) : null,
       w = innerWidth,
       h = innerHeight,
-      r = el?.getBoundingClientRect() || {
-        left: 20,
-        top: 20,
-        width: w - 40,
-        height: h / 3,
-      };
-    const focus = this.root.querySelector(".tour-focus"),
-      full = this.selector === ".stage";
-    Object.assign(focus.style, {
-      left: (full ? 20 : Math.max(4, r.left - 5)) + "px",
-      top: (full ? 100 : Math.max(4, r.top - 5)) + "px",
-      width: (full ? w - 40 : Math.min(w - 8, r.width + 10)) + "px",
-      height:
-        (full ? Math.max(80, h / 3) : Math.min(h - 8, r.height + 10)) + "px",
-    });
-    const ch = this.card.offsetHeight,
-      cw = this.card.offsetWidth;
-    let top = r.bottom + 18;
-    if (top + ch > h - 12) top = Math.max(12, r.top - ch - 18);
-    if (w < 600) top = h - ch - 12;
-    Object.assign(this.card.style, {
-      top: top + "px",
-      left: Math.max(12, Math.min(w - cw - 12, r.left)) + "px",
-    });
-    if (w < 600 && top < r.bottom + 8 && top + ch > r.top) {
-      this.card.style.top = "12px";
+      focus = this.root.querySelector(".tour-focus"),
+      ch = this.card.offsetHeight,
+      cw = this.card.offsetWidth,
+      gap = 16,
+      clampX = (x) => Math.max(12, Math.min(w - cw - 12, x)),
+      clampY = (y) => Math.max(12, Math.min(h - ch - 12, y));
+    const b = el?.getBoundingClientRect();
+    this.lastRect = b
+      ? [b.left, b.top, b.width, b.height].map(Math.round).join()
+      : "";
+    // Steps about the whole scene have no target: no outline, no dimming.
+    if (!b || !b.width || !b.height) {
+      focus.style.display = "none";
+      this.root.classList.add("tour-free");
+      const top = w < 600 ? h - ch - 12 : 88;
+      Object.assign(this.card.style, {
+        top: clampY(top) + "px",
+        left: clampX((w - cw) / 2) + "px",
+      });
+      return;
     }
+    this.root.classList.remove("tour-free");
+    focus.style.display = "";
+    // Sections without their own padding get a bit more room inside the outline.
+    const pad = el.matches(".sect") ? 10 : 5,
+      left = Math.max(4, b.left - pad),
+      top = Math.max(4, b.top - pad),
+      right = Math.min(w - 4, b.right + pad),
+      bottom = Math.min(h - 4, b.bottom + pad),
+      r = { left, top, right, bottom };
+    Object.assign(focus.style, {
+      left: left + "px",
+      top: top + "px",
+      width: right - left + "px",
+      height: bottom - top + "px",
+    });
+    // Place the card next to the target without covering it: below, above,
+    // left, right; otherwise the corner that overlaps it least.
+    const fits = (x, y) => x >= 12 && y >= 12 && x + cw <= w - 12 && y + ch <= h - 12;
+    const options = [
+      [clampX(r.left), r.bottom + gap],
+      [clampX(r.left), r.top - gap - ch],
+      [r.left - gap - cw, clampY(r.top)],
+      [r.right + gap, clampY(r.top)],
+    ];
+    let pos = options.find(([x, y]) => fits(x, y));
+    if (!pos) {
+      const overlap = ([x, y]) =>
+        Math.max(0, Math.min(x + cw, r.right) - Math.max(x, r.left)) *
+        Math.max(0, Math.min(y + ch, r.bottom) - Math.max(y, r.top));
+      pos = [
+        [12, 12],
+        [w - cw - 12, 12],
+        [12, h - ch - 12],
+        [w - cw - 12, h - ch - 12],
+      ].sort((p, q) => overlap(p) - overlap(q))[0];
+    }
+    Object.assign(this.card.style, { left: pos[0] + "px", top: pos[1] + "px" });
   }
   stop() {
     try {
@@ -149,6 +202,7 @@ export class GuidedTour {
     } catch {}
     this.index = -1;
     cancelAnimationFrame(this.frame);
+    cancelAnimationFrame(this.trackFrame);
     this.root?.remove();
     this.root = null;
     this.app.setState({
@@ -160,6 +214,7 @@ export class GuidedTour {
   destroy() {
     this.index = -1;
     cancelAnimationFrame(this.frame);
+    cancelAnimationFrame(this.trackFrame);
     this.root?.remove();
     window.removeEventListener("keydown", this.key, true);
     window.removeEventListener("resize", this.resize);

@@ -93,7 +93,7 @@ try {
   const t0 = await p.evaluate(() => NASAL._visualUTC);
   await p.waitForTimeout(500);
   assert.equal(await p.evaluate(() => NASAL._visualUTC), t0);
-  await p.getByRole("button", { name: "Mission", exact: true }).click();
+  await p.getByRole("button", { name: "Rover", exact: true }).click();
   await p
     .getByRole("spinbutton", { name: "Mission time multiplier" })
     .fill("12.5");
@@ -107,7 +107,7 @@ try {
         "12.5",
   );
   assert.equal(await input.inputValue(), "12.5");
-  await p.getByRole("button", { name: "Mission", exact: true }).click();
+  await p.getByRole("button", { name: "Rover", exact: true }).click();
   report.checks.push(
     "Free numeric editing survives live refresh; Enter commits, pause stops time, Mission input stays synchronised",
   );

@@ -1,4 +1,5 @@
 import {surfacePath,modelStepSeconds} from './drive-navigation.mjs';
+import {VEHICLE,solarPower,AU_KM} from './science-core.mjs';
 import {buildCSV} from './csv-export.mjs';
 export const DRIVE_START_DISTANCE = 0.025;
 const ILLUSTRATIVE_APPROACH_AZIMUTH = 120;
@@ -39,13 +40,14 @@ window.NASALComponent = class Component extends DCLogic {
       const s = this.state;
       const driving=s.view==='drive'&&!s.landing;
       if (!s.playing&&!driving) { this._lastT = now; this._tf = s.ti; return; }
-      const dt = Math.min(0.1, (now - (this._lastT || now)) / 1000);
+      // Drive: real elapsed time (up to 0.5 s for slow frames) times the multiplier, so 1 s at 3600x is 1 simulated hour.
+      const dt = Math.min(driving ? 0.5 : 0.1, (now - (this._lastT || now)) / 1000);
       this._lastT = now;
       const n = this._ser ? this._ser.n : 2;
       if (this._tf === undefined || this._tf === null) this._tf = s.ti;
       if(driving&&s.drivePaused){this.renderContinuousTime?.(s.start+this._tf*s.stepH*3600000,now);return;}
       this._tf += (driving?modelStepSeconds(dt,s.driveTimeScale??60)/3600:dt*s.speed) / s.stepH;
-      if (this._tf > n - 1) this._tf = 0;
+      if (this._tf > n - 1) { if (driving) { this._tf = n - 1; this.setState({ drivePaused: true }); } else this._tf = 0; }
       this.renderContinuousTime?.(s.start+this._tf*s.stepH*3600000,now);
       const ti = Math.floor(this._tf);
       if (ti !== s.ti && now - (this._lastSet || 0) > 45) { this._lastSet = now; this.setState({ ti: ti }); }
@@ -61,9 +63,11 @@ window.NASALComponent = class Component extends DCLogic {
   }
   componentDidUpdate() { this.ensureTerrain(); this.sync(); this.drawMaps(); }
 
+  // Driving faster than 1 s = 1 h makes the rover cross kilometres per frame; 1 s = 1 day is for waiting (charging, Earthrise).
+  capDriveRate() { const r = this.state.driveTimeScale; if (this.state.view === 'drive' && r > 3600) this.setState({ driveTimeScale: 3600 }); }
   refs() {
     if (!this._refs) {
-      const k = (name, on) => (ev) => { if (ev && on && ev.preventDefault) ev.preventDefault(); if (this.eng) this.eng.key(name, on); };
+      const k = (name, on) => (ev) => { if (ev && on && ev.preventDefault) ev.preventDefault(); if (on) this.capDriveRate(); if (this.eng) this.eng.key(name, on); };
       this._refs = {
         stage: (el) => { this._stageEl = el; this.tryEngine(); },
         gl: (el) => { this._glEl = el; this.tryEngine(); },
@@ -80,12 +84,20 @@ window.NASALComponent = class Component extends DCLogic {
     if (!this._stageEl || !this._glEl || !this._ovEl) return;
     try {
       this.eng = this.engLib().create(this._glEl, this._ovEl, this._stageEl, {
-        onSelect: (id) => this.selectSite(id),
+        // Clicking a place pin on the globe flies straight down into its Terrain view.
+        onSelect: (id) => { this.setState({ sel: id, sitesOpen: false, csvUrl: '' }, () => this.goView('terrain')); },
         onOpen: (id) => { this.setState({ sel: id }, () => this.goView('terrain')); },
         onPick: (lat, lon) => this.addSiteAt(lat, lon, ''),
         onLanded: () => this.setState({ landing: false, landed: true }),
         onRover: (r) => this.setState({ rover: r }),
-        onTarget: (i, j) => this.setState({ target: { i: i, j: j, key: this._tj ? this._tj.key : '' } })
+        onDriveInput: () => this.capDriveRate(),
+        onTarget: (i, j) => {
+          // In Drive the default camera sits a few metres behind the rover, so a click on nearby ground resolves to the rover's own cell.
+          // Don't set a useless 0 m destination; tell the user how to pick a real one instead.
+          const o = this.state.view === 'drive' ? this.reachOrigin() : null;
+          if (o && o.from === 'rover' && Math.hypot(i - o.i, j - o.j) < 2) { const t = Date.now(); this.setState({ nearHint: t }); setTimeout(() => { if (this.state.nearHint === t) this.setState({ nearHint: 0 }); }, 4000); return; }
+          this.setState({ target: { i: i, j: j, key: this._tj ? this._tj.key : '' }, nearHint: 0 });
+        }
       });
       this.ensureTerrain();
       this.sync();
@@ -605,10 +617,18 @@ window.NASALComponent = class Component extends DCLogic {
     const site = this.state.sites.find((x) => x.id === id);
     if (this.eng && site && this.state.view === 'region') this.eng.flyTo(site.lat, site.lon, false, null);
   }
-  goView(v) {
+  // `ready` (optional promise): terrain data still loading. The fly-in starts at once and the
+  // globe holds the final pose until the data is there, so the hand-over never shows a black frame.
+  goView(v, ready) {
     const s = this.state; if (v === s.view) return;
     this.setState({ sheet: null, sitesOpen: false, pick: false, landing: false, landed: false });
-    if (s.view === 'region' && this.eng) { const site = this.selSite(); this.eng.flyTo(site.lat, site.lon, true, () => this.setState({ view: v })); }
+    if (s.view === 'region' && this.eng) {
+      if (this._flyView === v && performance.now() - this._flyAt < 2500) return; // double-click on a pin
+      this._flyView = v; this._flyAt = performance.now();
+      const site = this.selSite(), token = (this._flyToken = (this._flyToken || 0) + 1);
+      const warm = Promise.resolve(ready).then(() => { try { const st = this.selSite(); if (st) this.demFor(st); } catch (e) { } });
+      this.eng.flyTo(site.lat, site.lon, true, () => warm.then(() => { if (this._flyToken === token && this.state.view === 'region') this.setState({ view: v }); }, () => { if (this._flyToken === token && this.eng && this.state.view === 'region') this.eng.flyTo(site.lat, site.lon, false, null); }));
+    }
     else this.setState({ view: v });
   }
   setRange(start, end) {
@@ -788,7 +808,7 @@ window.NASALComponent = class Component extends DCLogic {
         ctx.beginPath(); ctx.moveTo(x0 + hx * k, y0 + hy * k); ctx.lineTo(x0 - hx * k * 0.6 + hy * k * 0.55, y0 - hy * k * 0.6 - hx * k * 0.55); ctx.lineTo(x0 - hx * k * 0.6 - hy * k * 0.55, y0 - hy * k * 0.6 + hx * k * 0.55); ctx.closePath();
         ctx.fillStyle = '#BF5AF2'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
       }
-      if (s.mapReach && this._tj) {
+      if (s.mapReach && s.view === 'drive' && this._tj) {
         const rc = this.reach();
         if (rc) {
           if(!rc.img){const cv=document.createElement('canvas'),K=31;cv.width=cv.height=K;const g=cv.getContext('2d'),im=g.createImageData(K,K),bands=[[1,92,148,112],[3,242,201,76],[6,227,147,107],[Infinity,217,83,79]];for(let y=0;y<K;y++)for(let x=0;x<K;x++){const t=rc.T[Math.round(y*(N-1)/(K-1))*N+Math.round(x*(N-1)/(K-1))];if(!Number.isFinite(t))continue;const col=bands.find(b=>t<=b[0]),p=((K-1-y)*K+x)*4;im.data.set([col[1],col[2],col[3],125],p);}g.putImageData(im,0,0);rc.img=cv;}
@@ -948,7 +968,7 @@ window.NASALComponent = class Component extends DCLogic {
       tgt = { sun: this.pct(H.sun[v]), earth: this.pct(H.earth[v]), slope: sl.toFixed(0) + '°', score: sc < 0 ? '—' : sc.toFixed(2),
         verdict: sl > 15 ? 'Outside the 15° landing scenario limit. Try flatter ground nearby.' : (sc >= (H.best ? H.best.score * 0.9 : 1) ? 'Excellent — about as good as the best spot nearby.' : (sc >= 0.5 ? 'Workable, but the white-ring spot gets more sun/Earth time.' : 'Poor: little sunlight or Earth contact over the period.')) };
       tgt.drive = '';
-      { const rc = this.reach(); if (rc) { const k = tv.j * d.N + tv.i, tt = rc.T[k]; let pl = 0, p = k; while (rc.prev[p] >= 0) { const q = rc.prev[p], a = p % d.N, b = (p - a) / d.N, a2 = q % d.N, b2 = (q - a2) / d.N; pl += Math.hypot(a - a2, b - b2) * d.cell; p = q; } const fromW = rc.o.from === 'rover' ? 'the rover' : (rc.o.from === 'landing' ? 'the landing site' : 'the best landing spot'); if(rc.routePointsFor&&isFinite(tt)){const pts=rc.routePointsFor(k);pl=0;for(let a=1;a<pts.length;a++)pl+=Math.hypot(pts[a].i-pts[a-1].i,pts[a].j-pts[a-1].j)*d.cell;} tgt.drive = isFinite(tt) && tt <= (rc.maxHours||24) ? (tt < 0.02 ? 'You are here' : 'Drive from ' + fromW + ': ' + this.fmtH(tt) + ' · ' + pl.toFixed(1) + ' km route') : 'No drivable route from ' + fromW + ' within '+(rc.maxHours||24)+' h (20° slope limit; scenario assumption)'; } }
+      { const rc = this.state.mapReach && this.state.view === 'drive' ? this.reach() : null; if (rc) { const k = tv.j * d.N + tv.i, tt = rc.T[k]; let pl = 0, p = k; while (rc.prev[p] >= 0) { const q = rc.prev[p], a = p % d.N, b = (p - a) / d.N, a2 = q % d.N, b2 = (q - a2) / d.N; pl += Math.hypot(a - a2, b - b2) * d.cell; p = q; } const fromW = rc.o.from === 'rover' ? 'the rover' : (rc.o.from === 'landing' ? 'the landing site' : 'the best landing spot'); if(rc.routePointsFor&&isFinite(tt)){const pts=rc.routePointsFor(k);pl=0;for(let a=1;a<pts.length;a++)pl+=Math.hypot(pts[a].i-pts[a-1].i,pts[a].j-pts[a-1].j)*d.cell;} tgt.drive = isFinite(tt) && tt <= (rc.maxHours||24) ? (tt < 0.02 ? 'You are here' : 'Drive from ' + fromW + ': ' + this.fmtH(tt) + ' · ' + pl.toFixed(1) + ' km route') : 'No drivable route from ' + fromW + ' within '+(rc.maxHours||24)+' h (20° slope limit; scenario assumption)'; } }
     }
 
     // charts page
@@ -1185,16 +1205,16 @@ window.NASALComponent = class Component extends DCLogic {
     const rv = s.rover || { batt: 80, sun: 1, earth: true, kmh: 0, dist: 0, blocked: false };
     const hud = {
       batt: s.drain === false ? '∞' : Math.round(rv.batt) + '%',
-      rate: s.drain === false ? '' : ((rv.rate || 0) >= 0.05 ? 'charging +' + rv.rate.toFixed(0) + '%/min' : ((rv.rate || 0) <= -0.05 ? 'draining ' + rv.rate.toFixed(1) + '%/min' : 'holding')), battPct: Math.max(2, Math.round(rv.batt)), battCls: 'hi ' + (rv.batt > 50 ? 'ok' : (rv.batt > 20 ? 'warn' : 'bad')),
+      rate: s.drain === false ? '' : (() => { const w = rv.netW !== undefined ? rv.netW : 0, hm = (h) => h < 1 ? Math.max(1, Math.round(h * 60)) + ' min' : (h < 48 ? h.toFixed(1) + ' h' : (h / 24).toFixed(1) + ' d'); if (w >= 0.5) return 'charging +' + Math.round(w) + ' W' + (rv.batt < 99.5 ? ' · full in ' + hm((100 - rv.batt) / 100 * 160 / w) : ''); if (w <= -0.5) return 'draining −' + Math.round(-w) + ' W' + (rv.batt > 0.5 ? ' · empty in ' + hm(rv.batt / 100 * 160 / -w) : ''); return 'holding'; })(), battPct: Math.max(2, Math.round(rv.batt)), battCls: 'hi ' + (rv.batt > 50 ? 'ok' : (rv.batt > 20 ? 'warn' : 'bad')),
       sun: rv.sun > 0.6 ? 'In sunlight' : (rv.sun > 0.02 ? 'Partly shaded' : 'In shadow'), sunCls: 'hi ' + (rv.sun > 0.02 ? 'sun' : 'dim'),
       earth: rv.earth ? 'Earth link' : (rv.earthWhy === 'hill' ? 'Earth behind a hill' : 'Earth below horizon'), earthCls: 'hi ' + (rv.earth ? 'ok' : 'bad'),
       canSkip: !rv.earth && eRise !== null, skipLabel: eRise !== null ? 'Skip to Earthrise (' + this.dur(eRise) + ')' : '',
-      battLabel: s.drain === false ? 'Unlimited battery — click to use the illustrative battery model' : 'Battery (illustrative) — click to make it unlimited',
+      battLabel: s.drain === false ? 'Unlimited battery — click to use the battery model' : 'Battery model: 160 Wh, solar panel about 190 W in full sun, uses 10 W idle and 55 W while driving. Charges in sunlight, drains in shadow. Click to make it unlimited.',
       kmh: rv.kmh.toFixed(1) + ' km/h', dist: rv.dist < 1 ? Math.round(rv.dist * 1000) + ' m driven' : rv.dist.toFixed(2) + ' km driven',
-      msg: rv.batt <= 0.5 ? 'Battery empty — play time forward until the Sun returns' : (rv.blocked ? 'Too steep to climb here — try another way' : ''),
+      msg: rv.batt <= 0.5 ? 'Battery empty — speed up time until the Sun returns' : (rv.blocked ? 'Too steep to climb here — try another way' : ''),
       hasMsg: rv.batt <= 0.5 || !!rv.blocked
     };
-    const tips = { region: 'Drag to turn the Moon · scroll to zoom · click a pin', terrain: 'Drag to orbit · scroll to zoom · click the ground to choose a landing spot', drive: 'Drive with W A S D or the arrow keys · drag to look around · battery is illustrative' };
+    const tips = { region: 'Drag to turn the Moon · scroll to zoom · click a pin', terrain: 'Drag to orbit · scroll to zoom · click the ground to choose a landing spot', drive: s.nearHint ? 'That spot is right next to the rover. Click the top-down map, or zoom out and click farther away.' : 'Drive with W A S D or the arrow keys · click the top-down map or distant ground to set a destination' };
 
     // sky chart & details
     const track = (azA, elA) => { const k = Math.max(1, Math.ceil(n / 320)); let d = ''; for (let i = 0; i < n; i += k) { const p = pxy(azA[i], elA[i]); d += (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); } return d; };
@@ -1245,7 +1265,7 @@ window.NASALComponent = class Component extends DCLogic {
       goRegion: () => this.goView('region'), goTerrain: () => this.goView('terrain'), goDrive: () => this.goView('drive'),
       sheetCompare: sheet === 'compare', sheetExpert: sheet === 'expert', sheetDates: sheet === 'dates',
       openCompare: toggleSheet('compare'), openExpert: toggleSheet('expert'), openDates: toggleSheet('dates'), closeSheet: set({ sheet: null }),
-      showTip: !s.tipOff[v] && !sheet, tipText: tips[v], closeTip: () => { const t = Object.assign({}, this.state.tipOff); t[v] = true; this.setState({ tipOff: t }); },
+      showTip: (!s.tipOff[v] || (v === 'drive' && !!s.nearHint)) && !sheet, tipText: tips[v], closeTip: () => { const t = Object.assign({}, this.state.tipOff); t[v] = true; this.setState({ tipOff: t }); },
       zoomIn: () => this.eng && this.eng.zoom(0.8), zoomOut: () => this.eng && this.eng.zoom(1.25), resetView: () => this.eng && this.eng.reset(),
       cur: { name: site.name, color: site.color, coords: this.fmtCoords(site) },
       sitesOpen: s.sitesOpen, toggleSites: set({ sitesOpen: !s.sitesOpen, sheet: null }), chevPath: s.sitesOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6',
@@ -1467,19 +1487,21 @@ void main(){
   col = pow(col, vec3(1.0/2.2));
   if (uHeat > 0.5) {
     float hs = 0.45 + 0.55*clamp(dot(n, normalize(vec3(-0.45, 0.8, -0.4))), 0.0, 1.0);
-    vec3 hc;
+    vec3 hc; float hk = 0.72;
     if (vH < -1.5) { hc = mix(vec3(0.2, 0.5, 0.98), vec3(0.72, 0.9, 1.0), n2(q*4.0)*0.55); }
-    else if (vH < -0.5) { float st = step(0.5, fract((q.x + q.y)*3.0)); hc = mix(vec3(0.2, 0.2, 0.22), vec3(0.38, 0.36, 0.36), st); }
+    else if (vH < -0.5) { hc = vec3(0.60, 0.30, 0.27); hk = 0.38; } // too steep: plain muted red tint (no stripes), as on the top-down map
     else { hc = viridis(clamp(vH, 0.0, 1.0)); }
-    col = mix(col, hc*hs, 0.72*(1.0 - 0.5*dk)) + col*0.25;
+    col = mix(col, hc*hs, hk*(1.0 - 0.5*dk)) + col*0.25;
   }
-  if(uTravel>.5){vec3 travelColor;if(vTravel<0.0){float hatch=step(.5,fract((vW.x+vW.z)*30.0));travelColor=mix(vec3(.16),vec3(.27),hatch);}else{float t=clamp(vTravel,0.0,1.0);travelColor=t<.33?mix(vec3(.98,.84,.3),vec3(.88,.4,.13),t/.33):t<.66?mix(vec3(.88,.4,.13),vec3(.48,.13,.48),(t-.33)/.33):mix(vec3(.48,.13,.48),vec3(.08,.10,.24),(t-.66)/.34);}col=mix(col,travelColor*(.65+.35*max(dot(n,normalize(vec3(-.45,.8,-.4))),0.0)),.7);}
+  if(uTravel>.5&&vTravel>=0.0){vec3 travelColor;{float t=clamp(vTravel,0.0,1.0);travelColor=t<.33?mix(vec3(.98,.84,.3),vec3(.88,.4,.13),t/.33):t<.66?mix(vec3(.88,.4,.13),vec3(.48,.13,.48),(t-.33)/.33):mix(vec3(.48,.13,.48),vec3(.08,.10,.24),(t-.66)/.34);}col=mix(col,travelColor*(.65+.35*max(dot(n,normalize(vec3(-.45,.8,-.4))),0.0)),.7);}
   float edge = max(abs(vW.x), abs(vW.z))/uHalf;
   col = mix(col, vec3(0.018, 0.019, 0.022), smoothstep(0.82, 1.0, edge));
   gl_FragColor = vec4(col, 1.0);
 }`;
-    const ROUTE_VS=`attribute vec3 aP;attribute vec3 aPrev;attribute vec3 aNext;attribute float aSide;uniform mat4 uPV;uniform vec3 uViewport;uniform float uWidth;varying float vSide;
-void main(){vec4 p=uPV*vec4(aP,1.0),a=uPV*vec4(aPrev,1.0),b=uPV*vec4(aNext,1.0);vec2 direction=(b.xy/max(b.w,.00001)-a.xy/max(a.w,.00001))*uViewport.xy;direction/=max(length(direction),.00001);vec2 n=vec2(-direction.y,direction.x);p.xy+=n*aSide*uWidth*2.0/uViewport.xy*p.w;vSide=aSide;gl_Position=p;}`;
+    const ROUTE_VS=`attribute vec3 aP;attribute vec3 aPrev;attribute vec3 aNext;attribute float aSide;uniform mat4 uPV;uniform vec3 uViewport;uniform float uWidth;uniform vec3 uCam;varying float vSide;
+// Lift the ribbon about one pixel above the ground (in world space) so it never z-fights, while hills in front still hide it.
+vec3 lift(vec3 q){return q+vec3(0.0,clamp(distance(uCam,q)*0.0012,0.00015,0.02),0.0);}
+void main(){vec4 p=uPV*vec4(lift(aP),1.0),a=uPV*vec4(lift(aPrev),1.0),b=uPV*vec4(lift(aNext),1.0);vec2 direction=(b.xy/max(b.w,.00001)-a.xy/max(a.w,.00001))*uViewport.xy;direction/=max(length(direction),.00001);vec2 n=vec2(-direction.y,direction.x);p.xy+=n*aSide*uWidth*2.0/uViewport.xy*p.w;vSide=aSide;gl_Position=p;}`;
     const ROUTE_FS=`precision mediump float;varying float vSide;void main(){gl_FragColor=vec4(abs(vSide)>.72?vec3(.025,.07,.1):vec3(.25,.66,1.0),1.0);}`;
     const OBJ_VS = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; uniform mat4 uPV; uniform mat4 uM;
 varying vec3 vN; varying vec3 vC; varying vec3 vW;
@@ -1514,7 +1536,7 @@ void main(){
 void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0) discard; gl_FragColor = vec4(vec3(0.62, 0.58, 0.52)*vA*(1.0 - r), 1.0); }`;
 
     function create(cv, ov, stageEl, cb) {
-      const gl = cv.getContext('webgl', { antialias: true, alpha: false });
+      const gl = cv.getContext('webgl', { antialias: true, alpha: false, stencil: true });
       if (!gl) throw new Error('WebGL is not supported here');
       if(!gl.getExtension('OES_element_index_uint'))throw new Error('This device lacks 32-bit terrain index support.');
       const g2 = ov.getContext('2d');
@@ -1672,12 +1694,38 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       function gridToWorld(i, j) { const d = S.terr.dem; const x = -d.L / 2 + i * d.cell, z = -(-d.L / 2 + j * d.cell); return [x, groundAtW(x, z), z]; }
 
       // ---- cameras ----
-      function regionCam() {
-        const c = S.rc, cp = Math.cos(c.pitch);
-        let eye = add(c.tgt, scl([cp * Math.cos(c.yaw), cp * Math.sin(c.yaw), Math.sin(c.pitch)], c.dist));
-        const l = Math.hypot(eye[0], eye[1], eye[2]); if (l < 1.02) eye = scl(eye, 1.02 / l);
-        return { eye: eye, tgt: c.tgt, up: [0, 0, 1], fov: fovR, near: 0.002, far: 1000 };
+      // Overview camera = a rigid rig {q: orientation, dist, tgt}; dragging rotates the
+      // whole rig about the Moon's centre, so any longitude/latitude (and the far side) is reachable.
+      const qmul = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0], a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
+      const qaxis = (ax, an) => { const s = Math.sin(an / 2); return [ax[0] * s, ax[1] * s, ax[2] * s, Math.cos(an / 2)]; };
+      const qnorm = (q) => { const l = Math.hypot(q[0], q[1], q[2], q[3]) || 1; return [q[0] / l, q[1] / l, q[2] / l, q[3] / l]; };
+      const qrot = (q, v) => { const x = q[0], y = q[1], z = q[2], w = q[3], ix = w * v[0] + y * v[2] - z * v[1], iy = w * v[1] + z * v[0] - x * v[2], iz = w * v[2] + x * v[1] - y * v[0], iw = -x * v[0] - y * v[1] - z * v[2]; return [ix * w - iw * x - iy * z + iz * y, iy * w - iw * y - iz * x + ix * z, iz * w - iw * z - ix * y + iy * x]; };
+      const qslerp = (a, b, t) => { let d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]; if (d < 0) { b = b.map((x) => -x); d = -d; } if (d > 0.9995) return qnorm(a.map((x, i) => x + (b[i] - x) * t)); const th = Math.acos(d), sn = Math.sin(th), wa = Math.sin((1 - t) * th) / sn, wb = Math.sin(t * th) / sn; return a.map((x, i) => x * wa + b[i] * wb); };
+      function qfromBasis(r, u, f) {
+        const tr = r[0] + u[1] + f[2];
+        if (tr > 0) { const s = Math.sqrt(tr + 1) * 2; return qnorm([(u[2] - f[1]) / s, (f[0] - r[2]) / s, (r[1] - u[0]) / s, 0.25 * s]); }
+        if (r[0] > u[1] && r[0] > f[2]) { const s = Math.sqrt(1 + r[0] - u[1] - f[2]) * 2; return qnorm([0.25 * s, (u[0] + r[1]) / s, (f[0] + r[2]) / s, (u[2] - f[1]) / s]); }
+        if (u[1] > f[2]) { const s = Math.sqrt(1 + u[1] - r[0] - f[2]) * 2; return qnorm([(u[0] + r[1]) / s, 0.25 * s, (f[1] + u[2]) / s, (f[0] - r[2]) / s]); }
+        const s = Math.sqrt(1 + f[2] - r[0] - u[1]) * 2; return qnorm([(f[0] + r[2]) / s, (f[1] + u[2]) / s, 0.25 * s, (r[1] - u[0]) / s]);
       }
+      function poseLook(eye, tgt, up) { const d = sub(eye, tgt), f = norm(d), r = norm(cross(up, f)), u = cross(f, r); return { q: qfromBasis(r, u, f), dist: Math.hypot(d[0], d[1], d[2]), tgt: tgt.slice() }; }
+      function poseYP(yaw, pitch, dist, tgt) { const cp = Math.cos(pitch); return poseLook(add(tgt, scl([cp * Math.cos(yaw), cp * Math.sin(yaw), Math.sin(pitch)], dist)), tgt, [0, 0, 1]); }
+      function groundR(p) { const l = Math.hypot(p[0], p[1], p[2]) || 1; return 1 + window.RealMoon.sample(Math.asin(clamp(p[2] / l, -1, 1)) / D2R, Math.atan2(p[1], p[0]) / D2R) / window.RealMoon.R; }
+      function regionCam() {
+        const c = S.rc, back = qrot(c.q, [0, 0, 1]), up = qrot(c.q, [0, 1, 0]);
+        let eye = add(c.tgt, scl(back, c.dist));
+        const l = Math.hypot(eye[0], eye[1], eye[2]);
+        let near = 0.002;
+        if (c.low) { const g = groundR(eye), min = g + 0.00002; if (l < min) eye = scl(eye, min / l); near = clamp((Math.max(l, min) - g) * 0.3, 0.000005, 0.002); }
+        else if (l < 1.02) eye = scl(eye, 1.02 / l);
+        return { eye: eye, tgt: c.tgt, up: up, fov: c.low && c.fov ? c.fov : fovR, near: near, far: 1000 };
+      }
+      function rotateRegion(dx, dy) {
+        const c = S.rc, cam = regionCam(), B = camBasis(cam), alt = Math.max(0.0003, Math.hypot(cam.eye[0], cam.eye[1], cam.eye[2]) - 0.995);
+        const k = clamp(alt * cam.fov / Math.max(1, S.H), 0.000002, 0.004), R = qmul(qaxis(B.u, -dx * k), qaxis(B.r, -dy * k));
+        c.q = qnorm(qmul(R, c.q)); c.tgt = qrot(R, c.tgt); S.dirty = true;
+      }
+      S.rc = poseYP(S.rc.yaw, S.rc.pitch, S.rc.dist, S.rc.tgt);
       function terrCam() {
         const c = S.tc, cp = Math.cos(c.pitch);
         const eye = add(c.tgt, scl([cp * Math.sin(c.yaw), Math.sin(c.pitch), -cp * Math.cos(c.yaw)], c.dist));
@@ -1696,10 +1744,12 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
 
       function initRegion(focus) {
         const sl = Math.atan2(S.sunB[1], S.sunB[0]);
-        if (focus) { const v = siteVec(focus.lat, focus.lon); S.rc = { yaw: Math.atan2(v[1], v[0]) + 0.3, pitch: -1.15, dist: 0.9, tgt: scl(v, 0.98) }; }
-        else S.rc = { yaw: sl - 1.25, pitch: -0.92, dist: 2.35, tgt: [0, 0, -0.45] };
+        if (focus) { const v = siteVec(focus.lat, focus.lon); S.rc = poseYP(Math.atan2(v[1], v[0]) + 0.3, -1.15, 0.9, scl(v, 0.98)); }
+        else S.rc = poseYP(sl - 1.25, -0.92, 2.35, [0, 0, -0.6]); // aim lower so the south-polar sites sit clear of the timeline
+        S.spin = null;
       }
-      function initTerrain() { S.tc = { yaw: (S.tSun.az + 208) * D2R, pitch: 0.24, dist: 7.5, tgt: [0, 0.05, 0] }; }
+      function terrainStart() { return { yaw: (S.tSun.az + 208) * D2R, pitch: 0.24, dist: 7.5, tgt: [0, 0.05, 0] }; }
+      function initTerrain() { S.tc = terrainStart(); }
       function initDrive() {
         if (!S.terr) return;
         const p = S.spawn || [0, 0, 0], h = (S.tSun.az + 180) * D2R;
@@ -1708,13 +1758,31 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         S.dc = { yaw: 0,yawTarget:0, pitch: 0.2,pitchTarget:.2, dist: DRIVE_START_DISTANCE, hs: h };
         try { ov.focus({ preventScroll: true }); } catch (err) { }
       }
+      // Close fly ends exactly on the Terrain view's opening camera (same site frame, yaw,
+      // pitch and distance), so the hand-over to the terrain mesh is a short cross-fade.
+      function closePoses(lat, lon) {
+        const la = lat * D2R, lo = lon * D2R, Rk = window.RealMoon.R / 1000, p0 = siteVec(lat, lon);
+        const u = [Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)], e = [-Math.sin(lo), Math.cos(lo), 0], n = [-Math.sin(la) * Math.cos(lo), -Math.sin(la) * Math.sin(lo), Math.cos(la)];
+        const t = terrainStart(), cp = Math.cos(t.pitch), map = (X) => add(p0, scl(add(add(scl(e, X[0]), scl(u, X[1])), scl(n, -X[2])), 1 / Rk));
+        const eyeT = [t.tgt[0] + t.dist * cp * Math.sin(t.yaw), t.tgt[1] + t.dist * Math.sin(t.pitch), t.tgt[2] - t.dist * cp * Math.cos(t.yaw)];
+        const tg = map(t.tgt), hd = add(scl(e, Math.sin(t.yaw)), scl(n, Math.cos(t.yaw))), el = 1.1, mid = 0.07;
+        return { mid: poseLook(add(tg, scl(add(scl(u, Math.sin(el)), scl(hd, Math.cos(el))), mid)), tg, u), end: poseLook(map(eyeT), tg, u) };
+      }
       function flyTo(lat, lon, close, done) {
         const v = siteVec(lat, lon), la = lat * D2R, lo = lon * D2R, north = [-Math.sin(la) * Math.cos(lo), -Math.sin(la) * Math.sin(lo), Math.cos(la)];
-        const dir = norm(add(v, scl(north, close ? 0.9 : 0.75)));
-        const to = { yaw: Math.atan2(dir[1], dir[0]), pitch: Math.asin(clamp(dir[2], -0.995, 0.995)), dist: close ? 0.045 : 0.55, tgt: v };
-        let dy = to.yaw - S.rc.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; to.yaw = S.rc.yaw + dy;
-        S.fly = { from: { yaw: S.rc.yaw, pitch: S.rc.pitch, dist: S.rc.dist, tgt: S.rc.tgt.slice() }, to: to, t0: performance.now(), dur: close ? 1500 : 1300, close: close, done: done };
+        const from = { q: S.rc.q.slice(), dist: S.rc.dist, tgt: S.rc.tgt.slice() };
+        let to;
+        if (!close) { const dir = norm(add(v, scl(north, 0.75))); to = poseLook(add(v, scl(dir, 0.55)), v, [0, 0, 1]); }
+        S.spin = null; S.rc.low = false;
+        S.fly = { from: from, to: to, lat: lat, lon: lon, t0: performance.now(), dur: close ? 2300 : 1300, close: close, done: done };
         S.dirty = true;
+      }
+      function stepFly(F, p) {
+        const e = ease(p), lerpPose = (a, b, t) => ({ q: qslerp(a.q, b.q, t), dist: Math.exp(lerp(Math.log(a.dist), Math.log(b.dist), t)), tgt: [0, 1, 2].map((k) => lerp(a.tgt[k], b.tgt[k], t)) });
+        if (!F.close) { Object.assign(S.rc, lerpPose(F.from, F.to, e)); return; }
+        const P = closePoses(F.lat, F.lon);
+        Object.assign(S.rc, e < 0.5 ? lerpPose(F.from, P.mid, e / 0.5) : lerpPose(P.mid, P.end, (e - 0.5) / 0.5));
+        S.rc.low = true; S.rc.fov = lerp(fovR, fovT, e);
       }
 
       // ---- terrain buffers ----
@@ -1789,13 +1857,16 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         drawSky(cam, B, true, sunDir);
         drawBB(PV, cam, B, sunDir, 0.55 * D2R, 0, true, sunDir, D);
         drawBB(PV, cam, B, earDir, S.tEarth.rad * 2.4 * D2R, 1, true, sunDir, D);
-        gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clear(gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clear(gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
         const T = S.terr;
         if (T && T.bp) {
           use(P.ter, [['aP', T.bp, 3], ['aN', T.bn, 3], ['aD', T.bd, 4]]);
           gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, T.bi);
           U(P.ter,'uTravel',S.travelOverlay?1:0); U(P.ter,'uSurfaceDetail',S.view==='drive'&&S.surfaceDetail!==false?1:0); U(P.ter, 'uShadeMix',Math.min(1,(performance.now()-(S.shadeAt||0))/250)); U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
+          // Stencil marks terrain pixels: the route ribbon is only drawn over ground, never over the sky behind a ridge.
+          gl.enable(gl.STENCIL_TEST); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
           gl.drawElements(gl.TRIANGLES, T.g.idx.length, gl.UNSIGNED_INT, 0);
+          gl.disable(gl.STENCIL_TEST);
         }
         drawNavigationGL(PV,cam);
         if (S.view === 'drive' && S.rover) {
@@ -1897,10 +1968,18 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         g2.strokeStyle = '#fff'; g2.lineWidth = 2; g2.stroke();
         let label = text;
         if (withDist && S.rover) { const d = Math.hypot(p[0] - S.rover.pos[0], p[2] - S.rover.pos[2]); label += ' · ' + (d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km'); }
-        pill(sc[0], sc[1] - 20, label, { align: 'center', dot: color });
+        // Stack labels that would collide (rover, destination, pin, best spot) instead of drawing them over each other.
+        g2.font = '600 12.5px ' + FONT;
+        const lw = g2.measureText(label).width + 28, lh = 24.5, R = S.wpRects || (S.wpRects = []);
+        let ly = sc[1] - 20;
+        for (let k = 0; k < 4 && R.some((q) => overlap(q, [sc[0] - lw / 2, ly - lh / 2, lw, lh])); k++) ly -= lh + 4;
+        R.push([sc[0] - lw / 2, ly - lh / 2, lw, lh]);
+        if (ly !== sc[1] - 20) { g2.strokeStyle = 'rgba(255,255,255,0.55)'; g2.lineWidth = 1; g2.beginPath(); g2.moveTo(sc[0], sc[1] - 6); g2.lineTo(sc[0], ly + lh / 2); g2.stroke(); }
+        pill(sc[0], ly, label, { align: 'center', dot: color });
       }
       function drawOverlayGround(F, now) {
         S.hits = [];
+        S.wpRects = [];
         compass(F);
         if (!S.terr) return;
         const c = (S.terr.dem.N - 1) / 2, pin = gridToWorld(c, c);
@@ -1923,13 +2002,13 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           scaleBar(S.H / (2 * Math.tan(fovT / 2) * Math.max(0.2, S.tc.dist)), ' at focus');
           if (S.land) {
             const alt = Math.max(0, (S.lander.pos[1] - S.lander.base[1]) * 1000);
-            pill(S.W / 2, 92, 'Illustrative descent · ' + Math.round(alt).toLocaleString('en-US') + ' m · ' + Math.abs(S.land.vs || 0).toFixed(0) + ' m/s down', { align: 'center', size: 13, color: '#FFD60A' });
-          } else if (S.lander) pill(S.W / 2, 92, 'Touchdown', { align: 'center', size: 13 });
+            pill(S.W / 2, S.W > 900 ? 156 : 92, 'Illustrative descent · ' + Math.round(alt).toLocaleString('en-US') + ' m · ' + Math.abs(S.land.vs || 0).toFixed(0) + ' m/s down', { align: 'center', size: 13, color: '#FFD60A' });
+          } else if (S.lander) pill(S.W / 2, S.W > 900 ? 156 : 92, 'Touchdown', { align: 'center', size: 13 });
         } else {
           if(S.dc.dist<=.1||!S.rover||Math.hypot(S.rover.pos[0]-pin[0],S.rover.pos[2]-pin[2])>.04)waypoint(F, pin, S.siteName, S.siteColor, true);
           if (S.best) waypoint(F, gridToWorld(S.best.i, S.best.j), 'Best landing spot', '#30D158', true);
           if (S.target) waypoint(F, gridToWorld(S.target.i, S.target.j), 'Destination', '#FF9F0A', true);
-        if(S.view==='drive'&&S.rover&&S.dc.dist>.1){const p=toScreen(F.PV,add(S.rover.pos,[0,.002,0]));if(p){g2.beginPath();g2.arc(p[0],p[1],7,0,Math.PI*2);g2.fillStyle='#BF5AF2';g2.fill();g2.strokeStyle='#fff';g2.lineWidth=2;g2.stroke();pill(p[0]+12,p[1]-12,'Rover',{dot:'#BF5AF2'});}}
+        if(S.view==='drive'&&S.rover&&S.dc.dist>.1){const p=toScreen(F.PV,add(S.rover.pos,[0,.002,0]));if(p){g2.beginPath();g2.arc(p[0],p[1],7,0,Math.PI*2);g2.fillStyle='#BF5AF2';g2.fill();g2.strokeStyle='#fff';g2.lineWidth=2;g2.stroke();g2.font='600 12.5px '+FONT;const rw=g2.measureText('Rover').width+28,R=S.wpRects||[];let ry=p[1]-12;for(let k=0;k<4&&R.some(q=>overlap(q,[p[0]+12,ry-12,rw,24.5]));k++)ry+=28.5;pill(p[0]+12,ry,'Rover',{dot:'#BF5AF2'});}}
         }
       }
 
@@ -1964,44 +2043,62 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       function referencePill(x,y,text,options){const w=String(text).length*6.2+16,box={l:x-4,r:x+w,t:y-18,b:y+8};if((S.referenceBoxes||[]).some(q=>box.l<q.r+4&&box.r>q.l-4&&box.t<q.b+4&&box.b>q.t-4))return;S.referenceBoxes.push(box);pill(x,y,text,options);}
       const routeBuffers={body:{},head:{}};
       function uploadRoute(target,points){if(points.length<2){target.count=0;return;}const p=[],prev=[],next=[],side=[];for(let i=0;i<points.length;i++)for(const s of [-1,1]){const a=points[i],b=points[Math.max(0,i-1)],c=points[Math.min(points.length-1,i+1)];p.push(a.x,a.y,a.z);prev.push(b.x,b.y,b.z);next.push(c.x,c.y,c.z);side.push(s);}for(const [key,data]of Object.entries({p,prev,next,side})){target[key]??=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,target[key]);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.DYNAMIC_DRAW);}target.count=side.length;}
-      function drawNavigationGL(PV,cam){const nav=S.navigation;if(!S.terr||!nav?.points?.length)return;if(S.navKey!==nav.key){S.navKey=nav.key;S.navProgress=0;S.navSamples=surfacePath(S.terr.dem,nav.points);S.navBodyKey='';}const points=S.navSamples;if(points.length<2)return;let start=S.navProgress||0;const live=S.rover?{x:S.rover.pos[0],z:S.rover.pos[2]}:points[start];if(S.rover){let best=Infinity;for(let k=start;k<Math.min(points.length-1,start+80);k++){const a=points[k],b=points[k+1],dx=b.x-a.x,dz=b.z-a.z,f=clamp(((live.x-a.x)*dx+(live.z-a.z)*dz)/(dx*dx+dz*dz||1),0,1),distance=Math.hypot(live.x-a.x-dx*f,live.z-a.z-dz*f);if(distance<best-1e-7){best=distance;start=k;}}S.navProgress=start;S.navCrossTrack=best;}const next=Math.min(points.length-1,start+1),key=S.navKey+'|'+next;if(S.navBodyKey!==key){uploadRoute(routeBuffers.body,points.slice(next));S.navBodyKey=key;}const g=gridOf(live.x,live.z);S.navUnsafe=false;const end=points[next],steps=Math.max(1,Math.ceil(Math.hypot(end.i-g[0],end.j-g[1])*3)),d=S.terr.dem;for(let s=0;s<=steps;s++){const i=g[0]+(end.i-g[0])*s/steps,j=g[1]+(end.j-g[1])*s/steps,k=Math.max(0,Math.min(d.N-1,Math.round(j)))*d.N+Math.max(0,Math.min(d.N-1,Math.round(i)));if(d.slope[k]>20){S.navUnsafe=true;S.navRenderedStart=null;return;}}uploadRoute(routeBuffers.head,surfacePath(S.terr.dem,[{i:g[0],j:g[1]},points[next]]));S.navRenderedStart={x:live.x,z:live.z};S.navRenderedEnd=points.at(-1);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(-1,-1);for(const mesh of [routeBuffers.body,routeBuffers.head]){if(!mesh.count)continue;use(P.route,[['aP',mesh.p,3],['aPrev',mesh.prev,3],['aNext',mesh.next,3],['aSide',mesh.side,1]]);U(P.route,'uPV',PV);U(P.route,'uViewport',[S.W*S.dpr,S.H*S.dpr,1]);U(P.route,'uWidth',3*S.dpr);gl.drawArrays(gl.TRIANGLE_STRIP,0,mesh.count);}gl.disable(gl.POLYGON_OFFSET_FILL);gl.depthMask(true);gl.depthFunc(gl.LESS);S.navigationDraws=(S.navigationDraws||0)+1;}
+      function drawNavigationGL(PV,cam){const nav=S.navigation;if(!S.terr||!nav?.points?.length)return;if(S.navKey!==nav.key){S.navKey=nav.key;S.navProgress=0;S.navSamples=surfacePath(S.terr.dem,nav.points);S.navBodyKey='';}const points=S.navSamples;if(points.length<2)return;let start=S.navProgress||0;const live=S.rover?{x:S.rover.pos[0],z:S.rover.pos[2]}:points[start];if(S.rover){let best=Infinity;for(let k=start;k<Math.min(points.length-1,start+80);k++){const a=points[k],b=points[k+1],dx=b.x-a.x,dz=b.z-a.z,f=clamp(((live.x-a.x)*dx+(live.z-a.z)*dz)/(dx*dx+dz*dz||1),0,1),distance=Math.hypot(live.x-a.x-dx*f,live.z-a.z-dz*f);if(distance<best-1e-7){best=distance;start=k;}}S.navProgress=start;S.navCrossTrack=best;}const next=Math.min(points.length-1,start+1),key=S.navKey+'|'+next;if(S.navBodyKey!==key){uploadRoute(routeBuffers.body,points.slice(next));S.navBodyKey=key;}const g=gridOf(live.x,live.z);S.navUnsafe=false;const end=points[next],steps=Math.max(1,Math.ceil(Math.hypot(end.i-g[0],end.j-g[1])*3)),d=S.terr.dem;for(let s=0;s<=steps;s++){const i=g[0]+(end.i-g[0])*s/steps,j=g[1]+(end.j-g[1])*s/steps,k=Math.max(0,Math.min(d.N-1,Math.round(j)))*d.N+Math.max(0,Math.min(d.N-1,Math.round(i)));if(d.slope[k]>20){S.navUnsafe=true;S.navRenderedStart=null;return;}}uploadRoute(routeBuffers.head,surfacePath(S.terr.dem,[{i:g[0],j:g[1]},points[next]]));S.navRenderedStart={x:live.x,z:live.z};S.navRenderedEnd=points.at(-1);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.enable(gl.STENCIL_TEST);gl.stencilFunc(gl.EQUAL,1,0xff);gl.stencilOp(gl.KEEP,gl.KEEP,gl.KEEP);for(const mesh of [routeBuffers.body,routeBuffers.head]){if(!mesh.count)continue;use(P.route,[['aP',mesh.p,3],['aPrev',mesh.prev,3],['aNext',mesh.next,3],['aSide',mesh.side,1]]);U(P.route,'uPV',PV);U(P.route,'uCam',cam.eye);U(P.route,'uViewport',[S.W*S.dpr,S.H*S.dpr,1]);U(P.route,'uWidth',3*S.dpr);gl.drawArrays(gl.TRIANGLE_STRIP,0,mesh.count);}gl.disable(gl.STENCIL_TEST);gl.depthMask(true);gl.depthFunc(gl.LESS);S.navigationDraws=(S.navigationDraws||0)+1;}
       function drawTripRoute(F){if(S.travelOverlay)for(const p of S.travelGeoLabels||[]){const screen=toScreen(F.PV,gridToWorld(p.i,p.j));if(screen&&screen[0]>20&&screen[0]<S.W-180&&screen[1]>100&&screen[1]<S.H-200)referencePill(screen[0],screen[1],p.text,{size:10});}}
-      function drawTravelReference(F){if(!S.travelOverlay||!S.terr)return;const N=S.terr.dem.N,stride=(N-1)/30;g2.lineWidth=1.5;let labels=new Set();for(const line of S.travelContours||[]){const a=toScreen(F.PV,gridToWorld(line.a[0]*stride,line.a[1]*stride)),b=toScreen(F.PV,gridToWorld(line.b[0]*stride,line.b[1]*stride));if(!a||!b)continue;g2.strokeStyle='rgba(255,255,255,.6)';g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();if(!labels.has(line.hours)&&a[0]>30&&a[0]<S.W-180&&a[1]>100&&a[1]<S.H-200){referencePill(a[0],a[1],line.hours/24+' d',{size:11});labels.add(line.hours);}}const origin=S.travelOrigin||{i:(N-1)/2,j:(N-1)/2};for(let km=-8;km<=8;km+=2){for(let axis=0;axis<2;axis++){g2.beginPath();let started=false;for(let n=0;n<=16;n++){const offset=km/S.terr.dem.cell,i=axis?Math.max(0,Math.min(N-1,origin.i+offset)):n/16*(N-1),j=axis?n/16*(N-1):Math.max(0,Math.min(N-1,origin.j+offset)),p=toScreen(F.PV,gridToWorld(i,j));if(p){if(!started){g2.moveTo(p[0],p[1]);started=true;}else g2.lineTo(p[0],p[1]);if(n===8&&p[0]>0&&p[0]<S.W-180&&p[1]>100&&p[1]<S.H-200)referencePill(p[0],p[1],(km>=0?'+':'')+km+' km',{size:10});}}g2.strokeStyle='rgba(255,255,255,.16)';g2.stroke();}}}
+      function drawTravelReference(F){if(!S.travelOverlay||!S.terr)return;const N=S.terr.dem.N,stride=(N-1)/30;g2.lineWidth=1.5;let labels=new Set();for(const line of S.travelContours||[]){const a=toScreen(F.PV,gridToWorld(line.a[0]*stride,line.a[1]*stride)),b=toScreen(F.PV,gridToWorld(line.b[0]*stride,line.b[1]*stride));if(!a||!b)continue;g2.strokeStyle='rgba(255,255,255,.6)';g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();if(!labels.has(line.hours)&&a[0]>30&&a[0]<S.W-180&&a[1]>100&&a[1]<S.H-200){referencePill(a[0],a[1],line.hours/24+' d',{size:11});labels.add(line.hours);}}/* No km grid: its screen-space lines crossed hills as grey stripes. */}
 
-      function drawDescentTrail(F,now){const points=S.descentTrail;if(!points?.length)return;const fade=S.trailEnded?Math.max(0,1-(now-S.trailEnded)/6000):1;if(!fade)return;for(let i=1;i<points.length;i++){const a=toScreen(F.PV,points[i-1].pos),b=toScreen(F.PV,points[i].pos);if(!a||!b)continue;g2.globalAlpha=fade*(i/points.length)*.8;g2.strokeStyle='#F2C94C';g2.shadowColor='#FFD60A';g2.shadowBlur=8;g2.lineWidth=2;g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();}g2.globalAlpha=fade;g2.shadowBlur=0;pill(18,S.H-220,'Illustrative descent path, not a computed trajectory',{size:11});g2.globalAlpha=1;}
+      function drawDescentTrail(F,now){const points=S.descentTrail;if(!points?.length)return;const fade=S.trailEnded?Math.max(0,1-(now-S.trailEnded)/6000):1;if(!fade)return;for(let i=1;i<points.length;i++){const a=toScreen(F.PV,points[i-1].pos),b=toScreen(F.PV,points[i].pos);if(!a||!b)continue;g2.globalAlpha=fade*(i/points.length)*.8;g2.strokeStyle='#F2C94C';g2.shadowColor='#FFD60A';g2.shadowBlur=8;g2.lineWidth=2;g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();}g2.globalAlpha=fade;g2.shadowBlur=0;pill(S.W>900?24:18,S.W>900?S.H-96:S.H-220,'Illustrative descent path, not a computed trajectory',{size:11});g2.globalAlpha=1;}
 
       // ---- driving ----
       function stepDrive(now, dt) {
         const R = S.rover; if (!R || !S.terr) return;
-        const modelDt=modelStepSeconds(dt,S.driveTimeScale??60,S.drivePaused),k=S.keys,turbo=1,maxV=0.7/3600,L=S.terr.dem.L;if(modelDt===0){R.v=0;return;}
+        const V=VEHICLE,cap=V.capacityWh,maxV=V.flatSpeedKmh/3600,maxSlope=V.maxSlopeDeg,L=S.terr.dem.L,k=S.keys,clock=S.simUTC;
+        // Simulated seconds since the last frame come from the shared mission clock, so rover motion, battery and the HUD clock
+        // advance together: at 3600x one real second is one simulated hour. Larger clock moves (timeline scrubs) only charge or drain.
+        let simDt=0,jumpS=0;
+        if(Number.isFinite(clock)&&Number.isFinite(R.clockUTC)){const d=(clock-R.clockUTC)/1000,frameMax=S.drivePaused?0:modelStepSeconds(.5,S.driveTimeScale??60)+1;if(d>=0&&d<=frameMax)simDt=d;else if(d>0)jumpS=d;}
+        else if(!Number.isFinite(clock)&&!S.drivePaused)simDt=modelStepSeconds(dt,S.driveTimeScale??60);
+        R.clockUTC=clock;
         S.joy ||= {x:0,y:0};const jt=S.joyTarget||{x:0,y:0},blend=1-Math.exp(-dt/0.1);S.joy.x=lerp(S.joy.x,jt.x,blend);S.joy.y=lerp(S.joy.y,jt.y,blend);let thr=(k.up?1:0)-(k.down?1:0)-S.joy.y;const steer=(k.right?1:0)-(k.left?1:0)+S.joy.x;
-        if (R.batt <= 0.5) thr = 0;
-        if (thr) R.v += thr * 0.0001 * modelDt; else R.v *= Math.exp(-3 * dt);
-        R.v = clamp(R.v, -maxV * 0.35, maxV); if (!thr && Math.abs(R.v) < 1e-6) R.v = 0;
-        R.heading += steer * dt * (Math.abs(R.v) > 1e-5 ? 1.1 * Math.sign(R.v) : 0.6);
-        const f = [Math.sin(R.heading), 0, -Math.cos(R.heading)];
-        const dir = R.v >= 0 ? 1 : -1, look = 0.004;
-        const h0 = groundAtW(R.pos[0], R.pos[2]), h1 = groundAtW(R.pos[0] + f[0] * look * dir, R.pos[2] + f[2] * look * dir);
-        const ang = Math.atan((h1 - h0) / look) / D2R;
-        R.blocked = false;
-        if (Math.abs(R.v) > 1e-5 && Math.abs(ang) > 20) { R.v = 0; R.blocked = !!thr; }
-        else if (ang > 0) R.v *= Math.exp(-ang / 24 * 1.5 * dt);
-        R.pos[0] = clamp(R.pos[0] + f[0] * R.v * modelDt, -L / 2 + 0.4, L / 2 - 0.4);
-        R.pos[2] = clamp(R.pos[2] + f[2] * R.v * modelDt, -L / 2 + 0.4, L / 2 - 0.4);
+        if (R.batt <= 0.5 && S.drain !== false) thr = 0;
+        R.blocked = false;let driveS=0;
+        if(simDt<=0)R.v=0;
+        else {
+          // Steering is a real-time control; motion is sub-stepped (<= 2 m per step) so the rover follows the ground and stops at
+          // slopes it cannot climb even when one frame covers hundreds of metres.
+          const turn=steer*dt*(Math.abs(R.v)>1e-7||thr?1.1*(R.v<0||(!R.v&&thr<0)?-1:1):0.6),n=Math.min(1500,Math.max(1,Math.ceil(maxV*simDt/0.002))),h=simDt/n;
+          for(let a=0;a<n;a++){
+            R.heading+=turn/n;
+            const f=[Math.sin(R.heading),0,-Math.cos(R.heading)],dir=R.v>1e-9?1:(R.v< -1e-9?-1:(thr<0?-1:1)),look=Math.max(0.004,maxV*h*1.5);
+            const h0=groundAtW(R.pos[0],R.pos[2]),h1=groundAtW(R.pos[0]+f[0]*look*dir,R.pos[2]+f[2]*look*dir),ang=Math.atan((h1-h0)/look)/D2R;
+            if((thr||Math.abs(R.v)>1e-9)&&Math.abs(ang)>maxSlope){R.v=0;R.blocked=!!thr;break;}
+            // Same slope slow-down as the route planner: speed falls linearly to 30 % of flat speed at the slope limit.
+            const vCap=maxV*Math.max(0.15,1-0.7*Math.abs(ang)/maxSlope);
+            if(thr)R.v+=thr*0.0001*h;else R.v*=Math.exp(-3*h);
+            R.v=clamp(R.v,-vCap*0.35,vCap);if(!thr&&Math.abs(R.v)<1e-7)R.v=0;
+            if(!R.v)continue;
+            R.pos[0]=clamp(R.pos[0]+f[0]*R.v*h,-L/2+0.4,L/2-0.4);R.pos[2]=clamp(R.pos[2]+f[2]*R.v*h,-L/2+0.4,L/2-0.4);
+            R.dist+=Math.abs(R.v)*h;driveS+=h;
+          }
+        }
         R.pos[1] = groundAtW(R.pos[0], R.pos[2]);
-        const nn = normalAtW(R.pos[0], R.pos[2]);
-        R.n = norm([lerp(R.n[0], nn[0], 0.2), lerp(R.n[1], nn[1], 0.2), lerp(R.n[2], nn[2], 0.2)]);
-        R.dist += Math.abs(R.v) * modelDt;
-        const scientific=S.scienceAt?S.scienceAt(R.pos[0],R.pos[2],S.simUTC):null;
+        const nn = normalAtW(R.pos[0], R.pos[2]),nb=1-Math.exp(-dt*12);
+        R.n = norm([lerp(R.n[0], nn[0], nb), lerp(R.n[1], nn[1], nb), lerp(R.n[2], nn[2], nb)]);
+        const scientific=S.scienceAt?S.scienceAt(R.pos[0],R.pos[2],clock):null;
         R.sun=scientific?scientific.sun:clamp(shadeAtW(R.pos[0],R.pos[2]),0,1);
         R.earth=scientific?scientific.earth>.0005:earthVisAtW(R.pos[0],R.pos[2]);R.earthWhy=R.earth?'':(S.tEarth.el < -S.tEarth.rad?'below':'hill');
-        // Hypothetical tracking-panel rover in SI units: 160 Wh, 0.5 m², eta 0.28, idle 10 W, driving +45 W.
-        const solarW=1361*(149597870.7/(scientific?.sunDirection?.dist||149597870.7))**2*.5*.28*R.sun,loadW=10+(Math.abs(R.v)>1e-5?45:0),netW=solarW-loadW;
-        let elapsedH=modelDt/3600;if(R.lastScienceUTC!==undefined&&S.simUTC!==undefined&&S.simUTC!==R.lastScienceUTC){const deltaH=(S.simUTC-R.lastScienceUTC)/3600000;if(deltaH<0){R.batt=80;elapsedH=0;}else elapsedH=deltaH;}
-        R.lastScienceUTC=S.simUTC;R.rate=netW/160*100/60;
-        if(S.drain===false)R.batt=100;else if(elapsedH>1/60&&S.scienceAt){const samples=Math.max(1,Math.ceil(elapsedH*4)),step=elapsedH/samples;for(let a=0;a<samples;a++){const t=S.simUTC-(elapsedH-(a+.5)*step)*3600000,sky=S.scienceAt(R.pos[0],R.pos[2],t),power=1361*(149597870.7/(sky.sunDirection?.dist||149597870.7))**2*.5*.28*sky.sun-loadW;R.batt=clamp(R.batt+power*step/160*100,0,100);}}else R.batt=clamp(R.batt+netW*elapsedH/160*100,0,100);
+        // Hypothetical rover shared with the route planner (science-core VEHICLE): 160 Wh battery, 0.5 m² sun-tracking panel at
+        // 28 % (about 190 W in full sun), 10 W idle load and +45 W while driving. Sunlit: it charges; in shadow: it drains.
+        const solar=(sky)=>solarPower(sky.sun,sky.sunDirection?.dist||AU_KM),solarW=scientific?solar(scientific):solarPower(R.sun),moving=Math.abs(R.v)>1e-9;
+        R.solarW=solarW;R.loadW=V.idleW+(moving?V.driveW:0);R.netW=solarW-R.loadW;R.rate=R.netW/cap*100;
+        const totalS=simDt+jumpS;
+        if(S.drain===false)R.batt=100;
+        else if(totalS>0){let wh=R.batt/100*cap;const driveFrac=driveS/totalS;
+          if(totalS<=900||!S.scienceAt)wh=clamp(wh+(solarW-V.idleW-V.driveW*driveFrac)*totalS/3600,0,cap);
+          else{const samples=Math.min(2000,Math.ceil(totalS/900)),step=totalS/samples;for(let a=0;a<samples;a++){const sky=S.scienceAt(R.pos[0],R.pos[2],clock-(totalS-(a+.5)*step)*1000);wh=clamp(wh+(solar(sky)-V.idleW-V.driveW*driveFrac)*step/3600,0,cap);}}
+          R.batt=wh/cap*100;}
 
-        if (now - S.lastCb > 200) { S.lastCb = now; cb.onRover && cb.onRover({ x: R.pos[0], z: R.pos[2], heading: R.heading, batt: R.batt, rate: R.rate, sun: R.sun, earth: R.earth, earthWhy: R.earthWhy, kmh: Math.abs(R.v) * 3600, dist: R.dist, blocked: R.blocked }); }
+        if (now - S.lastCb > 200) { S.lastCb = now; cb.onRover && cb.onRover({ x: R.pos[0], z: R.pos[2], heading: R.heading, batt: R.batt, rate: R.rate, netW: R.netW, solarW: R.solarW, loadW: R.loadW, sun: R.sun, earth: R.earth, earthWhy: R.earthWhy, kmh: Math.abs(R.v) * 3600, dist: R.dist, blocked: R.blocked }); }
       }
 
       // ---- loop ----
@@ -2012,14 +2109,13 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         const dt = Math.min(0.1, (now - last) / 1000); last = now;
         let anim = performance.now()-(S.shadeAt||0)<300;
         if (S.fly) {
-          const F = S.fly, p = Math.min(1, (now - F.t0) / F.dur), e = ease(p);
-          S.rc.yaw = lerp(F.from.yaw, F.to.yaw, e); S.rc.pitch = lerp(F.from.pitch, F.to.pitch, e);
-          S.rc.dist = Math.exp(lerp(Math.log(F.from.dist), Math.log(F.to.dist), e));
-          S.rc.tgt = [0, 1, 2].map((k) => lerp(F.from.tgt[k], F.to.tgt[k], e));
-          if (F.close && p > 0.72 && S.fadeDir === 0 && S.fade < 1) { S.fadeDir = 1; S.fadeCb = F.done; F.done = null; }
+          const F = S.fly, p = Math.min(1, (now - F.t0) / F.dur);
+          stepFly(F, p);
           if (p >= 1) { S.fly = null; if (F.done) F.done(); }
           anim = true;
         }
+        if (S.spin && S.view === 'region' && !drag) { rotateRegion(S.spin.dx * dt * 60, S.spin.dy * dt * 60); const k = Math.exp(-dt * 4); S.spin.dx *= k; S.spin.dy *= k; if (Math.abs(S.spin.dx) + Math.abs(S.spin.dy) < 0.05) S.spin = null; anim = true; }
+        if (S.xfade) anim = true;
         if (S.fadeDir !== 0) {
           S.fade += S.fadeDir * dt / 0.35;
           if (S.fade >= 1) { S.fade = 1; S.fadeDir = 0; const f = S.fadeCb; S.fadeCb = null; if (f) f(); }
@@ -2032,22 +2128,28 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (S.view === 'drive' && S.rover) { if(S.dc.zoomTarget)S.dc.dist=lerp(S.dc.dist,S.dc.zoomTarget,1-Math.exp(-dt*16));stepDrive(now, dt);smoothDriveCamera(dt,now); anim = true; }
         resize();
         if (!S.dirty && !anim) {
-          if (S.view === 'region' && S.sel && lastF && now - lastOv > 33) { lastOv = now; g2.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); g2.clearRect(0, 0, S.W, S.H); drawOverlayRegion(lastF, now); }
+          if (S.view === 'region' && S.sel && lastF && !S.rc.low && now - lastOv > 33) { lastOv = now; g2.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); g2.clearRect(0, 0, S.W, S.H); drawOverlayRegion(lastF, now); }
           return;
         }
         S.dirty = false;
         gl.viewport(0, 0, cv.width, cv.height);
         gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         g2.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); g2.clearRect(0, 0, S.W, S.H);
-        if (S.view === 'region') { const F = drawRegion(); drawOverlayRegion(F, now); lastF = F; }
+        if (S.view === 'region') {
+          const F = drawRegion(), fp = S.fly && S.fly.close ? Math.min(1, (now - S.fly.t0) / S.fly.dur) : (S.rc.low ? 1 : 0);
+          if (fp < 0.35) { if (fp > 0) g2.globalAlpha = 1 - fp / 0.35; drawOverlayRegion(F, now); g2.globalAlpha = 1; } else S.hits = [];
+          lastF = F;
+          if (S.rc.low) { const sn = S.snap || (S.snap = document.createElement('canvas')); if (sn.width !== cv.width || sn.height !== cv.height) { sn.width = cv.width; sn.height = cv.height; } sn.getContext('2d').drawImage(cv, 0, 0); S.snapAt = now; }
+        }
         else { const cam = S.view === 'drive' && S.rover ? driveCam() : terrCam(); const F = drawGround(cam, now); drawOverlayGround(F, now); beginTravelLabels(F); drawTripRoute(F); drawTravelReference(F); drawDescentTrail(F,now); lastF = null; }
+        if (S.xfade) { const a = 1 - (now - S.xfade.t0) / S.xfade.dur; if (a > 0 && S.snap) { g2.globalAlpha = a * a * (3 - 2 * a); g2.drawImage(S.snap, 0, 0, S.W, S.H); g2.globalAlpha = 1; } else S.xfade = null; }
         if (S.fade > 0) { g2.fillStyle = 'rgba(0,0,0,' + S.fade.toFixed(3) + ')'; g2.fillRect(0, 0, S.W, S.H); }
       }
       raf = requestAnimationFrame(frame);
 
       // ---- input ----
       let drag = null;const touches=new Map();let pinch=0;
-      function onDown(e) { if(S.view==='drive'){S.dc.orbiting=true;S.dc.manualUntil=performance.now()+1200;} touches.set(e.pointerId,[e.clientX,e.clientY]);if(touches.size===2){const a=[...touches.values()];pinch=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);drag=null;return;} drag = { x: e.clientX, y: e.clientY, moved: false, pan: e.button === 2 || e.shiftKey }; try { ov.setPointerCapture(e.pointerId); } catch (err) { } }
+      function onDown(e) { S.spin = null; if(S.view==='drive'){S.dc.orbiting=true;S.dc.manualUntil=performance.now()+1200;} touches.set(e.pointerId,[e.clientX,e.clientY]);if(touches.size===2){const a=[...touches.values()];pinch=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);drag=null;return;} drag = { x: e.clientX, y: e.clientY, moved: false, pan: e.button === 2 || e.shiftKey }; try { ov.setPointerCapture(e.pointerId); } catch (err) { } }
       function onMove(e) {
         if(touches.has(e.pointerId))touches.set(e.pointerId,[e.clientX,e.clientY]);
         if(touches.size===2){const a=[...touches.values()],distance=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);if(pinch>0)zoom(pinch/Math.max(1,distance));pinch=distance;return;}
@@ -2057,7 +2159,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         drag.x = e.clientX; drag.y = e.clientY;
         if (!drag.moved) return;
         S.fly = null;
-        if (S.view === 'region') { const k = 0.0045 * Math.min(1.2, S.rc.dist); S.rc.yaw -= dx * k; S.rc.pitch = clamp(S.rc.pitch + dy * k, -1.5, 1.5); }
+        if (S.view === 'region') { if (S.rc.low) { S.rc.low = false; S.rc.dist = Math.max(S.rc.dist, 0.03); } rotateRegion(dx, dy); const t = performance.now(), w = Math.min(1, (t - (drag.t || t)) / 16 || 1); drag.vx = lerp(drag.vx || 0, dx, Math.max(0.35, w)); drag.vy = lerp(drag.vy || 0, dy, Math.max(0.35, w)); drag.t = t; }
         else if (S.view === 'drive') { S.dc.yawTarget=(S.dc.yawTarget??S.dc.yaw)-dx*.006;S.dc.pitchTarget=clamp((S.dc.pitchTarget??S.dc.pitch)+dy*.004,.02,1.4);S.dc.manualUntil=performance.now()+1200; }
         else if (drag.pan) {
           const yw = S.tc.yaw, s = S.tc.dist * 0.0016, r = [Math.cos(yw), 0, Math.sin(yw)], f = [-Math.sin(yw), 0, Math.cos(yw)];
@@ -2068,10 +2170,12 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       }
       function hitAt(x, y) { let best = null, bd = 20; for (const h of S.hits) { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h; } } return best; }
       function onUp(e) { S.dc.orbiting=false;touches.delete(e.pointerId);if(pinch){pinch=0;drag=null;return;}
-        const d = drag; drag = null; if (!d || d.moved) return;
+        const d = drag; drag = null;
+        if (d && d.moved && S.view === 'region' && d.t && performance.now() - d.t < 80 && Math.abs(d.vx) + Math.abs(d.vy) > 2) S.spin = { dx: d.vx, dy: d.vy };
+        if (!d || d.moved) return;
         const rect = ov.getBoundingClientRect(), x = e.clientX - rect.left, y = e.clientY - rect.top;
-        if (S.view === 'terrain' && S.terr && !S.land) {
-          const cam = terrCam(), B = camBasis(cam), tn = Math.tan(cam.fov / 2), asp = S.W / S.H, nx = x / S.W * 2 - 1, ny = 1 - y / S.H * 2;
+        if ((S.view === 'terrain' || (S.view === 'drive' && S.rover)) && S.terr && !S.land) {
+          const cam = S.view === 'drive' ? driveCam() : terrCam(), B = camBasis(cam), tn = Math.tan(cam.fov / 2), asp = S.W / S.H, nx = x / S.W * 2 - 1, ny = 1 - y / S.H * 2;
           const dir = norm(add(B.f, add(scl(B.r, nx * tn * asp), scl(B.u, ny * tn))));
           let t = 0, prev = 0, hit = null;
           for (let k = 0; k < 600 && t < 60; k++) {
@@ -2094,18 +2198,25 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       }
       function onDbl(e) { if (S.view !== 'region') return; const rect = ov.getBoundingClientRect(), h = hitAt(e.clientX - rect.left, e.clientY - rect.top); if (h) cb.onOpen && cb.onOpen(h.id); }
       function zoom(k) {
-        if (S.view === 'region') S.rc.dist = clamp(S.rc.dist * k, 0.03, 6);
+        if (S.view === 'region') {
+          if (S.rc.low) { S.rc.low = false; S.rc.dist = Math.max(S.rc.dist, 0.03); }
+          // Zoom towards the surface point in the middle of the view, not a point inside the Moon.
+          const cam = regionCam(), f = norm(sub(cam.tgt, cam.eye)), bq = dot(cam.eye, f), cq = dot(cam.eye, cam.eye) - 1, disc = bq * bq - cq;
+          if (disc > 0 && -bq - Math.sqrt(disc) > 0) { const t = -bq - Math.sqrt(disc); S.rc.tgt = add(cam.eye, scl(f, t)); S.rc.dist = t; }
+          S.rc.dist = clamp(S.rc.dist * k, 0.15, 6); // closer than ~250 km the global texture is only blur; pins fly into Terrain for detail
+        }
         else if (S.view === 'drive') S.dc.zoomTarget = clamp((S.dc.zoomTarget || S.dc.dist) * k, 0.005, 24);
         else S.tc.dist = clamp(S.tc.dist * k, 0.05, 30);
         S.dirty = true;
       }
       function onWheel(e) { e.preventDefault(); S.fly = null; zoom(Math.exp(clamp(e.deltaY * 0.0012, -0.5, 0.5))); }
       const KEYMAP = { ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
-      function onKey(e, on) { const m = KEYMAP[e.key]; if (!m || S.view !== 'drive'||e.target.matches('input,select,textarea')) return; e.preventDefault(); S.keys[m] = on; }
+      // Listen on window, not only the canvas: after clicking », Route here or the map the canvas loses focus and the keys used to stop working.
+      function onKey(e, on) { const m = KEYMAP[e.key]; if (!m || S.view !== 'drive') return; if (!on) { S.keys[m] = false; return; } const t = e.target; if (e.ctrlKey || e.metaKey || e.altKey || (t && t.closest && t.closest('input,select,textarea,[contenteditable],[role=dialog],[aria-modal=true],.route-page,.tour-card')) || document.querySelector('.bigmap.route-page')) return; e.preventDefault(); if (!S.keys[m]) cb.onDriveInput && cb.onDriveInput(); S.keys[m] = true; }
       const kd = (e) => onKey(e, true), ku = (e) => onKey(e, false), blur = () => { S.keys = {}; }, noCtx = (e) => e.preventDefault();
       ov.addEventListener('pointerdown', onDown); ov.addEventListener('pointermove', onMove); ov.addEventListener('pointerup', onUp);
       ov.addEventListener('pointercancel', e => {S.dc.orbiting=false;touches.delete(e.pointerId);pinch=0;drag=null;}); ov.addEventListener('lostpointercapture', e => {S.dc.orbiting=false;touches.delete(e.pointerId);pinch=0;drag=null;}); ov.addEventListener('dblclick', onDbl); ov.addEventListener('wheel', onWheel, { passive: false });
-      ov.addEventListener('contextmenu', noCtx); ov.addEventListener('keydown', kd); ov.addEventListener('keyup', ku); ov.addEventListener('blur', blur);
+      ov.addEventListener('contextmenu', noCtx); window.addEventListener('keydown', kd); window.addEventListener('keyup', ku); window.addEventListener('blur', blur);
 
       return {
         set(o) { Object.assign(S, o); if (!S.inited && o.sunB) { S.inited = true; initRegion(null); } S.dirty = true; },
@@ -2113,11 +2224,13 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           if (v === S.view) return;
           const prev = S.view;
           S.view = v; S.fly = null; S.keys = {};
-          if (v !== 'terrain') { S.land = null; }
+          if (v !== 'terrain') { if (S.land) S.descentTrail = null; S.land = null; } // an interrupted descent leaves no trail behind
           if (v === 'terrain') { if (prev !== 'drive') initTerrain(); else if (S.rover) { S.tc.tgt = add(S.rover.pos, [0, 0.05, 0]); S.tc.dist = 2.5; } }
           else if (v === 'drive') {if(!S.rover||S.rover.terrainKey!==S.terrKey)initDrive();else{S.dc.yawTarget=0;S.dc.zoomTarget=DRIVE_START_DISTANCE;}}
           else { const s = S.sites.find((x) => x.id === S.sel); initRegion(s || null); S.lander = null; }
-          S.fade = 1; S.fadeDir = -1; S.dirty = true;
+          if (prev === 'region' && S.snap && S.rc.low && performance.now() - (S.snapAt || 0) < 4000) { S.xfade = { t0: performance.now(), dur: 650 }; S.fade = 0; S.fadeDir = 0; }
+          else { S.xfade = null; S.fade = 1; S.fadeDir = -1; }
+          S.dirty = true;
         },
         refreshMoon(){const models=window.RealMoon.meshes;for(let i=0;i<models.length;i++){const m=models[i],old=realMoonMeshes[i]||{pos:gl.createBuffer(),nrm:gl.createBuffer(),idx:gl.createBuffer()};for(const [key,data,target] of [['pos',m.pos,gl.ARRAY_BUFFER],['nrm',m.nrm,gl.ARRAY_BUFFER],['idx',m.idx,gl.ELEMENT_ARRAY_BUFFER]]){gl.bindBuffer(target,old[key]);gl.bufferData(target,data,gl.STATIC_DRAW);}old.count=m.idx.length;realMoonMeshes[i]=old;}gl.bindTexture(gl.TEXTURE_2D,moonTexture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,window.RealMoon.albedo);gl.generateMipmap(gl.TEXTURE_2D);window.RealMoon.heightImages.forEach((image,i)=>{gl.bindTexture(gl.TEXTURE_2D,heightTextures[i]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,image);});S.dirty=true;},
         terrainKey() { return S.terrKey; },
@@ -2157,7 +2270,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           for(const mesh of Object.values(routeBuffers))for(const key of ['p','prev','next','side'])if(mesh[key])gl.deleteBuffer(mesh[key]);alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect();
           ov.removeEventListener('pointerdown', onDown); ov.removeEventListener('pointermove', onMove); ov.removeEventListener('pointerup', onUp);
           ov.removeEventListener('dblclick', onDbl); ov.removeEventListener('wheel', onWheel); ov.removeEventListener('contextmenu', noCtx);
-          ov.removeEventListener('keydown', kd); ov.removeEventListener('keyup', ku); ov.removeEventListener('blur', blur);
+          window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); window.removeEventListener('blur', blur);
         }
       };
     }

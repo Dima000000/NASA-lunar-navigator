@@ -580,6 +580,11 @@
 .mission-labels span:last-child {
   text-align: right;
 }
+/* Keep the labels and the Mission dates toggle off the timeline's rounded corners. */
+.ui-pass .mission-labels,
+.ui-pass .mission-selector > details {
+  padding: 0 14px;
+}
 .mission-selection {
   position: relative;
   height: 22px;
@@ -1162,6 +1167,12 @@
   left: 50% !important;
   transform: translateX(-50%) !important;
 }
+/* Room for the Terrain hint on one line between the place card and the map. */
+@media (min-width: 1180px) {
+  .ui-pass:not(.ui-drive) .tip {
+    max-width: 560px;
+  }
+}
 .ui-pass.app.tlc:not(.ui-drive) .mapctl {
   bottom: 170px !important;
 }
@@ -1327,13 +1338,6 @@
     opacity: 1;
     transform: translate(-50%, 0);
   }
-}
-.time-step-note {
-  font-size: 10px;
-  line-height: 1.4;
-  color: #98989f;
-  margin: 6px 0;
-  max-width: 230px;
 }
 .ui-pass.ui-drive.drive-card-open .card {
   left: 20px !important;
@@ -1702,4 +1706,520 @@
   top: 0 !important;
   z-index: 2;
   background: rgba(28, 28, 30, 0.96) !important;
+}
+
+/* ---- places panel: Add place popover (places-panel) ---- */
+aside.card .pop.addpop {
+  padding: 10px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.addq {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.addopt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 0.5px solid var(--ui-line, rgba(255, 255, 255, 0.13));
+  background: var(--ui-fill, rgba(118, 118, 128, 0.24));
+  color: #f5f5f7;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.addopt:hover:not(:disabled) {
+  background: var(--ui-fill-h, rgba(118, 118, 128, 0.38));
+}
+.addopt[aria-pressed="true"] {
+  background: rgba(255, 214, 10, 0.18);
+  border-color: rgba(255, 214, 10, 0.7);
+}
+.addopt:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.addopt svg {
+  flex: none;
+  color: #ffd60a;
+}
+.addopt span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.addopt b {
+  font-size: 13px;
+  font-weight: 600;
+}
+.addopt small {
+  font-size: 11px;
+  color: var(--ui-text-2, rgba(235, 235, 245, 0.6));
+}
+.addcoord summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ui-text-2, rgba(235, 235, 245, 0.6));
+  padding: 2px 2px;
+}
+.addcoord .addrow {
+  padding: 6px 0 2px;
+}
+.addcat-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ui-text-2, rgba(235, 235, 245, 0.6));
+  padding: 2px 2px 0;
+}
+.addcat-h small {
+  font-weight: 400;
+  font-size: 11px;
+}
+.addcat {
+  max-height: 168px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+}
+.catrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 18px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 4px 10px;
+  border: 0;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.07);
+  background: none;
+  color: #f5f5f7;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.catrow:last-child {
+  border-bottom: 0;
+}
+.catrow:hover:not(:disabled) {
+  background: rgba(118, 118, 128, 0.24);
+}
+.catrow:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.catrow .catn {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.catrow small {
+  font-size: 10.5px;
+  color: var(--ui-text-2, rgba(235, 235, 245, 0.6));
+}
+.catrow i {
+  font-style: normal;
+  font-weight: 700;
+  color: #ffd60a;
+  text-align: center;
+}
+/* stats labels: native tooltip instead of "?" buttons */
+.rlname {
+  cursor: help;
+  text-decoration: underline dotted rgba(235, 235, 245, 0.35);
+  text-underline-offset: 3px;
+}
+/* top-down map pick mode */
+.mpick-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(255, 214, 10, 0.16);
+  color: #ffd60a;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.mpick-note .lnk {
+  color: #f5f5f7;
+  min-height: 0;
+  padding: 0;
+}
+.map-place-pick .mmc,
+.map-place-pick .bmc {
+  cursor: crosshair !important;
+  outline: 2px solid rgba(255, 214, 10, 0.8);
+  outline-offset: 1px;
+}
+/* drive pad: empty cell left after removing the duplicate find-rover button */
+.pad .pad-gap {
+  pointer-events: none;
+}
+/* keep the card above the timeline and the legends beside the card */
+@media (min-width: 901px) {
+  .app.ui-pass aside.card {
+    max-height: var(--card-max-h, calc(100vh - 300px)) !important;
+  }
+  .app.ui-pass section[aria-label="Mission timeline"] > .legbox {
+    left: 322px !important;
+  }
+}
+/* drive pad: fast-forward shows the current time rate under the icon */
+.pad .turbo {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+.pad .turbo .turbo-rate {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+/* first-visit Drive how-to (non-modal) */
+.drive-help {
+  position: fixed;
+  inset: 0;
+  z-index: 990;
+  pointer-events: none;
+}
+.drive-help-ring {
+  position: fixed;
+  border: 2px solid #ffd60a;
+  border-radius: 22px;
+  box-shadow: 0 0 0 4px rgba(255, 214, 10, 0.18);
+  pointer-events: none;
+}
+.drive-help-card {
+  width: min(320px, calc(100vw - 24px)) !important;
+  padding: 18px !important;
+}
+.drive-help-card h2 {
+  font-size: 18px;
+}
+.drive-help-card p {
+  margin: 0;
+}
+/* desktop: the timeline is now a small pill bottom-left, so the pad sits in the bottom-right corner
+   (below the top-down map, which grows when Route here appears) and the right control column can use the full height */
+@media (min-width: 1100px) {
+  .ui-pass.ui-drive .pad,
+  .ui-pass.ui-drive.app.tlc .pad {
+    right: 84px !important;
+    bottom: 20px !important;
+  }
+  .ui-pass.ui-drive .layerbox {
+    max-height: calc(100dvh - 160px);
+  }
+}
+
+/* Route here lives next to the top-down map (right column). The floating
+   button is only a fallback when the map panel is hidden (narrow screens). */
+.mini2 .mini-route-here {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  margin: 8px 0 4px;
+  justify-content: center;
+  align-items: center;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  font-weight: 600;
+}
+.mini2 .mini-route-here:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+@media (min-width: 1181px) {
+  .ui-pass.ui-drive .drive-route-here {
+    display: none !important;
+  }
+}
+
+/* ---- Terrain / Land / Drive: compact date + speed bar. Mission dates,
+   landing/liftoff handles and the scrubbable timeline stay in Overview. ---- */
+.ui-pass.ui-sim .time > .mission-selector,
+.ui-pass.ui-sim .time > .tmain {
+  display: none !important;
+}
+@media (min-width: 901px) {
+  .app.ui-pass.ui-sim section[aria-label="Mission timeline"] {
+    left: 20px !important;
+    right: auto !important;
+    width: auto !important;
+    max-width: calc(100% - 40px);
+    flex-wrap: nowrap !important;
+    align-items: center;
+    gap: 12px !important;
+    padding: 6px 8px 6px 6px !important;
+    border-radius: 999px !important;
+  }
+}
+.ui-pass.ui-sim .time > .tdate {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+.ui-pass.ui-sim .time .d1 {
+  font-size: 15px !important;
+}
+.ui-pass.ui-sim .time .d2 {
+  font-size: 11.5px !important;
+  white-space: nowrap;
+}
+.ui-pass.ui-sim .time > .playb {
+  width: 36px;
+  height: 36px;
+}
+.ui-pass.ui-sim .time .tside {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px;
+}
+.ui-pass.ui-sim .time .tside > .spd {
+  min-height: 34px !important;
+  font-size: 12.5px !important;
+  padding: 0 12px !important;
+}
+.ui-pass.ui-sim .time .sim-speed {
+  font-variant-numeric: tabular-nums;
+  min-width: 72px;
+}
+
+/* ---- Full-screen map & route settings page (was a centred popover that
+   overflowed the viewport without scrolling). Header stays put, the side
+   column scrolls, the map fits the remaining height. ---- */
+.app.ui-pass .bigmap.route-page {
+  position: fixed !important;
+  inset: 0 !important;
+  left: 0 !important;
+  top: 0 !important;
+  transform: none !important;
+  width: auto !important;
+  max-width: none !important;
+  height: 100dvh;
+  max-height: none !important;
+  z-index: 60 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important;
+  background: rgba(10, 10, 12, 0.97) !important;
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+}
+.bigmap.route-page > .shead {
+  flex: none;
+  margin: 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.bigmap.route-page > .shead .stitle {
+  font-size: 18px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bigmap.route-page > .shead .xb {
+  width: 36px !important;
+  height: 36px !important;
+}
+.bigmap.route-page .bmwrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 0;
+  align-items: stretch;
+}
+.bigmap.route-page .bmmap {
+  min-width: 0;
+  min-height: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+}
+.bigmap.route-page .bmc {
+  flex: none;
+  width: min(100cqw, 100cqh - 8px);
+  height: auto;
+  max-width: 100%;
+  aspect-ratio: 1;
+}
+.bigmap.route-page .bmmap .mpick-note {
+  width: min(100cqw, 100cqh - 8px);
+  box-sizing: border-box;
+}
+.bigmap.route-page .bmside {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 20px 24px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+.bigmap.route-page .bmsec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bigmap.route-page .bmsec + .bmsec {
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.bigmap.route-page .bmh {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(235, 235, 245, 0.6);
+}
+.bigmap.route-page .bmchk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+}
+.bigmap.route-page .trip-key[title] {
+  cursor: help;
+}
+.bigmap.route-page .bmkey {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  font-size: 12.5px;
+}
+.bigmap.route-page .bmkey span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: help;
+}
+.bigmap.route-page .bmkey i {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.bigmap.route-page .bmkey b {
+  margin-left: 2px;
+  color: #8ec2ff;
+}
+.bigmap.route-page .bmfoot {
+  margin: 0;
+  font-size: 11.5px;
+  cursor: help;
+}
+@media (max-width: 900px) {
+  .bigmap.route-page .bmwrap {
+    display: block;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .bigmap.route-page .bmmap {
+    container-type: normal;
+    padding: 12px 12px 0;
+  }
+  .bigmap.route-page .bmc,
+  .bigmap.route-page .bmmap .mpick-note {
+    width: min(100%, 560px);
+  }
+  .bigmap.route-page .bmside {
+    overflow: visible;
+    border-left: 0;
+    padding: 14px 16px 28px;
+  }
+  .bigmap.route-page > .shead {
+    padding: 10px 12px 10px 16px;
+  }
+}
+.bigmap.route-page .bmkey .wide {
+  grid-column: 1 / -1;
+}
+@media (min-width: 901px) {
+  /* no tall timeline outside Overview: map zoom controls can sit at the bottom */
+  .app.ui-pass.ui-sim .mapctl,
+  .app.ui-pass.ui-sim.tlc:not(.ui-drive) .mapctl {
+    bottom: 20px !important;
+  }
+}
+/* Travel time is a Drive-only overlay: its legend sits under the ground legend, top left. */
+@media (min-width: 901px) {
+  .app.ui-pass.ui-drive .travel-legend {
+    left: 20px;
+    top: 262px;
+    bottom: auto;
+  }
+  .app.ui-pass.ui-drive.drive-card-open .travel-legend {
+    left: 342px;
+  }
+}
+/* review-terrain: outside Overview the timeline is a small pill; sit the ground legend beside it, bottoms aligned */
+@media (min-width: 901px) {
+  .app.ui-pass.ui-sim section[aria-label="Mission timeline"] > .legbox {
+    left: 322px !important;
+    bottom: 0 !important;
+  }
+}
+/* review-terrain: the after-touchdown bar was placed for the old tall timeline and covered the lander on short windows */
+@media (min-width: 901px) {
+  .app.ui-pass.ui-sim .landbar {
+    bottom: 150px;
+  }
+}
+/* review-terrain: the scrolling left card clips its children's 30px drop shadows into a hard dark rectangle; use a tight shadow */
+@media (min-width: 901px) {
+  .app.ui-pass aside.card .plist div:has(> .plrow),
+  .app.ui-pass aside.card .addpl,
+  .app.ui-pass aside.card .pop.addpop,
+  .app.ui-pass aside.card .sect {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+  }
+}
+/* review-terrain: More stats rows have no colour dot, so the 3-column .rl grid squeezed the label into 10px */
+.more-stats .rl {
+  grid-template-columns: 1fr auto;
+  margin-top: 4px;
+}
+
+/* Drive trip plan (desktop): keep it between the status bar and the bottom time pill; scroll inside */
+@media (min-width: 901px) {
+  .ui-pass.ui-drive .trip-panel {
+    top: auto !important;
+    bottom: 92px !important;
+    max-height: calc(100dvh - 92px - 146px) !important;
+  }
 }

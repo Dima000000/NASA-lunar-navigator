@@ -1,8 +1,10 @@
 import { GuidedTour } from "./guided-tour.mjs";
+import { DriveHelp } from "./drive-help.mjs";
 import { conservativeSlopes } from "./route-search.mjs";
 import { tripCSV } from "./planning-analysis.mjs";
 import { skyPanorama } from "./sky-panorama.mjs";
 import { interpolateVisualState } from "./visual-time.mjs";
+import { MAX_TIME_SCALE, TIME_PRESETS, timeRateLabel } from "./drive-navigation.mjs";
 export function withUIPass(Base, science) {
   return class UIPass extends Base {
     constructor(...args) {
@@ -47,7 +49,7 @@ export function withUIPass(Base, science) {
           });
           this.setState({
             navigationActive: true,
-            navigationStatus: "Route ready · " + m.plan.hours.toFixed(1) + " h",
+            navigationStatus: "Route ready · " + this.fmtH(m.plan.hours),
             routeAlert: "",
           });
         }
@@ -76,6 +78,15 @@ export function withUIPass(Base, science) {
       this._hudResizeObserver = new ResizeObserver(this._driveLayoutListener);
       this._tour = new GuidedTour(this);
       this._tourTimer = setTimeout(() => this._tour.first(), 1200);
+      this._driveHelp = new DriveHelp(this);
+      // Esc closes the full-screen map / route settings page.
+      this._bigMapEsc = (e) => {
+        if (e.key !== "Escape" || !this.state.bigMap) return;
+        e.preventDefault();
+        e.stopPropagation();
+        this.setState({ bigMap: false, mapPick: false, mapPlacePick: false });
+      };
+      window.addEventListener("keydown", this._bigMapEsc, true);
     }
     bestBasis() {
       const s = this.state;
@@ -100,6 +111,21 @@ export function withUIPass(Base, science) {
       this.updateNavigation();
       super.componentDidUpdate();
       this.syncDriveLayout();
+      this.syncCardLayout();
+      // The left card is height-capped: bring a freshly opened "+ Add place" popover into view.
+      if (this.state.sitesOpen && !this._sitesWasOpen) {
+        const pop = document.querySelector("aside.card .addpop");
+        if (pop) pop.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+      this._sitesWasOpen = !!this.state.sitesOpen;
+      // ...and the landing-point card after a click on the ground.
+      const tg = this.state.target,
+        tgKey = tg ? tg.i + "," + tg.j : "";
+      if (tgKey && tgKey !== this._lastTargetKey) {
+        const card = document.querySelector("aside.card .target:not(.empty)");
+        if (card) card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+      this._lastTargetKey = tgKey;
       if (this._bestBasis && this._bestBasis !== this.bestBasis()) {
         this._bestBasis = null;
         this._bestJob = (this._bestJob || 0) + 1;
@@ -112,12 +138,15 @@ export function withUIPass(Base, science) {
     }
     componentWillUnmount() {
       window.removeEventListener("resize", this._driveLayoutListener);
+      window.removeEventListener("keydown", this._bigMapEsc, true);
       cancelAnimationFrame(this._driveLayoutRAF);
       this._hudResizeObserver?.disconnect();
       clearTimeout(this._routeAlertTimer);
       this._navWorker?.terminate();
       clearTimeout(this._tourTimer);
       this._tour?.destroy();
+      clearTimeout(this._driveHelpTimer);
+      this._driveHelp?.destroy();
       if (this._tripURL) URL.revokeObjectURL(this._tripURL);
       super.componentWillUnmount();
     }
@@ -164,6 +193,7 @@ export function withUIPass(Base, science) {
         return;
       }
       if (event.type === "pointerdown") {
+        this.capDriveRate?.();
         this._joystickPointer = event.pointerId;
         el.setPointerCapture(event.pointerId);
       }
@@ -242,11 +272,69 @@ export function withUIPass(Base, science) {
           " UTC · " +
           values.join(" · ");
     }
+    // Mission bar domain: a stable window around the mission (2 weeks before,
+    // ~6 weeks after) so both handles can move in both directions. It only
+    // grows, never shrinks, so handles do not rescale under the pointer.
+    missionContext() {
+      const day = 86400000,
+        { start, end } = this.missionValue();
+      this._missionContext ??= {
+        start: Math.floor((start - 14 * day) / day) * day,
+        end: Math.ceil((end + 45 * day) / day) * day,
+      };
+      const c = this._missionContext;
+      if (!this._missionDrag) {
+        c.start = Math.min(c.start, start);
+        c.end = Math.max(c.end, end);
+      }
+      return c;
+    }
+    // Mission as the user sees it: an in-flight drag or a committed range that
+    // is still loading wins over this.state, so re-renders never snap back.
+    missionValue() {
+      let { start, end } = this.state;
+      const p = this._missionPending;
+      if (p) {
+        if (
+          (p.start === start && p.end === end) ||
+          performance.now() - p.at > 20000
+        )
+          this._missionPending = null;
+        else ({ start, end } = p);
+      }
+      const d = this._missionDrag;
+      if (d && d.value !== undefined) {
+        if (d.which === "landing") start = d.value;
+        else end = d.value;
+      }
+      return { start, end };
+    }
     setRange(start, end) {
-      this._missionContext ??= { start: this.state.start, end: this.state.end };
+      if (end <= start) end = start + 86400000;
+      if (end - start > 730 * 86400000) end = start + 730 * 86400000;
+      this.missionContext();
+      this._missionPending = { start, end, at: performance.now() };
       this._missionContext.start = Math.min(this._missionContext.start, start);
       this._missionContext.end = Math.max(this._missionContext.end, end);
       return super.setRange(start, end);
+    }
+    missionInput(event, which) {
+      if (event.type === "keydown" && event.key !== "Enter") return;
+      const ms = Date.parse(event.target.value + "Z");
+      clearTimeout(this._missionInputTimer);
+      if (!Number.isFinite(ms)) return;
+      const commit = () => {
+        const cur = this.missionValue();
+        if ((which === "landing" ? cur.start : cur.end) === ms) return;
+        this.setMission(
+          which === "landing" ? ms : cur.start,
+          which === "liftoff" ? ms : cur.end,
+        );
+      };
+      // Typing fires change per date segment; wait until the user pauses.
+      if (event.type === "change")
+        this._missionInputTimer = setTimeout(commit, 900);
+      else commit();
     }
     setMission(start, end) {
       if (
@@ -265,34 +353,63 @@ export function withUIPass(Base, science) {
     }
     missionPointer(event, which) {
       const el = event.currentTarget,
-        bar = el.closest(".mission-selection"),
-        c = this._missionContext || {
-          start: this.state.start,
-          end: this.state.end,
-        };
+        bar = el.closest(".mission-selection");
       if (event.type === "pointerdown") {
+        const cur = this.missionValue(),
+          centre = (h) => {
+            const b = h?.getBoundingClientRect();
+            return b ? b.left + b.width / 2 : NaN;
+          },
+          cx = {
+            landing: centre(bar.querySelector(".mission-handle.landing")),
+            liftoff: centre(bar.querySelector(".mission-handle.liftoff")),
+          };
         this._missionDrag = {
           which,
-          context: { ...c },
-          start: this.state.start,
-          end: this.state.end,
+          via: which,
+          cx,
+          x0: event.clientX,
+          // Stacked handles (short mission): the drag direction picks one.
+          ambiguous: Math.abs(cx.landing - cx.liftoff) < 20,
+          context: { ...this.missionContext() },
+          start: cur.start,
+          end: cur.end,
+          // Keep the grab point under the pointer: no jump on press.
+          grab: event.clientX - cx[which],
         };
         el.setPointerCapture(event.pointerId);
       }
-      if (!this._missionDrag || !el.hasPointerCapture(event.pointerId)) return;
-      const r = bar.getBoundingClientRect(),
-        f = Math.max(0, Math.min(1, (event.clientX - r.left) / r.width)),
-        ms = Math.round((c.start + f * (c.end - c.start)) / 3600000) * 3600000;
-      this._missionDrag.value = ms;
-      el.style.left = f * 100 + "%";
-      if (event.type === "pointerup") {
-        const d = this._missionDrag;
-        this._missionDrag = null;
-        this.setMission(
-          d.which === "landing" ? Math.min(d.value, d.end - 3600000) : d.start,
-          d.which === "liftoff" ? Math.max(d.value, d.start + 3600000) : d.end,
-        );
+      const d = this._missionDrag;
+      if (!d || d.via !== which || !el.hasPointerCapture(event.pointerId))
+        return;
+      if (d.ambiguous && event.type === "pointermove") {
+        if (Math.abs(event.clientX - d.x0) < 4) return;
+        d.which = event.clientX < d.x0 ? "landing" : "liftoff";
+        d.grab = d.x0 - d.cx[d.which];
+        d.ambiguous = false;
       }
+      const w = d.which,
+        c = d.context,
+        r = bar.getBoundingClientRect(),
+        f = Math.max(
+          0,
+          Math.min(1, (event.clientX - d.grab - r.left) / r.width),
+        ),
+        ms = Math.round((c.start + f * (c.end - c.start)) / 3600000) * 3600000;
+      if (event.type !== "pointerdown" && !d.ambiguous)
+        d.value =
+          w === "landing"
+            ? Math.min(ms, d.end - 3600000)
+            : Math.max(ms, d.start + 3600000);
+      if (event.type === "pointerup") {
+        this._missionDrag = null;
+        if (d.value !== undefined)
+          this.setMission(
+            w === "landing" ? d.value : d.start,
+            w === "liftoff" ? d.value : d.end,
+          );
+        else this.setState({});
+      } else this.setState({});
       event.preventDefault();
     }
     reachOrigin() {
@@ -480,17 +597,17 @@ export function withUIPass(Base, science) {
         status:
           "Depart " +
           new Date(p.start).toISOString().slice(0, 16).replace("T", " ") +
-          " UTC · DEM path · 533 m horizons · 15 min energy samples" +
+          " UTC" +
           (p.incomplete ? " · search budget reached" : ""),
         ready: true,
         summary:
           "Arrive in " +
-          (p.hours / 24).toFixed(2) +
-          " d · " +
-          p.chargeStops +
-          " charging stops (" +
-          p.chargeHours.toFixed(1) +
-          " h) · Earth in view " +
+          (p.hours < 48 ? this.fmtH(p.hours) : (p.hours / 24).toFixed(1) + " days") +
+          " · " +
+          (p.chargeStops
+            ? p.chargeStops + (p.chargeStops === 1 ? " charging stop (" : " charging stops (") + this.fmtH(p.chargeHours) + ")"
+            : "no charging stops") +
+          " · Earth in view " +
           Math.round(p.earthFraction * 100) +
           "%",
         steps: p.steps.map((s) => ({
@@ -607,12 +724,18 @@ export function withUIPass(Base, science) {
       }
       const ser = this.series(),
         met = this.metrics(ser);
+      const periodDays = Math.max(1, Math.round(((ser.n - 1) * ser.stepH) / 24)),
+        periodTxt = " Over the whole " + periodDays + "-day period shown below.";
       const explain = {
-        Sunlight: "Share of time the Sun is visible.",
+        Sunlight: "Share of time the Sun is above the local skyline." + periodTxt,
         "Earth in view":
-          "Earth above the terrain skyline; not a guaranteed radio link.",
-        "Longest night": "Longest continuous darkness without solar charging.",
-        "Longest Earth gap": "Longest continuous time with no view of Earth.",
+          "Share of time Earth is above the terrain skyline; not a guaranteed radio link." +
+          periodTxt,
+        "Longest night":
+          "Longest single stretch without sunlight (no solar charging)." +
+          periodTxt,
+        "Longest Earth gap":
+          "Longest single stretch with Earth below the skyline." + periodTxt,
       };
       for (const col of v.cmpCols || []) {
         col.moreRows = col.rows.filter((_, i) => i === 2 || i === 5);
@@ -637,8 +760,8 @@ export function withUIPass(Base, science) {
           v.sc.rows = [
             ["Sunlight", this.pct(r.sun)],
             ["Earth in view", this.pct(r.ear)],
-            ["Longest night", this.dur(r.dark)],
-            ["Longest Earth gap", this.dur(r.nocomm)],
+            ["Longest night", (r.dark > 0 ? this.dur(r.dark) : "none")],
+            ["Longest Earth gap", (r.nocomm > 0 ? this.dur(r.nocomm) : "none")],
           ].map(([name, value]) => ({
             name,
             value,
@@ -655,8 +778,8 @@ export function withUIPass(Base, science) {
         p.rows = [
           ["Sunlight", this.pct(r.sun), "#FFD60A"],
           ["Earth in view", this.pct(r.ear), "#40A8FF"],
-          ["Longest night", this.dur(r.dark), "#98989F"],
-          ["Longest Earth gap", this.dur(r.nocomm), "#98989F"],
+          ["Longest night", (r.dark > 0 ? this.dur(r.dark) : "none"), "#98989F"],
+          ["Longest Earth gap", (r.nocomm > 0 ? this.dur(r.nocomm) : "none"), "#98989F"],
         ].map(([name, value, color]) => ({
           name,
           value,
@@ -664,13 +787,12 @@ export function withUIPass(Base, science) {
           reason: explain[name],
         }));
         p.why =
-          "Sun " +
-          this.pct(r.sun) +
-          " of the time · Earth in view " +
-          this.pct(r.ear);
+          "Over the whole " +
+          periodDays +
+          "-day period · Sun and Earth together " +
+          this.pct(r.both);
         p.moreRows = [
-          { name: "Sun + Earth together", value: this.pct(r.both) },
-          { name: "Quasi-continuous light", value: this.dur(r.lqcip) },
+          { name: "Quasi-continuous light", value: (r.lqcip > 0 ? this.dur(r.lqcip) : "none") },
         ];
       }
       v.driveZoom = Math.log(this.eng?.getDriveZoom?.() || 0.025);
@@ -688,7 +810,34 @@ export function withUIPass(Base, science) {
       v.toggleDriveLayers = () =>
         this.setState({ driveLayersOpen: !this.state.driveLayersOpen });
       if (this.state.driveLayersOpen) v.appCls += " drive-layers-open";
-      v.timeOptionsLabel = this.state.view === "drive" ? "Mission" : "Options";
+      v.timeOptionsLabel = this.state.view === "drive" ? "Rover" : "Options";
+      // Mission dates (landing/liftoff handles, scrubbable timeline, Dates)
+      // live only in Overview; other modes get a compact date + speed bar.
+      const simBar = this.state.view !== "region";
+      if (simBar) v.appCls += " ui-sim";
+      v.simSpeedInline = simBar && this.state.view !== "drive";
+      v.showTimeMenuBtn = !v.simSpeedInline;
+      if (!v.showTimeMenuBtn) v.timeMenu = false;
+      v.bigMapTitle = v.bigMapPre + (v.cur?.name ? " · " + v.cur.name : "");
+      // First visit to Drive: a short how-to once the rover is on screen (after the main tour, if it is running).
+      if (
+        this.state.view === "drive" &&
+        !this.state.landing &&
+        !this._driveHelpTimer &&
+        this._driveHelp &&
+        !this._driveHelp.seen()
+      )
+        this._driveHelpTimer = setTimeout(() => {
+          this._driveHelpTimer = null;
+          if (
+            this.state.view === "drive" &&
+            !this.state.landing &&
+            !(this._tour?.index >= 0) &&
+            this.eng?.getDriveState?.()
+          )
+            this._driveHelp.maybeShow();
+          else if (this.state.view === "drive") this.setState({});
+        }, 900);
       if (this.state.view === "drive") {
         const paused =
           !!this.state.drivePaused || this.state.driveTimeScale === 0;
@@ -720,22 +869,31 @@ export function withUIPass(Base, science) {
           return;
         }
         e.target.setCustomValidity("");
-        if (value > 0) this._lastDriveRate = value;
-        this.setState({ driveTimeScale: value });
+        const rate = Math.min(MAX_TIME_SCALE, value);
+        if (rate !== value) e.target.value = rate;
+        if (rate > 0) this._lastDriveRate = rate;
+        this.setState({ driveTimeScale: rate });
       };
-      v.toggleTurbo = () =>
-        this.setState({
-          driveTimeScale: Number.isFinite(this.state.driveTimeScale * 2)
-            ? this.state.driveTimeScale * 2
-            : this.state.driveTimeScale,
-        });
-      v.turbo = false;
+      // » cycles real time → 1 min → 10 min → 1 h → 1 day per real second.
+      const rateNow = this.state.driveTimeScale,
+        nextRate =
+          TIME_PRESETS.find((r) => r > rateNow + 1e-9) ?? TIME_PRESETS[0];
+      v.toggleTurbo = () => {
+        this._lastDriveRate = nextRate;
+        this.setState({ driveTimeScale: nextRate, drivePaused: false });
+      };
+      v.turbo = rateNow > 60;
+      v.turboText = rateNow > 0 ? "×" + (rateNow >= 10000 ? Math.round(rateNow / 1000) + "k" : +rateNow.toFixed(1)) : "×0";
+      v.turboLabel =
+        "Speed up time: now " +
+        timeRateLabel(rateNow) +
+        ". Click for " +
+        timeRateLabel(nextRate);
       if (this.state.view === "drive" && this._visualUTC) {
         v.timeSmall =
           new Date(this._visualUTC).toISOString().slice(11, 19) +
-          " UTC · ×" +
-          this.state.driveTimeScale +
-          " time";
+          " UTC · " +
+          (this.state.drivePaused ? "paused" : timeRateLabel(this.state.driveTimeScale));
       }
       v.joyDown = (e) => this.joystickEvent(e);
       v.joyMove = (e) => this.joystickEvent(e);
@@ -851,16 +1009,14 @@ export function withUIPass(Base, science) {
       v.toggleSurfaceDetail = () =>
         this.setState({ surfaceDetail: !this.state.surfaceDetail });
       this.eng?.set({ surfaceDetail: this.state.surfaceDetail });
-      const context = this._missionContext || {
-          start: this.state.start,
-          end: this.state.end,
-        },
+      const mission = this.missionValue(),
+        context = this.missionContext(),
         length = context.end - context.start,
-        startPct = ((this.state.start - context.start) / length) * 100,
-        endPct = ((this.state.end - context.start) / length) * 100,
+        startPct = ((mission.start - context.start) / length) * 100,
+        endPct = ((mission.end - context.start) / length) * 100,
         iso = (ms) => new Date(ms).toISOString().slice(0, 16);
-      v.missionStart = iso(this.state.start);
-      v.missionEnd = iso(this.state.end);
+      v.missionStart = iso(mission.start);
+      v.missionEnd = iso(mission.end);
       v.missionError = this.state.missionError || "";
       v.missionStartLabel = v.missionStart.replace("T", " ") + " UTC";
       v.missionEndLabel = v.missionEnd.replace("T", " ") + " UTC";
@@ -873,25 +1029,25 @@ export function withUIPass(Base, science) {
       };
       v.missionLandingPointer = (e) => this.missionPointer(e, "landing");
       v.missionLiftoffPointer = (e) => this.missionPointer(e, "liftoff");
-      v.onMissionStart = (e) =>
-        this.setMission(Date.parse(e.target.value + "Z"), this.state.end);
-      v.onMissionEnd = (e) =>
-        this.setMission(this.state.start, Date.parse(e.target.value + "Z"));
+      v.onMissionStart = (e) => this.missionInput(e, "landing");
+      v.onMissionEnd = (e) => this.missionInput(e, "liftoff");
       v.missionLandingKey = (e) => {
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
           e.preventDefault();
+          const cur = this.missionValue();
           this.setMission(
-            this.state.start + (e.key === "ArrowRight" ? 1 : -1) * 3600000,
-            this.state.end,
+            cur.start + (e.key === "ArrowRight" ? 1 : -1) * 3600000,
+            cur.end,
           );
         }
       };
       v.missionLiftoffKey = (e) => {
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
           e.preventDefault();
+          const cur = this.missionValue();
           this.setMission(
-            this.state.start,
-            this.state.end + (e.key === "ArrowRight" ? 1 : -1) * 3600000,
+            cur.start,
+            cur.end + (e.key === "ArrowRight" ? 1 : -1) * 3600000,
           );
         }
       };
@@ -907,7 +1063,12 @@ export function withUIPass(Base, science) {
       const originalMapClick = v.onMapClick;
       v.onMapClick = (e) => {
         originalMapClick(e);
-        if (this.state.mapReach && this.state.target) this.routeHere();
+        if (
+          this.state.view === "drive" &&
+          this.state.mapReach &&
+          this.state.target
+        )
+          this.routeHere();
       };
       v.targetPointLabel =
         this.state.view === "drive" ? "Destination" : "Your landing point";
@@ -922,7 +1083,9 @@ export function withUIPass(Base, science) {
             points: this._navigation.plan.rows,
           },
         });
+      // Route planning starts from the rover, so it is a Drive-only action.
       v.showRouteAction =
+        this.state.view === "drive" &&
         !!this.state.target &&
         (!this._navigation ||
           this._navigation.targetKey !== this.navigationTargetKey());
@@ -990,18 +1153,23 @@ export function withUIPass(Base, science) {
         );
         this.syncWorkerYears();
         this._routeWanted = null;
-        this.setState({ routeDays: days, mapReach: true });
+        this.setState({ routeDays: days });
       };
-      v.travelOverlay = !!this.state.travelOverlay;
-      v.showTravelLegend =
-        !!this.state.travelOverlay &&
-        this.state.view !== "region" &&
-        !this.state.tripOpen;
-      v.toggleTravelOverlay = () =>
-        this.setState({
-          travelOverlay: !this.state.travelOverlay,
-          mapReach: true,
-        });
+      // Travel time / drive range is computed only on request in Drive.
+      const inDrive = this.state.view === "drive";
+      v.travelOverlay = inDrive && !!this.state.travelOverlay;
+      v.reachOn = inDrive && !!this.state.mapReach;
+      v.showTravelLegend = v.travelOverlay && !this.state.tripOpen;
+      v.toggleTravelOverlay = () => {
+        const on = !v.travelOverlay;
+        this.setState({ travelOverlay: on, mapReach: on || this.state.mapReach });
+        if (on && !inDrive) this.goView("drive");
+      };
+      v.toggleReach = () => {
+        const on = !v.reachOn;
+        this.setState({ mapReach: on, ...(on ? {} : { travelOverlay: false }) });
+        if (on && !inDrive) this.goView("drive");
+      };
       v.routeSampling =
         this.state.routeDays > 3
           ? "3 h time labels · 15 min energy samples"
@@ -1039,11 +1207,234 @@ export function withUIPass(Base, science) {
       }
       this.eng?.set({ travelGeoLabels: this._geoLabels || [] });
       this.eng?.set({
-        travelOverlay: !!this.state.travelOverlay,
+        travelOverlay: inDrive && !!this.state.travelOverlay,
         travelContours: this._routeResult?.contours || [],
         travelOrigin: this.reachOrigin(),
       });
+      this.placesPanelVals(v);
       return v;
+    }
+    syncCardLayout() {
+      // Keep the left places card above the timeline, whatever its height.
+      const app = document.querySelector(".app.ui-pass"),
+        time = app?.querySelector('section[aria-label="Mission timeline"]');
+      if (!app) return;
+      if (!this._cardTimeObserver && time && window.ResizeObserver) {
+        this._cardTimeObserver = new ResizeObserver(() => this.syncCardLayout());
+        this._cardTimeObserver.observe(time);
+        window.addEventListener("resize", () => this.syncCardLayout());
+      }
+      const r = time?.getBoundingClientRect(),
+        top = r && r.height > 0 ? r.top : window.innerHeight,
+        h = Math.max(160, Math.round(top - 20 - 12)) + "px";
+      if (app.style.getPropertyValue("--card-max-h") !== h)
+        app.style.setProperty("--card-max-h", h);
+    }
+    shortSiteName(site) {
+      return String(site?.name || "the pin").split(" · ")[0];
+    }
+    addDemPlace(i, j, name) {
+      const s = this.state,
+        jb = this._tj;
+      if (!jb) return;
+      if (s.sites.length >= 6) {
+        this.setState({ addErr: "You can compare up to 6 places." });
+        return;
+      }
+      const d = jb.dem,
+        c = (d.N - 1) / 2,
+        dx = (i - c) * d.cell,
+        dy = (j - c) * d.cell,
+        dist = Math.round(Math.hypot(dx, dy) * 1000),
+        az = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360,
+        where =
+          dist < 60
+            ? "at " + this.shortSiteName(this.selSite())
+            : (dist >= 1000 ? (dist / 1000).toFixed(1) + " km " : dist + " m ") +
+              this.compass(az) +
+              " of " +
+              this.shortSiteName(this.selSite()),
+        geo = science.geoFor(d, i, j),
+        used = s.sites.map((x) => x.color),
+        color = this.palette().find((cc) => !used.includes(cc)) || "#98989F",
+        id = "s" + this._nextId++,
+        label = (name ? name + " · " : "Spot ") + where;
+      // Close the picker now; the new site's horizon may still need loading.
+      this.setState({
+        mapPlacePick: false,
+        sitesOpen: false,
+        pick: false,
+        ...(this._mapPickOpenedBig ? { bigMap: false } : {}),
+      });
+      this._mapPickOpenedBig = false;
+      // Keep the current selection so the terrain (and the rover) stay put.
+      this.setState({
+        sites: this.state.sites.concat([
+          {
+            id,
+            key: "",
+            name: label.charAt(0).toUpperCase() + label.slice(1),
+            lat: Math.round(geo.lat * 10000) / 10000,
+            lon: Math.round(geo.lon * 10000) / 10000,
+            approx: false,
+            color,
+          },
+        ]),
+        addErr: "",
+      });
+    }
+    placesPanelVals(v) {
+      const s = this.state,
+        jb = this._tj,
+        isRegion = s.view === "region",
+        full = s.sites.length >= 6,
+        fullTxt = "Compare is full (6 places)";
+      v.addLabel = s.sitesOpen ? "Close" : "+ Add place";
+      v.presetChips = (v.presetChips || []).map((p) => {
+        const [short, ...rest] = String(p.name).split(" · ");
+        return { ...p, short, code: rest.join(" · ") };
+      });
+      v.catalogCount = v.presetChips.length
+        ? v.presetChips.length + " more"
+        : "all added";
+      // Rover location
+      const r = s.rover,
+        roverHere = !!(
+          jb &&
+          r &&
+          r.x !== undefined &&
+          this._roverTerrainKey === jb.key &&
+          !isRegion
+        );
+      v.roverAddDisabled = full || !roverHere;
+      v.roverAddSub = full
+        ? fullTxt
+        : roverHere
+          ? "Where the rover is now"
+          : "Drive a rover first";
+      v.roverAddTip = roverHere
+        ? "Add the rover's current position as a place to compare"
+        : "Available once a rover is on the ground (Drive mode)";
+      v.addRoverPlace = () => {
+        const rv = this.state.rover,
+          j2 = this._tj;
+        if (!j2 || !rv || rv.x === undefined) return;
+        const d = j2.dem,
+          cl = (x) => Math.max(0, Math.min(d.N - 1, x));
+        this.addDemPlace(
+          cl((rv.x + d.L / 2) / d.cell),
+          cl((-rv.z + d.L / 2) / d.cell),
+          "Rover",
+        );
+      };
+      // Pick on the top-down map
+      const mapReady = !isRegion && !!jb && this.terrReady();
+      v.mapPlacePick = !!s.mapPlacePick && mapReady && !full;
+      v.mapPickDisabled = full || !mapReady;
+      v.mapPickLabel = v.mapPlacePick ? "Click the map…" : "Pick on map";
+      v.mapPickSub = full
+        ? fullTxt
+        : !mapReady
+          ? isRegion
+            ? "Open Terrain or Drive"
+            : "Map is loading…"
+          : v.mapPlacePick
+            ? "Click the top-down map"
+            : "Top-down map, right";
+      v.mapPickTip = mapReady
+        ? "Click, then click a spot on the top-down map to add it"
+        : "The top-down map is shown in Terrain and Drive modes";
+      v.toggleMapPlacePick = () => {
+        const on = !this.state.mapPlacePick,
+          // The small map is hidden on narrow screens: use the large one.
+          narrow = window.matchMedia?.("(max-width: 1180px)").matches;
+        this._mapPickOpenedBig = on && narrow && !this.state.bigMap;
+        this.setState({
+          mapPlacePick: on,
+          pick: false,
+          ...(this._mapPickOpenedBig ? { bigMap: true, sheet: null } : {}),
+        });
+      };
+      v.cancelMapPlacePick = () => {
+        const close = this._mapPickOpenedBig;
+        this._mapPickOpenedBig = false;
+        this.setState({ mapPlacePick: false, ...(close ? { bigMap: false } : {}) });
+      };
+      if (v.mapPlacePick) v.appCls += " map-place-pick";
+      const prevMapClick = v.onMapClick;
+      v.onMapClick = (e) => {
+        if (!this.state.mapPlacePick || !this._tj) return prevMapClick(e);
+        const rc = e.currentTarget.getBoundingClientRect(),
+          N = this._tj.dem.N,
+          cl = (x) => Math.max(0, Math.min(N - 1, x));
+        this.addDemPlace(
+          cl(((e.clientX - rc.left) / rc.width) * (N - 1)),
+          cl((1 - (e.clientY - rc.top) / rc.height) * (N - 1)),
+          "",
+        );
+      };
+      // Pick on the 3D globe (Overview)
+      v.pickDisabled = full;
+      if (isRegion) {
+        v.pickLabel = s.pick ? "Click the Moon…" : "Pick on the Moon";
+        v.pickSub = full
+          ? fullTxt
+          : s.pick
+            ? "Click a spot on the globe"
+            : "Click the globe";
+        v.pickTip = "Click, then click anywhere on the Moon to add a place";
+        v.togglePick = () =>
+          this.setState({ pick: !this.state.pick, mapPlacePick: false });
+      } else {
+        v.pickLabel = "Pick on the Moon";
+        v.pickSub = full ? fullTxt : "Opens Overview";
+        v.pickTip =
+          "Switches to Overview, then click anywhere on the Moon to add a place";
+        v.togglePick = () => {
+          this.goView("region");
+          this.setState({ pick: true, sitesOpen: true, mapPlacePick: false });
+        };
+      }
+      // Landing-point card: same 0–100 score scale as the place list, and
+      // spell out the period and how the spot compares with the pin.
+      const H = v.hasTarget && this.terrReady() ? this.heat() : null,
+        tv = s.target;
+      if (H && tv && jb && v.tgt) {
+        const d = jb.dem,
+          k = tv.j * d.N + tv.i,
+          c = (d.N - 1) / 2,
+          ck = c * d.N + c,
+          sc = H.score[k],
+          sl = d.slope[k],
+          days = Math.max(
+            1,
+            Math.round(((this.series().n - 1) * this.series().stepH) / 24),
+          );
+        v.tgt.score = sc < 0 ? "—" : String(Math.round(sc * 100));
+        if (Number.isInteger(c) && !(sl > 15)) {
+          const pin =
+            "; the pin gets Sun " +
+            this.pct(H.sun[ck]) +
+            " · Earth " +
+            this.pct(H.earth[ck]);
+          const head =
+            sc >= (H.best ? H.best.score * 0.9 : 1)
+              ? "Excellent — about as good as the best spot nearby."
+              : sc >= 0.5
+                ? "Workable, but the white-ring spot gets more Sun/Earth time."
+                : "Poor: terrain blocks the Sun or Earth here much of the time.";
+          v.tgt.verdict =
+            head +
+            " Whole " +
+            days +
+            "-day period" +
+            (Math.abs(H.sun[k] - H.sun[ck]) > 0.05 ||
+            Math.abs(H.earth[k] - H.earth[ck]) > 0.05
+              ? pin
+              : "") +
+            ".";
+        }
+      }
     }
   };
 }
