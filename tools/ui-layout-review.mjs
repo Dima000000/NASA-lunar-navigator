@@ -24,7 +24,8 @@ try {
     viewport: { width: 1440, height: 1000 },
   });
   await page.addInitScript(() =>
-    localStorage.setItem("lunar-navigator-tour-v1", "done"),
+    (localStorage.setItem("lunar-navigator-tour-v1", "done"),
+    localStorage.setItem("lunar-navigator-drive-help-v1", "done")),
   );
   page.on("pageerror", (e) => report.errors.push(e.message));
   page.on("console", (m) => {

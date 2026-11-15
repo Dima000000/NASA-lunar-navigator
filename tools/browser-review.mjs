@@ -53,7 +53,7 @@ try {
   const c = await b.newContext({ viewport: { width: 1440, height: 1000 } }),
     p = await c.newPage();
   pageErrors(p);
-  await p.addInitScript(()=>localStorage.setItem("lunar-navigator-tour-v1","done"));
+  await p.addInitScript(()=>(localStorage.setItem("lunar-navigator-tour-v1","done"),localStorage.setItem("lunar-navigator-drive-help-v1","done")));
   const network = [],
     session = await c.newCDPSession(p);
   await session.send("Network.enable");

@@ -1,23 +1,36 @@
 // Short how-to shown the first time someone opens Drive. Non-modal: the
 // scene stays usable while it is open, and it is remembered per browser.
 const KEY = "lunar-navigator-drive-help-v1";
+// Each step: [selectors (first visible wins), title, desktop text, touch text].
 const steps = [
   [
-    ".ui-drive .pad",
+    [".ui-drive .pad", ".ui-drive .joystick"],
     "Drive the rover",
     "Hold W A S D or the arrow keys, or use these buttons. Drag the scene to look around.",
+    "Drag this joystick to drive and turn. Drag the scene to look around.",
   ],
   [
-    ".ui-drive .mmc",
+    [".ui-drive .mmc"],
     "Choose where to go",
     "Click this top-down map (or distant ground) to set a destination, then press Route here. Follow the blue line: it avoids slopes the rover cannot climb.",
+    "Tap distant ground to set a destination, then press Route here. Follow the blue line: it avoids slopes the rover cannot climb.",
   ],
   [
-    ".ui-drive .pad .turbo",
+    [".ui-drive .pad .turbo"],
     "Speed up time",
     "» speeds up time: 1 s = 1 h while driving, up to 1 s = 1 day while parked. Clock and battery move together: it charges in sunlight and drains in shadow.",
+    "Use the time speed in the Rover menu: 1 s = 1 h while driving, up to 1 s = 1 day while parked. The battery charges in sunlight and drains in shadow.",
   ],
 ];
+const visible = (el) => {
+  if (!el) return false;
+  const b = el.getBoundingClientRect();
+  return b.width > 0 && b.height > 0 && getComputedStyle(el).visibility !== "hidden";
+};
+const target = (selectors) =>
+  selectors.map((q) => document.querySelector(q)).find(visible) || null;
+const touchUI = () => visible(document.querySelector(".ui-drive .joystick"));
+
 export class DriveHelp {
   constructor(app) {
     this.app = app;
@@ -41,7 +54,7 @@ export class DriveHelp {
   }
   show(i) {
     this.index = Math.max(0, Math.min(steps.length - 1, i));
-    const [, title, text] = steps[this.index];
+    const [, title, text, touchText] = steps[this.index];
     if (!this.root) {
       this.root = document.createElement("div");
       this.root.className = "drive-help";
@@ -54,7 +67,7 @@ export class DriveHelp {
         this.index === steps.length - 1 ? this.stop() : this.show(this.index + 1);
     }
     this.card.querySelector("h2").textContent = title;
-    this.card.querySelector("p").textContent = text;
+    this.card.querySelector("p").textContent = touchUI() ? touchText : text;
     this.card.querySelector(".tour-count").textContent =
       "Drive · " + (this.index + 1) + " / " + steps.length;
     const last = this.index === steps.length - 1;
@@ -71,7 +84,7 @@ export class DriveHelp {
   position() {
     if (this.index < 0 || !this.root) return;
     if (this.app.state.view !== "drive") return this.stop(false);
-    const el = document.querySelector(steps[this.index][0]),
+    const el = target(steps[this.index][0]),
       b = el?.getBoundingClientRect(),
       ring = this.root.querySelector(".drive-help-ring"),
       w = innerWidth,

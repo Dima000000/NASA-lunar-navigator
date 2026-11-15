@@ -105,7 +105,8 @@ try {
         report.errors.push(m.text());
     });
     await p.addInitScript(() =>
-      localStorage.setItem("lunar-navigator-tour-v1", "done"),
+      (localStorage.setItem("lunar-navigator-tour-v1", "done"),
+      localStorage.setItem("lunar-navigator-drive-help-v1", "done")),
     );
     await p.goto(baseURL);
     await p.waitForFunction(() => window.NASALInitialReadyMs);
