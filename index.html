@@ -320,9 +320,10 @@
               <text x="12" y="114" text-anchor="start" font-size="10" fill="#98989F">W</text>
               <text x="114" data-bind-y="{{k.sky.y0}}" font-size="9" fill="#98989F">horizon</text>
             </svg>
-            <sc-for data-bind-list="{{k.rows}}" as="f" hint-placeholder-count="6">
-              <div class="crow2"><span>{{f.name}}</span><b data-bind-class="{{f.cls}}">{{f.value}}<span data-bind-class="{{f.mkCls}}">{{f.mk}}</span></b></div>
+            <p class="note">{{k.why}}</p><sc-for data-bind-list="{{k.rows}}" as="f" hint-placeholder-count="4">
+              <div class="crow2"><span>{{f.name}} <button class="help-dot" data-bind-title="{{f.help}}" data-bind-aria-label="{{f.help}}">?</button></span><b data-bind-class="{{f.cls}}">{{f.value}}<span data-bind-class="{{f.mkCls}}">{{f.mk}}</span></b></div>
             </sc-for>
+            <details class="more-stats"><summary>More stats</summary><sc-for data-bind-list="{{k.moreRows}}" as="f"><div class="crow2"><span>{{f.name}}</span><b>{{f.value}}</b></div></sc-for></details>
           </div>
         </sc-for>
       </div>

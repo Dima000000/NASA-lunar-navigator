@@ -320,9 +320,10 @@
               <text x="12" y="114" text-anchor="start" font-size="10" fill="#98989F">W</text>
               <text x="114" y="{{k.sky.y0}}" font-size="9" fill="#98989F">horizon</text>
             </svg>
-            <sc-for list="{{k.rows}}" as="f" hint-placeholder-count="6">
-              <div class="crow2"><span>{{f.name}}</span><b class="{{f.cls}}">{{f.value}}<span class="{{f.mkCls}}">{{f.mk}}</span></b></div>
+            <p class="note">{{k.why}}</p><sc-for list="{{k.rows}}" as="f" hint-placeholder-count="4">
+              <div class="crow2"><span>{{f.name}} <button class="help-dot" title="{{f.help}}" aria-label="{{f.help}}">?</button></span><b class="{{f.cls}}">{{f.value}}<span class="{{f.mkCls}}">{{f.mk}}</span></b></div>
             </sc-for>
+            <details class="more-stats"><summary>More stats</summary><sc-for list="{{k.moreRows}}" as="f"><div class="crow2"><span>{{f.name}}</span><b>{{f.value}}</b></div></sc-for></details>
           </div>
         </sc-for>
       </div>
