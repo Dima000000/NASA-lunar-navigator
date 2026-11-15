@@ -112,7 +112,7 @@ onmessage = async ({ data: q }) => {
           type: "route",
           job: q.job,
           key: q.key,
-          N, start:q.start,maxHours:q.maxHours||24,
+          N, start:q.start,maxHours:q.maxHours||24,contours:travelContours(r.T,N,q.maxHours||24),
           T: r.T,
           contacts: r.contacts,
           stateBest: r.best,

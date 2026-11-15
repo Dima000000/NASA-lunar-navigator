@@ -1426,11 +1426,11 @@ void main(){
   }
 }`;
     const TER_VS = `attribute vec3 aP; attribute vec3 aN; attribute vec4 aD; uniform mat4 uPV; uniform float uShadeMix;
-varying vec3 vW; varying vec3 vN; varying float vS; varying float vH;
-void main(){ vW = aP; vN = aN; vS = mix(aD.z,aD.x,uShadeMix); vH = aD.y; gl_Position = uPV*vec4(aP, 1.0); }`;
+varying vec3 vW; varying vec3 vN; varying float vS; varying float vH; varying float vTravel;
+void main(){ vW = aP; vN = aN; vS = mix(aD.z,aD.x,uShadeMix); vH = aD.y; vTravel=aD.w; gl_Position = uPV*vec4(aP, 1.0); }`;
     const TER_FS = `precision highp float;
-varying vec3 vW; varying vec3 vN; varying float vS; varying float vH;
-uniform vec3 uSun; uniform vec3 uCam; uniform float uHeat; uniform float uHalf; uniform sampler2D uImagery; uniform float uHasImagery; uniform float uSurfaceDetail;
+varying vec3 vW; varying vec3 vN; varying float vS; varying float vH; varying float vTravel;
+uniform vec3 uSun; uniform vec3 uCam; uniform float uHeat; uniform float uHalf; uniform sampler2D uImagery; uniform float uHasImagery; uniform float uSurfaceDetail; uniform float uTravel;
 float h12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
 float n2(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); vec2 u = f*f*(3.0 - 2.0*f);
   return mix(mix(h12(i), h12(i + vec2(1.0, 0.0)), u.x), mix(h12(i + vec2(0.0, 1.0)), h12(i + vec2(1.0, 1.0)), u.x), u.y); }
@@ -1469,6 +1469,7 @@ void main(){
     else { hc = viridis(clamp(vH, 0.0, 1.0)); }
     col = mix(col, hc*hs, 0.72*(1.0 - 0.5*dk)) + col*0.25;
   }
+  if(uTravel>.5){vec3 travelColor;if(vTravel<0.0){float hatch=step(.5,fract((vW.x+vW.z)*30.0));travelColor=mix(vec3(.16),vec3(.27),hatch);}else{float t=clamp(vTravel,0.0,1.0);travelColor=t<.33?mix(vec3(.98,.84,.3),vec3(.88,.4,.13),t/.33):t<.66?mix(vec3(.88,.4,.13),vec3(.48,.13,.48),(t-.33)/.33):mix(vec3(.48,.13,.48),vec3(.08,.10,.24),(t-.66)/.34);}col=mix(col,travelColor*(.65+.35*max(dot(n,normalize(vec3(-.45,.8,-.4))),0.0)),.7);}
   float edge = max(abs(vW.x), abs(vW.z))/uHalf;
   col = mix(col, vec3(0.018, 0.019, 0.022), smoothstep(0.82, 1.0, edge));
   gl_FragColor = vec4(col, 1.0);
@@ -1784,7 +1785,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (T && T.bp) {
           use(P.ter, [['aP', T.bp, 3], ['aN', T.bn, 3], ['aD', T.bd, 4]]);
           gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, T.bi);
-          U(P.ter,'uSurfaceDetail',S.view==='drive'&&S.surfaceDetail!==false?1:0); U(P.ter, 'uShadeMix',Math.min(1,(performance.now()-(S.shadeAt||0))/250)); U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
+          U(P.ter,'uTravel',S.travelOverlay?1:0); U(P.ter,'uSurfaceDetail',S.view==='drive'&&S.surfaceDetail!==false?1:0); U(P.ter, 'uShadeMix',Math.min(1,(performance.now()-(S.shadeAt||0))/250)); U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
           gl.drawElements(gl.TRIANGLES, T.g.idx.length, gl.UNSIGNED_INT, 0);
         }
         if (S.view === 'drive' && S.rover) {
@@ -1947,6 +1948,8 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (t > 10.5) { S.trailEnded=now;S.land = null; S.spawn = add(L.T, [0.012, 0, 0.012]); cb.onLanded && cb.onLanded(); }
       }
 
+      function drawTravelReference(F){if(!S.travelOverlay||!S.terr)return;const N=S.terr.dem.N,stride=(N-1)/30;g2.lineWidth=1.5;let labels=new Set();for(const line of S.travelContours||[]){const a=toScreen(F.PV,gridToWorld(line.a[0]*stride,line.a[1]*stride)),b=toScreen(F.PV,gridToWorld(line.b[0]*stride,line.b[1]*stride));if(!a||!b)continue;g2.strokeStyle='rgba(255,255,255,.6)';g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();if(!labels.has(line.hours)&&a[0]>30&&a[0]<S.W-180&&a[1]>100&&a[1]<S.H-200){pill(a[0],a[1],line.hours/24+' d',{size:11});labels.add(line.hours);}}const origin=S.travelOrigin||{i:(N-1)/2,j:(N-1)/2};for(let km=-8;km<=8;km+=2){for(let axis=0;axis<2;axis++){g2.beginPath();let started=false;for(let n=0;n<=16;n++){const offset=km/S.terr.dem.cell,i=axis?Math.max(0,Math.min(N-1,origin.i+offset)):n/16*(N-1),j=axis?n/16*(N-1):Math.max(0,Math.min(N-1,origin.j+offset)),p=toScreen(F.PV,gridToWorld(i,j));if(p){if(!started){g2.moveTo(p[0],p[1]);started=true;}else g2.lineTo(p[0],p[1]);if(n===8&&p[0]>0&&p[0]<S.W-180&&p[1]>100&&p[1]<S.H-200)pill(p[0],p[1],(km>=0?'+':'')+km+' km',{size:10});}}g2.strokeStyle='rgba(255,255,255,.16)';g2.stroke();}}}
+
       function drawDescentTrail(F,now){const points=S.descentTrail;if(!points?.length)return;const fade=S.trailEnded?Math.max(0,1-(now-S.trailEnded)/6000):1;if(!fade)return;for(let i=1;i<points.length;i++){const a=toScreen(F.PV,points[i-1].pos),b=toScreen(F.PV,points[i].pos);if(!a||!b)continue;g2.globalAlpha=fade*(i/points.length)*.8;g2.strokeStyle='#F2C94C';g2.shadowColor='#FFD60A';g2.shadowBlur=8;g2.lineWidth=2;g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();}g2.globalAlpha=fade;g2.shadowBlur=0;pill(18,S.H-220,'Illustrative descent path, not a computed trajectory',{size:11});g2.globalAlpha=1;}
 
       // ---- driving ----
@@ -2020,7 +2023,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         g2.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); g2.clearRect(0, 0, S.W, S.H);
         if (S.view === 'region') { const F = drawRegion(); drawOverlayRegion(F, now); lastF = F; }
-        else { const cam = S.view === 'drive' && S.rover ? driveCam() : terrCam(); const F = drawGround(cam, now); drawOverlayGround(F, now); drawDescentTrail(F,now); lastF = null; }
+        else { const cam = S.view === 'drive' && S.rover ? driveCam() : terrCam(); const F = drawGround(cam, now); drawOverlayGround(F, now); drawTravelReference(F); drawDescentTrail(F,now); lastF = null; }
         if (S.fade > 0) { g2.fillStyle = 'rgba(0,0,0,' + S.fade.toFixed(3) + ')'; g2.fillRect(0, 0, S.W, S.H); }
       }
       raf = requestAnimationFrame(frame);
@@ -2124,6 +2127,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         resetRover() { S.spawn = null; if (S.view === 'drive') initDrive(); S.dirty = true; },
         focusGrid(i,j){S.tc.tgt=gridToWorld(i,j);S.tc.dist=2.5;S.tc.pitch=.4;S.dirty=true;},
         zoom(k) { zoom(k); },
+        setTravel(times,small,maxHours){if(!S.terr)return;const d=S.terr.dem,N=d.N,dat=S.terr.g.dat;for(let j=0;j<N;j++)for(let i=0;i<N;i++){const value=times[Math.round(j*(small-1)/(N-1))*small+Math.round(i*(small-1)/(N-1))];dat[(j*N+i)*4+3]=Number.isFinite(value)?value/maxHours:-1;}gl.bindBuffer(gl.ARRAY_BUFFER,S.terr.bd);gl.bufferSubData(gl.ARRAY_BUFFER,0,dat);S.dirty=true;},
         setDriveZoom(value){S.dc.zoomTarget=clamp(value,.005,24);S.dirty=true;},
         getDriveZoom(){return S.dc.zoomTarget||S.dc.dist;},
         resetDriveZoom(){S.dc.zoomTarget=DRIVE_START_DISTANCE;},

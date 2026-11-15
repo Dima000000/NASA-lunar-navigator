@@ -805,6 +805,7 @@ export function enhancedComponent(Base, S) {
       const utc = this._ser.times[Math.min(this.state.ti, this._ser.n - 1)],
         key = [
           jb.key,
+          this.state.routeDays||1,
           o.i,
           o.j,
           utc,
@@ -845,6 +846,7 @@ export function enhancedComponent(Base, S) {
           height: this.state.obsH || 2,
           start: utc,
           battery: this.state.rover?.batt ?? 80,
+          maxHours:(this.state.routeDays||1)*24,
         });
       }
       const m = this._routeResult;
@@ -905,7 +907,7 @@ export function enhancedComponent(Base, S) {
           return points;
         };
       this._reach = {
-        k: key,start: m.start,smallN:m.N,incomplete:m.incomplete,
+        k: key,start: m.start,smallN:m.N,incomplete:m.incomplete,maxHours:m.maxHours,contours:m.contours,
         T,
         prev,
         o,

@@ -45,6 +45,10 @@ export function withUIPass(Base, science) {
    v.routeHere=()=>this.routeHere();v.tripOpen=!!this.state.tripOpen;v.closeTrip=()=>this.setState({tripOpen:false});v.trip=v.tripOpen?this.tripView():{};
    v.findBestSpots=()=>this.findBestSpots();v.bestStatus=this.state.bestStatus||'Ranked on the 533 m grid using the same score as Landing windows.';v.bestRows=(this.state.bestSpots||[]).map((p,i)=>({...p,rank:i+1,coords:this.fmtCoords(p),summary:Math.round(p.score*100)+' score · Sun '+this.pct(p.sun)+' · Earth '+this.pct(p.earth)+' · longest night '+p.darkHours+' h',pick:()=>{const stride=(this._tj.dem.N-1)/30;this.setState({target:{i:p.i*stride,j:p.j*stride,key:this._tj.key},sheet:null});this.goView('terrain');setTimeout(()=>this.eng?.focusGrid(p.i*stride,p.j*stride),100);}}));
    this.eng?.set({bestSpots:this.state.bestSpots||[]});
+   v.routeDays=this.state.routeDays;v.onRouteDays=async e=>{const days=Number(e.target.value);await science.ephem.ensureRange(this.state.start,this.state.end+days*86400000);this.syncWorkerYears();this._routeWanted=null;this._reach=null;this.setState({routeDays:days,mapReach:true});};v.travelOverlay=!!this.state.travelOverlay;v.toggleTravelOverlay=()=>this.setState({travelOverlay:!this.state.travelOverlay,mapReach:true});v.routeSampling=this.state.routeDays>3?'3 h time labels · 15 min energy samples':'1 h time labels · 15 min energy samples';
+   if(this._routePending&&this.state.mapReach)v.routeStatus='Updating range; previous solution remains visible · '+(this._routeExpanded||0)+' states explored';
+   if(this._routeResult&&this._travelKey!==this._routeResult.key&&this._tj){this._travelKey=this._routeResult.key;this.eng?.setTravel(this._routeResult.T,this._routeResult.N,this._routeResult.maxHours);}
+   this.eng?.set({travelOverlay:!!this.state.travelOverlay,travelContours:this._routeResult?.contours||[],travelOrigin:this.reachOrigin()});
    return v;
   }
  };
