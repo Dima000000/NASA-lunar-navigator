@@ -388,6 +388,7 @@ export function enhancedComponent(Base, S) {
       );
       this.syncWorkerYears();
       this._scienceWorker.onmessage = ({ data: m }) => {
+        if(m.type==='routeProgress'&&m.job===this._routeJob){this._routeExpanded=m.expanded;return;}
         if (m.type === "windows") {
           this.setState({
             windowRows: m.rows,
@@ -806,7 +807,9 @@ export function enhancedComponent(Base, S) {
           utc,
           Math.floor((this.state.rover?.batt ?? 80) / 5) * 5,
         ].join("|");
-      if (this._routeWanted !== key && !this._routePending) {
+      if (this._routeWanted !== key && performance.now()-(this._routeSentAt||-1000)>=350) {
+        this._routeSentAt=performance.now();
+        if(this._routePending)this._scienceWorker.postMessage({type:'cancelRoute'});
         this._routeWanted = key;
         this._routePending = true;
         this._routeJob++;
@@ -842,7 +845,7 @@ export function enhancedComponent(Base, S) {
         });
       }
       const m = this._routeResult;
-      if (!m || m.key !== key) return null;
+      if (!m || m.key !== key) return this._reach || null;
       const N = jb.dem.N,
         small = m.N,
         stride = (N - 1) / (small - 1);

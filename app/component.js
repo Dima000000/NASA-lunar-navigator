@@ -786,8 +786,13 @@ window.NASALComponent = class Component extends DCLogic {
       if (s.mapReach && this._tj) {
         const rc = this.reach();
         if (rc) {
-          if (!rc.img) { const cv = document.createElement('canvas'); cv.width = N; cv.height = N; const g2 = cv.getContext('2d'), im = g2.createImageData(N, N), dd = im.data; const B = [[1, 92, 148, 112], [3, 242, 201, 76], [6, 227, 147, 107], [12, 217, 83, 79]]; for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const tt = rc.T[j * N + i]; if (!(tt <= 12)) continue; const b = B.find((x) => tt <= x[0]); const p = ((N - 1 - j) * N + i) * 4; dd[p] = b[1]; dd[p + 1] = b[2]; dd[p + 2] = b[3]; dd[p + 3] = 125; } g2.putImageData(im, 0, 0); rc.img = cv; }
-          ctx.drawImage(rc.img, 0, 0, W, W);
+          if(!rc.img){const cv=document.createElement('canvas'),K=31;cv.width=cv.height=K;const g=cv.getContext('2d'),im=g.createImageData(K,K),bands=[[1,92,148,112],[3,242,201,76],[6,227,147,107],[Infinity,217,83,79]];for(let y=0;y<K;y++)for(let x=0;x<K;x++){const t=rc.T[Math.round(y*(N-1)/(K-1))*N+Math.round(x*(N-1)/(K-1))];if(!Number.isFinite(t))continue;const col=bands.find(b=>t<=b[0]),p=((K-1-y)*K+x)*4;im.data.set([col[1],col[2],col[3],125],p);}g.putImageData(im,0,0);rc.img=cv;}
+
+          if(this._rangeImage!==rc.img){this._rangePrevious=this._rangeImage;this._rangeImage=rc.img;this._rangeFadeAt=performance.now();}
+          const fade=Math.min(1,(performance.now()-this._rangeFadeAt)/400);
+          if(this._rangePrevious&&fade<1){ctx.globalAlpha=1-fade;ctx.drawImage(this._rangePrevious,0,0,W,W);}
+          ctx.globalAlpha=fade;ctx.drawImage(rc.img,0,0,W,W);ctx.globalAlpha=1;
+          if(fade<1&&!this._rangeFadeRAF)this._rangeFadeRAF=requestAnimationFrame(()=>{this._rangeFadeRAF=0;this.drawMaps();});
           if (s.target && s.target.key === job.key) { const target=s.target.j*N+s.target.i; if(rc.routePointsFor&&isFinite(rc.T[target])){const points=rc.routePointsFor(target);for(let a=1;a<points.length;a++){const p=points[a-1],q=points[a];ctx.beginPath();ctx.moveTo(X(p.i),Y(p.j));ctx.lineTo(X(q.i),Y(q.j));ctx.strokeStyle=p.earth>.0005?'#30D158':'#FF9F0A';ctx.lineWidth=W>300?3:2;ctx.stroke();}}else if(isFinite(rc.T[target])){let p=target;ctx.beginPath();let first=true;while(p>=0){const a=p%N,b=(p-a)/N;if(first){ctx.moveTo(X(a),Y(b));first=false;}else ctx.lineTo(X(a),Y(b));p=rc.prev[p];}ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();} }
           const ox = X(rc.o.i), oy = Y(rc.o.j); ctx.beginPath(); ctx.arc(ox, oy, W > 300 ? 6 : 4.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
         }
@@ -1123,7 +1128,7 @@ window.NASALComponent = class Component extends DCLogic {
           q.yT = '+12°'; q.yM = '0°'; q.yB = '−12°';
           if (list.length === 1) { const o2 = ser.sites[list[0].id]; q.fill = ''; void this.runsOf((i) => def.vis(o2, i), n).map((r) => 'M' + xi(r.i0) + ' ' + Y0 + 'H' + xi(Math.min(n - 1, r.i1)) + 'V' + Y1 + 'H' + xi(r.i0) + 'Z').join(''); q.fillColor = list[0].color; }
         } else {
-          if (def.thr) { const ty = (Y1 - def.thr / 100 * (Y1 - Y0)).toFixed(1); q.thr = 'M' + X0 + ' ' + ty + 'H' + X1; q.thrY = (ty + 3).toFixed(1); q.thrT = def.thrT; }
+          if (def.thr) { const ty = (Y1 - def.thr / 100 * (Y1 - Y0)).toFixed(1); q.thr = 'M' + X0 + ' ' + ty + 'H' + X1; q.thrY = (Number(ty) + 3).toFixed(1); q.thrT = def.thrT; }
           q.zero = ''; q.grid = [0.25, 0.5, 0.75].map((f) => 'M' + X0 + ' ' + (Y1 - f * (Y1 - Y0)).toFixed(1) + 'H' + X1).join(''); q.yT = '100%'; q.yM = '50%'; q.yB = '0%';
         }
         return q;

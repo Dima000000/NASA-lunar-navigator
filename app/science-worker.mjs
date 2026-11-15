@@ -6,9 +6,11 @@ import {
   discFraction,
   VEHICLE,
 } from "./science-core.mjs";
-let ephem;
-onmessage = ({ data: q }) => {
+import {reachSteps} from "./route-search.mjs";
+let ephem, routeGeneration=0;
+onmessage = async ({ data: q }) => {
   try {
+    if (q.type === "cancelRoute") { routeGeneration++; return; }
     if (q.type === "initYears") {
       const years = new Map(
         q.years.map((y) => [y.year, new Ephemeris(y.records, y.meta)]),
@@ -69,7 +71,8 @@ onmessage = ({ data: q }) => {
         cache.set(key, v);
         return v;
       };
-      const r = timeAwareReach({
+      const generation=++routeGeneration;
+      const steps = reachSteps({
         N,
         cellKm: q.cellKm,
         slope: q.slope,
@@ -77,8 +80,12 @@ onmessage = ({ data: q }) => {
         sky,
         startMs: q.start,
         vehicle: { ...VEHICLE, initialFraction: q.battery / 100 },
-        maxHours: 24,
+        maxHours: q.maxHours || 24,
+        timeBinHours: (q.maxHours || 24)>72 ? 3 : 1,
       });
+      let next;
+      do {next=steps.next();if(!next.done){postMessage({type:'routeProgress',job:q.job,...next.value});await new Promise(resolve=>setTimeout(resolve,0));if(generation!==routeGeneration)return;}}while(!next.done);
+      const r=next.value;
       const spatialPrev = new Int32Array(N * N).fill(-1);
       for (let i = 0; i < r.best.length; i++) {
         const id = r.best[i];

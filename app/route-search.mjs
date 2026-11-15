@@ -1,7 +1,7 @@
 import { VEHICLE, batteryAfter } from "./science-core.mjs";
 
 // Time-dependent, energy-feasible labels. Search pruning is explicit, not an optimality claim.
-export function paretoReach({
+export function* reachSteps({
   N,
   cellKm,
   slope,
@@ -150,6 +150,7 @@ export function paretoReach({
       i = k % N,
       j = Math.floor(k / N);
     expanded++;
+    if(expanded % 256 === 0) yield {expanded,maxExpansions};
     if (t < T[k]) {
       T[k] = t;
       best[k] = id;
@@ -222,3 +223,5 @@ export function conservativeSlopes(fine, displayN, routeN) {
     }
   return out;
 }
+
+export function paretoReach(options){const steps=reachSteps(options);let next;do next=steps.next();while(!next.done);return next.value;}
