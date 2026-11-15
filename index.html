@@ -68,7 +68,7 @@
           <div class="plrow">
           <button class="plbtn" data-bind-onClick="{{p.select}}" data-bind-aria-pressed="{{p.isSel}}">
             <span class="dot" data-bind-style="background: {{p.color}}"></span>
-            <span class="plname">{{p.name}}</span>
+            <span class="plname" data-bind-title="{{p.name}}">{{p.name}}</span>
             <span class="plm"><span style="color: #FFD60A">☀</span> {{p.sun}}<span style="color: #64D2FF; margin-left: 8px">⊕</span> {{p.ear}}</span>
             <span class="plsc" data-bind-style="color: {{p.scColor}}; border-color: {{p.scColor}}">{{p.num}}</span>
           </button>
