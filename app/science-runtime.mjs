@@ -842,6 +842,7 @@ export function enhancedComponent(Base, S) {
           points,
           atlas: product.atlas,
           atlasMeta: a,
+          originFrom:o.from,
           origin: Math.round(o.j / stride) * N + Math.round(o.i / stride),
           height: this.state.obsH || 2,
           start: utc,
@@ -850,11 +851,11 @@ export function enhancedComponent(Base, S) {
         });
       }
       const m = this._routeResult;
-      if (!m || m.key !== key) return this._reach || null;
+      if (!m || !m.key.startsWith(jb.key+"|")) return this._reach?.terrainKey===jb.key?this._reach:null;
       const N = jb.dem.N,
         small = m.N,
         stride = (N - 1) / (small - 1);
-      if (this._reach?.k === key) return this._reach;
+      if (this._reach?.k === m.key) return this._reach;
       const T = new Float32Array(N * N),
         prev = new Int32Array(N * N).fill(-1);
       for (let j = 0; j < N; j++)
@@ -891,7 +892,7 @@ export function enhancedComponent(Base, S) {
                 jb.dem,
                 i,
                 j,
-                utc + time * 3600000,
+                m.start + time * 3600000,
                 this.state.obsH || 2,
               );
             points.push({
@@ -907,10 +908,10 @@ export function enhancedComponent(Base, S) {
           return points;
         };
       this._reach = {
-        k: key,start: m.start,smallN:m.N,incomplete:m.incomplete,maxHours:m.maxHours,contours:m.contours,
+        k:m.key,terrainKey:jb.key,start: m.start,smallN:m.N,incomplete:m.incomplete,maxHours:m.maxHours,contours:m.contours,
         T,
         prev,
-        o,
+        o:{i:(m.origin%small)*stride,j:Math.floor(m.origin/small)*stride,from:m.originFrom},
         img: null,
         routePointsFor,
         contacts: m.contacts,

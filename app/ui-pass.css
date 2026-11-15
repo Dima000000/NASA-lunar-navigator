@@ -82,3 +82,5 @@
 .ui-pass.ui-drive .drive-zoom{bottom:320px!important}
 @media(max-width:900px){.ui-pass.ui-drive .drive-zoom{right:12px!important;bottom:320px!important}.ui-pass.ui-drive .layerbox{display:none!important}.ui-pass.ui-drive.drive-details-open .layerbox{display:flex!important;position:fixed!important;top:255px!important;right:12px!important;bottom:auto!important;left:auto!important;transform:none!important}.ui-pass.ui-drive.drive-details-open .layerbox .seg{flex-direction:column!important}.ui-pass.ui-drive.drive-details-open .drive-zoom{visibility:hidden}.ui-pass .hud-more{display:block;background:rgba(118,118,128,.24);color:#f5f5f7;border:0;border-radius:12px;min-height:32px!important;width:36px;font-size:20px;margin-left:auto}}
 @media(pointer:coarse){.ui-pass.ui-drive .drive-zoom{bottom:184px!important}}
+
+@media(min-width:901px){.ui-pass.ui-drive .drive-zoom{bottom:300px!important}}
