@@ -3,7 +3,7 @@ const steps=[
  ['.stage','Explore the real Moon','This is the real south pole of the Moon, from NASA LOLA terrain. Drag the scene to look around.'],
  ['.plist','Pick a landing site','Choose a named place here, or select a point on the map to inspect the terrain.'],
  ['.mission-selector','Set landing and liftoff','Drag the two mission handles, or open Mission dates to enter UTC times. Statistics and comparisons use this interval.'],
- ['.play','Watch the changing light','Press play to watch the Sun, Earth and shadows move. Playback speed is in Options.'],
+ ['.playb','Watch the changing light','Press play to watch the Sun, Earth and shadows move. Playback speed is in Options.'],
  ['.planning-actions','Find a useful opportunity','Find top 5 windows searches dates for this place. Best spots for these dates searches positions for your mission.'],
  ['.topr .seg','Drive the rover','Select Drive to explore at rover scale. Use the arrow controls or the touch joystick; time and battery advance together.']
 ];

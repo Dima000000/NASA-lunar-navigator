@@ -1,5 +1,5 @@
 import {buildCSV} from './csv-export.mjs';
-export const DRIVE_START_DISTANCE = 0.035;
+export const DRIVE_START_DISTANCE = 0.025;
 
 window.NASALComponent = class Component extends DCLogic {
   constructor(...args) {
