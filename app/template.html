@@ -24,7 +24,7 @@
         <sc-if value="{{hud.canSkip}}" hint-placeholder-val="{{ false }}">
           <button class="hi hbtn" onClick="{{skipEarth}}" style="color: #64D2FF">{{hud.skipLabel}}</button>
         </sc-if>
-        <span class="hi dim">{{hud.kmh}}</span>
+        <span class="hi dim">{{hud.kmh}}</span><label class="drive-speed">Time <select value="{{driveTimeScale}}" onChange="{{onDriveTimeScale}}" aria-label="Drive time multiplier"><option value="1">×1</option><option value="10">×10</option><option value="60">×60</option><option value="300">×300</option></select></label>
         <span class="hi dim">{{hud.dist}}</span>
       </div>
       <sc-if value="{{hud.hasMsg}}" hint-placeholder-val="{{ false }}">

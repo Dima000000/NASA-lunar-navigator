@@ -1,6 +1,7 @@
 import {interpolateVisualState} from "./visual-time.mjs";
 export function withUIPass(Base, science) {
  return class UIPass extends Base {
+  constructor(...args){super(...args);Object.assign(this.state,{driveTimeScale:60,routeDays:1});}
   renderContinuousTime(ms,now=performance.now()){
    this._visualUTC=ms;const site=this.selSite();if(!this.eng||!site)return;
    const st=interpolateVisualState(science.ephem,ms),topo=this.eph().topo(st,site.lat,site.lon,(this.state.obsH||2)/1000);
@@ -16,6 +17,9 @@ export function withUIPass(Base, science) {
    for(const col of v.cmpCols||[]){col.moreRows=col.rows.filter((_,i)=>i===2||i===5);col.rows=col.rows.filter((_,i)=>i!==2&&i!==5).map(row=>({...row,name:row.name.replace('Earth contact','Earth in view').replace('Longest darkness','Longest night').replace('Longest without Earth','Longest Earth gap')}));for(const row of col.rows)row.help=explain[row.name]||'';col.why=col.rows.slice(0,2).map(x=>x.name+' '+x.value).join(' · ');}
    if(v.sc){const r=met.res[this.state.sel];if(r)v.sc.rows=[['Sunlight',this.pct(r.sun)],['Earth in view',this.pct(r.ear)],['Longest night',this.dur(r.dark)],['Longest Earth gap',this.dur(r.nocomm)]].map(([name,value])=>({name,value,reason:explain[name],pct:0,color:'#98989F',tgt:-10}));}
    v.driveZoom=Math.log(this.eng?.getDriveZoom?.()||.035);v.onDriveZoom=e=>this.eng?.setDriveZoom(Math.exp(Number(e.target.value)));v.driveZoomIn=()=>this.eng?.zoom(.7);v.driveZoomOut=()=>this.eng?.zoom(1.4);v.driveZoomReset=()=>this.eng?.resetDriveZoom();
+   this.eng?.set({driveTimeScale:this.state.driveTimeScale});
+   v.driveTimeScale=this.state.driveTimeScale;v.onDriveTimeScale=e=>this.setState({driveTimeScale:Number(e.target.value)});v.toggleTurbo=()=>this.setState({driveTimeScale:this.state.driveTimeScale===300?60:300});v.turbo=this.state.driveTimeScale===300;
+   if(this.state.view==='drive'&&this._visualUTC){v.timeSmall=new Date(this._visualUTC).toISOString().slice(11,19)+' UTC · ×'+this.state.driveTimeScale+' time';}
    return v;
   }
  };

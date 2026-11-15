@@ -35,12 +35,13 @@ window.NASALComponent = class Component extends DCLogic {
       if (!this._alive) return;
       this._raf = requestAnimationFrame(this._tick);
       const s = this.state;
-      if (!s.playing) { this._lastT = now; this._tf = s.ti; return; }
+      const driving=s.view==='drive'&&!s.landing;
+      if (!s.playing&&!driving) { this._lastT = now; this._tf = s.ti; return; }
       const dt = Math.min(0.1, (now - (this._lastT || now)) / 1000);
       this._lastT = now;
       const n = this._ser ? this._ser.n : 2;
       if (this._tf === undefined || this._tf === null) this._tf = s.ti;
-      this._tf += dt * s.speed / s.stepH;
+      this._tf += dt * (driving?(s.driveTimeScale||60)/3600:s.speed) / s.stepH;
       if (this._tf > n - 1) this._tf = 0;
       this.renderContinuousTime?.(s.start+this._tf*s.stepH*3600000,now);
       const ti = Math.floor(this._tf);
@@ -1941,10 +1942,10 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       // ---- driving ----
       function stepDrive(now, dt) {
         const R = S.rover; if (!R || !S.terr) return;
-        const k = S.keys, turbo = S.turbo ? 6 : 1, maxV = (0.7 / 3600) * turbo, L = S.terr.dem.L;
+        const modelDt=dt*(S.driveTimeScale||60),k=S.keys,turbo=1,maxV=0.7/3600,L=S.terr.dem.L;
         let thr = (k.up ? 1 : 0) - (k.down ? 1 : 0); const steer = (k.right ? 1 : 0) - (k.left ? 1 : 0);
         if (R.batt <= 0.5) thr = 0;
-        if (thr) R.v += thr * 0.0001 * turbo * dt; else R.v *= Math.exp(-3 * dt);
+        if (thr) R.v += thr * 0.0001 * modelDt; else R.v *= Math.exp(-3 * dt);
         R.v = clamp(R.v, -maxV * 0.35, maxV); if (!thr && Math.abs(R.v) < 1e-6) R.v = 0;
         R.heading += steer * dt * (Math.abs(R.v) > 1e-5 ? 1.1 * Math.sign(R.v) : 0.6);
         const f = [Math.sin(R.heading), 0, -Math.cos(R.heading)];
@@ -1954,18 +1955,18 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         R.blocked = false;
         if (Math.abs(R.v) > 1e-5 && Math.abs(ang) > 20) { R.v = 0; R.blocked = !!thr; }
         else if (ang > 0) R.v *= Math.exp(-ang / 24 * 1.5 * dt);
-        R.pos[0] = clamp(R.pos[0] + f[0] * R.v * dt, -L / 2 + 0.4, L / 2 - 0.4);
-        R.pos[2] = clamp(R.pos[2] + f[2] * R.v * dt, -L / 2 + 0.4, L / 2 - 0.4);
+        R.pos[0] = clamp(R.pos[0] + f[0] * R.v * modelDt, -L / 2 + 0.4, L / 2 - 0.4);
+        R.pos[2] = clamp(R.pos[2] + f[2] * R.v * modelDt, -L / 2 + 0.4, L / 2 - 0.4);
         R.pos[1] = groundAtW(R.pos[0], R.pos[2]);
         const nn = normalAtW(R.pos[0], R.pos[2]);
         R.n = norm([lerp(R.n[0], nn[0], 0.2), lerp(R.n[1], nn[1], 0.2), lerp(R.n[2], nn[2], 0.2)]);
-        R.dist += Math.abs(R.v) * dt;
+        R.dist += Math.abs(R.v) * modelDt;
         const scientific=S.scienceAt?S.scienceAt(R.pos[0],R.pos[2],S.simUTC):null;
         R.sun=scientific?scientific.sun:clamp(shadeAtW(R.pos[0],R.pos[2]),0,1);
         R.earth=scientific?scientific.earth>.0005:earthVisAtW(R.pos[0],R.pos[2]);R.earthWhy=R.earth?'':(S.tEarth.el < -S.tEarth.rad?'below':'hill');
         // Hypothetical tracking-panel rover in SI units: 160 Wh, 0.5 m², eta 0.28, idle 10 W, driving +45 W.
         const solarW=1361*(149597870.7/(scientific?.sunDirection?.dist||149597870.7))**2*.5*.28*R.sun,loadW=10+(Math.abs(R.v)>1e-5?45:0),netW=solarW-loadW;
-        let elapsedH=dt/3600;if(R.lastScienceUTC!==undefined&&S.simUTC!==undefined&&S.simUTC!==R.lastScienceUTC){const deltaH=(S.simUTC-R.lastScienceUTC)/3600000;if(deltaH<0){R.batt=80;elapsedH=0;}else elapsedH=deltaH;}
+        let elapsedH=modelDt/3600;if(R.lastScienceUTC!==undefined&&S.simUTC!==undefined&&S.simUTC!==R.lastScienceUTC){const deltaH=(S.simUTC-R.lastScienceUTC)/3600000;if(deltaH<0){R.batt=80;elapsedH=0;}else elapsedH=deltaH;}
         R.lastScienceUTC=S.simUTC;R.rate=netW/160*100/60;
         if(S.drain===false)R.batt=100;else if(elapsedH>1/60&&S.scienceAt){const samples=Math.max(1,Math.ceil(elapsedH*4)),step=elapsedH/samples;for(let a=0;a<samples;a++){const t=S.simUTC-(elapsedH-(a+.5)*step)*3600000,sky=S.scienceAt(R.pos[0],R.pos[2],t),power=1361*(149597870.7/(sky.sunDirection?.dist||149597870.7))**2*.5*.28*sky.sun-loadW;R.batt=clamp(R.batt+power*step/160*100,0,100);}}else R.batt=clamp(R.batt+netW*elapsedH/160*100,0,100);
         let dh = R.heading - S.dc.hs; while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
