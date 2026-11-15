@@ -54,6 +54,8 @@ try {
           r.top + r.height / 2,
         );
         return (
+          (!document.querySelector(".charts,.sheet,.bigmap") ||
+            document.querySelector(".charts,.sheet,.bigmap").contains(e)) &&
           e.checkVisibility() &&
           hit &&
           (hit === e || e.contains(hit)) &&
