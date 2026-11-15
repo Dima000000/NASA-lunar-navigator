@@ -327,12 +327,13 @@
       <div class="smgrid">
       <sc-for list="{{chartRows}}" as="c" hint-placeholder-count="3">
         <div class="ccard">
-          <div class="ctitle" title="{{c.sub}}">{{c.title}}</div><p class="csub">{{c.yTitle}}</p>
+          <div class="ctitle" title="{{c.sub}}">{{c.title}}</div><p class="csub">{{c.insight}}</p>
           <div class="panels" style="grid-template-columns: repeat({{c.n}}, minmax(0, 1fr))">
             <sc-for list="{{c.panels}}" as="q" hint-placeholder-count="1">
               <div class="pnl" style="border-top-color: {{q.color}}" title="{{q.name}}">
                 <sc-if value="{{q.hasName}}" hint-placeholder-val="{{ false }}"><div class="pnm"><span class="dot" style="background: {{q.color}}"></span>{{q.name}}</div></sc-if>
-                <svg viewBox="{{q.vb}}" width="100%" role="img" aria-label="{{q.aria}}" onClick="{{q.click}}" style="cursor: pointer; display: block">
+                <svg viewBox="{{q.vb}}" width="100%" role="img" aria-label="{{q.aria}}" data-kind="{{q.kind}}" onPointerMove="{{q.hover}}" onPointerDown="{{q.hover}}" onClick="{{q.click}}" style="cursor: pointer; display: block">
+                  <path d="{{q.good}}" fill="#5C9470" fill-opacity="0.10"></path><path d="{{q.bad}}" fill="#D9534F" fill-opacity="0.05"></path>
                   <path d="{{q.fill}}" fill="{{q.fillColor}}" fill-opacity="0.16"></path>
                   <path d="{{q.grid}}" stroke="rgba(255,255,255,0.08)" fill="none"></path>
                   <path d="{{q.axes}}" stroke="rgba(255,255,255,0.3)" fill="none"></path>
@@ -364,7 +365,7 @@
                   <text x="{{q.t5.x}}" y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t5.label}}</text>
                   <text x="{{q.t6.x}}" y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t6.label}}</text>
                   
-                </svg>
+                </svg><div class="graph-hover" aria-live="polite">Hover or tap for values at a time.</div>
               </div>
             </sc-for>
           </div>

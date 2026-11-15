@@ -327,12 +327,13 @@
       <div class="smgrid">
       <sc-for data-bind-list="{{chartRows}}" as="c" hint-placeholder-count="3">
         <div class="ccard">
-          <div class="ctitle" data-bind-title="{{c.sub}}">{{c.title}}</div><p class="csub">{{c.yTitle}}</p>
+          <div class="ctitle" data-bind-title="{{c.sub}}">{{c.title}}</div><p class="csub">{{c.insight}}</p>
           <div class="panels" data-bind-style="grid-template-columns: repeat({{c.n}}, minmax(0, 1fr))">
             <sc-for data-bind-list="{{c.panels}}" as="q" hint-placeholder-count="1">
               <div class="pnl" data-bind-style="border-top-color: {{q.color}}" data-bind-title="{{q.name}}">
                 <sc-if data-bind-value="{{q.hasName}}" data-bind-hint-placeholder-val="{{ false }}"><div class="pnm"><span class="dot" data-bind-style="background: {{q.color}}"></span>{{q.name}}</div></sc-if>
-                <svg data-bind-viewBox="{{q.vb}}" width="100%" role="img" data-bind-aria-label="{{q.aria}}" data-bind-onClick="{{q.click}}" style="cursor: pointer; display: block">
+                <svg data-bind-viewBox="{{q.vb}}" width="100%" role="img" data-bind-aria-label="{{q.aria}}" data-bind-data-kind="{{q.kind}}" data-bind-onPointerMove="{{q.hover}}" data-bind-onPointerDown="{{q.hover}}" data-bind-onClick="{{q.click}}" style="cursor: pointer; display: block">
+                  <path data-bind-d="{{q.good}}" fill="#5C9470" fill-opacity="0.10"></path><path data-bind-d="{{q.bad}}" fill="#D9534F" fill-opacity="0.05"></path>
                   <path data-bind-d="{{q.fill}}" data-bind-fill="{{q.fillColor}}" fill-opacity="0.16"></path>
                   <path data-bind-d="{{q.grid}}" stroke="rgba(255,255,255,0.08)" fill="none"></path>
                   <path data-bind-d="{{q.axes}}" stroke="rgba(255,255,255,0.3)" fill="none"></path>
@@ -364,7 +365,7 @@
                   <text data-bind-x="{{q.t5.x}}" data-bind-y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t5.label}}</text>
                   <text data-bind-x="{{q.t6.x}}" data-bind-y="{{q.xLY}}" text-anchor="middle" font-size="10" fill="#98989F">{{q.t6.label}}</text>
                   
-                </svg>
+                </svg><div class="graph-hover" aria-live="polite">Hover or tap for values at a time.</div>
               </div>
             </sc-for>
           </div>
