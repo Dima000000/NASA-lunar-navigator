@@ -39,3 +39,42 @@
 .travel-gradient{height:12px;border-radius:6px;background:linear-gradient(90deg,#fad64c,#e06621,#7a217a,#141a3d);margin-top:8px}.trip-panel .btn{margin-top:8px}
 
 .guided-tour{position:fixed;inset:0;z-index:1000;pointer-events:none}.tour-focus{position:fixed;border:2px solid #f5f5f7;border-radius:18px;box-shadow:0 0 0 9999px rgba(0,0,0,.7);transition:all .2s;pointer-events:none}.tour-card{position:fixed;width:min(360px,calc(100vw - 24px));padding:22px;border-radius:24px;box-sizing:border-box;pointer-events:auto;background:#1c1c1e!important;border:1px solid #49494d}.tour-card h2{font-size:20px;margin:8px 0}.tour-card p{font-size:14px;line-height:1.5;color:#c7c7cc}.tour-count{color:#98989f}.tour-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}.tour-actions button{min-height:44px}.tour-actions button:disabled{opacity:.4}.tour-help{font-size:18px;font-weight:700}
+
+/* Final cascade accounts for inherited compact-timeline and touch rules. */
+.ui-pass .tip{transform:none!important;white-space:normal!important;max-width:480px;line-height:1.4}
+.ui-pass.ui-drive.app.tlc .pad{bottom:170px!important}
+.ui-pass .charts .panels{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))!important}
+.graph-axis-title{font-size:11px;color:#98989f;margin:8px 0 2px 0}.hud-more{display:none}
+.ui-pass .charts .shead{gap:12px}.ui-pass .charts .shead .xb{flex:none}
+@media(max-width:900px){
+ .ui-pass .topr .seg{order:-1;flex:1 0 100%;box-sizing:border-box;justify-content:space-between}
+ .ui-pass .topr{justify-content:flex-end;gap:6px}.ui-pass .topr>.round{order:1}
+ .ui-pass.ui-drive .time{display:grid!important;grid-template-columns:36px minmax(0,1fr) 90px;gap:6px!important;padding:12px!important;border-radius:22px!important}
+ .ui-pass.ui-drive .mission-selector{grid-column:1/-1;grid-row:1}
+ .ui-pass.ui-drive .time>.playb{grid-column:1;grid-row:2}
+ .ui-pass.ui-drive .time>.tdate{grid-column:2;grid-row:2;display:block!important;min-width:0!important;max-width:none!important;width:auto!important}
+ .ui-pass.ui-drive .time .d1{font-size:14px!important}.ui-pass.ui-drive .time .d2{font-size:10px!important;white-space:normal}
+ .ui-pass.ui-drive .time>.tside{grid-column:3;grid-row:2;min-width:0}
+ .ui-pass.ui-drive .time>.tmain{grid-column:1/-1;grid-row:3;min-width:0}
+ .ui-pass.ui-drive .time .evrow,.ui-pass.ui-drive .time .strip,.ui-pass.ui-drive .time .tl2,.ui-pass.ui-drive .time .wevs{display:none!important}
+ .ui-pass.ui-drive .time .trackw{height:24px!important}
+ .ui-pass.ui-drive.app.tlc .pad{bottom:184px!important}
+ .ui-pass.ui-drive .joystick{bottom:184px!important}
+ .ui-pass.ui-drive .drive-zoom{bottom:184px!important}
+ .ui-pass.ui-drive .surface-detail{bottom:325px!important;max-width:195px}
+ .ui-pass.ui-drive .dpill{top:202px!important}
+ .ui-pass.ui-drive .tip{top:256px!important}
+ .ui-pass .mission-handle{min-height:24px!important}
+ .ui-pass .mission-labels{font-size:9px}.ui-pass .mission-labels span{overflow-wrap:anywhere}
+}
+@media(max-width:600px){
+ .ui-pass .topr .seg button{padding:0 7px!important;font-size:11px!important}.ui-pass .topr .seg button svg{width:13px}
+ .ui-pass .hud{top:112px!important;gap:6px!important}
+ .ui-pass .hud .drive-speed,.ui-pass .hud .hi:nth-child(n+4){display:none!important}
+ .ui-pass .hud.hud-expanded .drive-speed,.ui-pass .hud.hud-expanded .hi:nth-child(n+4){display:inline-flex!important}
+ .ui-pass .hud-more{display:block;background:rgba(118,118,128,.24);color:#f5f5f7;border:0;border-radius:12px;min-height:32px!important;width:36px;font-size:20px;margin-left:auto}
+ .ui-pass .hud .hi:nth-child(3){display:inline-flex!important}
+ .ui-pass .hud.hud-expanded{z-index:9}
+ .ui-pass .mission-fields input{min-height:44px}
+}
+@media(pointer:coarse){.ui-pass.ui-drive .pad{display:none!important}.ui-pass .joystick{bottom:184px!important}.ui-pass .hud .hb{min-height:34px!important}}

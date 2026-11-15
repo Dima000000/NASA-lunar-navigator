@@ -17,7 +17,7 @@
       </div>
     </sc-if>
     <sc-if data-bind-value="{{isDrive}}" data-bind-hint-placeholder-val="{{ false }}">
-      <div class="hud mat" role="status">
+      <div data-bind-class="{{driveHudClass}}" role="status">
         <button data-bind-class="{{hud.battCls}}" data-bind-onClick="{{toggleDrain}}" data-bind-aria-pressed="{{noDrain}}" data-bind-aria-label="{{hud.battLabel}}" data-bind-title="{{hud.battLabel}}"><span class="batt"><span class="battf" data-bind-style="width: {{hud.battPct}}%"></span></span>{{hud.batt}}<span style="font-weight: 500; opacity: 0.85">{{hud.rate}}</span></button>
         <span data-bind-class="{{hud.sunCls}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>{{hud.sun}}</span>
         <span data-bind-class="{{hud.earthCls}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 19a10 10 0 0 1 0-14M8.5 15.5a5 5 0 0 1 0-7M19 19a10 10 0 0 0 0-14M15.5 15.5a5 5 0 0 0 0-7"></path><circle cx="12" cy="12" r="1.5"></circle></svg>{{hud.earth}}</span>
@@ -25,7 +25,7 @@
           <button class="hi hbtn" data-bind-onClick="{{skipEarth}}" style="color: #64D2FF">{{hud.skipLabel}}</button>
         </sc-if>
         <span class="hi dim">{{hud.kmh}}</span><label class="drive-speed">Time <select data-bind-value="{{driveTimeScale}}" data-bind-onChange="{{onDriveTimeScale}}" aria-label="Drive time multiplier"><option value="1">×1</option><option value="10">×10</option><option value="60">×60</option><option value="300">×300</option></select></label>
-        <span class="hi dim">{{hud.dist}}</span>
+        <span class="hi dim">{{hud.dist}}</span><button class="hud-more" data-bind-onClick="{{toggleDriveStatus}}" data-bind-aria-expanded="{{driveStatusOpen}}" aria-label="More driving status">⋯</button>
       </div>
       <sc-if data-bind-value="{{hud.hasMsg}}" data-bind-hint-placeholder-val="{{ false }}">
         <div class="hmsg">{{hud.msg}}</div>
@@ -331,7 +331,7 @@
       <div class="smgrid">
       <sc-for data-bind-list="{{chartRows}}" as="c" hint-placeholder-count="3">
         <div class="ccard">
-          <div class="ctitle" data-bind-title="{{c.sub}}">{{c.title}}</div><p class="csub">{{c.insight}}</p>
+          <div class="ctitle" data-bind-title="{{c.sub}}">{{c.title}}</div><p class="csub">{{c.insight}}</p><div class="graph-axis-title">{{c.yTitle}}</div>
           <div class="panels" data-bind-style="grid-template-columns: repeat({{c.n}}, minmax(0, 1fr))">
             <sc-for data-bind-list="{{c.panels}}" as="q" hint-placeholder-count="1">
               <div class="pnl" data-bind-style="border-top-color: {{q.color}}" data-bind-title="{{q.name}}">
