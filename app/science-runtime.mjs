@@ -388,6 +388,7 @@ export function enhancedComponent(Base, S) {
       );
       this.syncWorkerYears();
       this._scienceWorker.onmessage = ({ data: m }) => {
+        if(m.type==='trip'){this._trip=m;this.setState({});return;}
         if(m.type==='routeProgress'&&m.job===this._routeJob){this._routeExpanded=m.expanded;return;}
         if (m.type === "windows") {
           this.setState({
@@ -902,7 +903,7 @@ export function enhancedComponent(Base, S) {
           return points;
         };
       this._reach = {
-        k: key,
+        k: key,start: m.start,smallN:m.N,incomplete:m.incomplete,
         T,
         prev,
         o,

@@ -7,7 +7,8 @@ import {
   VEHICLE,
 } from "./science-core.mjs";
 import {reachSteps} from "./route-search.mjs";
-let ephem, routeGeneration=0;
+import {buildTripPlan,rankSpots,travelContours} from "./planning-analysis.mjs";
+let ephem, routeGeneration=0,lastRoute,bestGeneration=0;
 onmessage = async ({ data: q }) => {
   try {
     if (q.type === "cancelRoute") { routeGeneration++; return; }
@@ -35,6 +36,10 @@ onmessage = async ({ data: q }) => {
         rows: findWindows(ephem, q.site, q.profile, q),
       });
       return;
+    }
+    if(q.type==='trip'){
+      if(!lastRoute||lastRoute.q.key!==q.key){postMessage({type:'trip',key:q.key,goal:q.goal,pending:true});return;}
+      postMessage({type:'trip',key:q.key,goal:q.goal,plan:buildTripPlan(lastRoute.q,lastRoute.r,lastRoute.sky,q.goal)});return;
     }
     if (q.type === "route") {
       const a = q.atlasMeta,
@@ -95,12 +100,13 @@ onmessage = async ({ data: q }) => {
           if (p >= 0) spatialPrev[i] = r.stateCell[p];
         }
       }
+      lastRoute={q,r,sky};
       postMessage(
         {
           type: "route",
           job: q.job,
           key: q.key,
-          N,
+          N, start:q.start,maxHours:q.maxHours||24,
           T: r.T,
           contacts: r.contacts,
           stateBest: r.best,
@@ -114,16 +120,7 @@ onmessage = async ({ data: q }) => {
           spatialPrev,
           expanded: r.expanded,
         },
-        [
-          r.T.buffer,
-          r.contacts.buffer,
-          r.best.buffer,
-          r.parent.buffer,
-          r.dist.buffer,
-          r.energyWh.buffer,
-          r.stateCell.buffer,
-          spatialPrev.buffer,
-        ],
+
       );
     }
   } catch (e) {
