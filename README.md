@@ -26,8 +26,6 @@ All values below use a **2 m mast**, **hourly samples**, **7-day stays**, **6 h 
 - Connecting Ridge, Gläser spot 2: the highest-ranked 2027 stay is **9 January 12:00 UTC to 16 January 12:00 UTC**. Sun/Earth visibility: **100% / 100%** of 168 hourly samples; longest night **0 h**.
 - At de Gerlache rim 2 · dGR201 in that **same week**, Sun/Earth visibility is **44.05% / 100%**, with **85 h** longest night. Its own highest-ranked stay, **17–24 January 2027, 00:00 UTC**, gives **100% / 100%** and **0 h** longest night. Choosing dates changes the comparison substantially.
 
-At Connecting Ridge, shifting a hypothetical rover start from **14 November 2026 18:00 UTC** to **16 November 18:00 UTC**, with 80% initial battery and a 24 h search, changes conservatively reachable nodes from **179 to 169 (−5.6%)**, for the same origin. [Recorded parameters](public/research/rover-timing-findings.json).
-
 These are model predictions, not future observations or guaranteed mission outcomes. [Numerical findings](public/research/findings-2027.csv), [Connecting Ridge browser export](public/research/findings-2027-export-cr.csv), [de Gerlache browser export](public/research/findings-2027-export-sdg.csv).
 
 ## Validation
