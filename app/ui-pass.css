@@ -1156,3 +1156,28 @@
     top: calc(var(--drive-hud-bottom, 194px) + 70px) !important;
   }
 }
+
+.ui-pass:not(.ui-drive) .tip {
+  top: 82px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+}
+.ui-pass.app.tlc:not(.ui-drive) .mapctl {
+  bottom: 170px !important;
+}
+@media (max-width: 900px) {
+  .ui-pass.app.tlc:not(.ui-drive) .mapctl {
+    bottom: 12px !important;
+  }
+  .ui-pass:not(.ui-drive) .layerbox {
+    position: fixed !important;
+    top: 128px !important;
+    bottom: auto !important;
+    right: 12px !important;
+    left: auto !important;
+    transform: none !important;
+  }
+  .ui-pass:not(.ui-drive) .layerbox .seg {
+    flex-direction: row !important;
+  }
+}
