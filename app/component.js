@@ -1,5 +1,6 @@
 import {surfacePath,modelStepSeconds} from './drive-navigation.mjs';
 import {VEHICLE,solarPower,AU_KM} from './science-core.mjs';
+import {ROVER,driveFrame,easeInput,forecastParked,createSolarScan,advanceSolarScan,scanSolarW,roverReason,routeStartIndex} from './rover-sim.mjs';
 import {buildCSV} from './csv-export.mjs';
 export const DRIVE_START_DISTANCE = 0.025;
 const ILLUSTRATIVE_APPROACH_AZIMUTH = 120;
@@ -43,11 +44,27 @@ window.NASALComponent = class Component extends DCLogic {
       // Drive: real elapsed time (up to 0.5 s for slow frames) times the multiplier, so 1 s at 3600x is 1 simulated hour.
       const dt = Math.min(driving ? 0.5 : 0.1, (now - (this._lastT || now)) / 1000);
       this._lastT = now;
-      const n = this._ser ? this._ser.n : 2;
+      let ser = this._ser; if (driving) { try { ser = this.series(); } catch (err) { } } // a range change (extendMission) must not be judged against the old series
+      const n = ser ? ser.n : 2;
       if (this._tf === undefined || this._tf === null) this._tf = s.ti;
+      if(driving&&s.missionEnded&&ser&&this._tf<n-1-1e-6)this.setState({missionEnded:false}); // the mission was extended, or the clock moved back
       if(driving&&s.drivePaused){this.renderContinuousTime?.(s.start+this._tf*s.stepH*3600000,now);return;}
-      this._tf += (driving?modelStepSeconds(dt,s.driveTimeScale??60)/3600:dt*s.speed) / s.stepH;
-      if (this._tf > n - 1) { if (driving) { this._tf = n - 1; this.setState({ drivePaused: true }); } else this._tf = 0; }
+      if(driving){
+        // Simulated seconds this frame = real seconds x the multiplier in force (driveRate), clipped at a wait target (driveClockLimit)
+        // and at the mission end. The rover integrates exactly this amount (advanceDriveClock), so clock, distance and battery agree.
+        const stepS=s.stepH*3600,t0=this._tf*stepS,endS=(n-1)*stepS,limitS=((this.driveClockLimit?.()??Infinity)-s.start)/1000;
+        let t1=t0+modelStepSeconds(dt,this.driveRate()),atLimit=false,ended=false;
+        if(t1>=limitS){t1=Math.max(t0,limitS);atLimit=true;}
+        if(ser&&t1>=endS){t1=endS;ended=true;}
+        this._tf=t1/stepS;
+        this.eng?.advanceDriveClock?.(Math.max(0,t1-t0));
+        // The end of the planned stay is a distinct state (roverStatus.reason 'mission-ended'), not a silent freeze.
+        if(ended&&!(s.drivePaused&&s.missionEnded))this.setState({drivePaused:true,missionEnded:true});
+        if(atLimit||ended)this.onDriveClockLimit?.(ended);
+      } else {
+        this._tf += dt*s.speed / s.stepH;
+        if (this._tf > n - 1) this._tf = 0;
+      }
       this.renderContinuousTime?.(s.start+this._tf*s.stepH*3600000,now);
       const ti = Math.floor(this._tf);
       if (ti !== s.ti && now - (this._lastSet || 0) > 45) { this._lastSet = now; this.setState({ ti: ti }); }
@@ -63,18 +80,44 @@ window.NASALComponent = class Component extends DCLogic {
   }
   componentDidUpdate() { this.ensureTerrain(); this.sync(); this.drawMaps(); }
 
-  // Driving faster than 1 s = 1 h makes the rover cross kilometres per frame; 1 s = 1 day is for waiting (charging, Earthrise).
-  capDriveRate() { const r = this.state.driveTimeScale; if (this.state.view === 'drive' && r > 3600) this.setState({ driveTimeScale: 3600 }); }
+  // Time multiplier in force this frame. While the rover drives it is capped (by hand 1 s = 2 min, on autopilot 1 s = 1 h — see
+  // ROVER.manualMaxScale / autoMaxScale) so 0.7 km/h never looks like a race car; 1 s = 1 day is for a parked rover (charging, Earthrise).
+  driveRate() { let r = this.state.driveTimeScale ?? 60; const cap = this.eng?.driveScaleCap?.() ?? Infinity; if (this.state.view === 'drive' && r > cap) { r = cap; this.setState({ driveTimeScale: cap }); } return r; }
+  // Any drive control (key, pad button, joystick): resume a paused simulation — but not a finished mission — and apply the cap.
+  driveInput() {
+    const s = this.state; if (s.view !== 'drive') return;
+    if (!s.missionEnded && (s.drivePaused || s.driveTimeScale === 0)) this.setState({ drivePaused: false, driveTimeScale: s.driveTimeScale === 0 ? (this._lastDriveRate || 60) : s.driveTimeScale });
+    this.driveRate();
+  }
+  capDriveRate() { this.driveInput(); }
+  // On-screen pad button: behaves like holding the key. The pointer is captured, so sliding off the button or a second finger
+  // elsewhere does not release it; a quick tap still nudges the rover (the engine holds a press for at least 220 ms).
+  padEvent(name, on, ev) {
+    const el = ev && ev.currentTarget, id = ev ? ev.pointerId : undefined, P = (this._padPtr ??= {});
+    const apply = (v) => { if (!this.eng) return; if (name === 'stop') this.eng.brake(v); else this.eng.pad(name, v); };
+    if (on) {
+      if (ev && ev.button > 0) return;
+      if (ev && ev.preventDefault) ev.preventDefault();
+      try { if (el && id !== undefined) el.setPointerCapture(id); } catch (err) { }
+      P[name] = { id: id };
+      if (name === 'stop') this.brake ? this.brake(true) : apply(true); else { this.driveInput(); apply(true); }
+      return;
+    }
+    const p = P[name]; if (!p || (id !== undefined && p.id !== undefined && id !== p.id)) return;
+    if (ev && ev.type === 'pointerleave' && el && el.hasPointerCapture && el.hasPointerCapture(id)) return;
+    delete P[name];
+    apply(false);
+  }
   refs() {
     if (!this._refs) {
-      const k = (name, on) => (ev) => { if (ev && on && ev.preventDefault) ev.preventDefault(); if (on) this.capDriveRate(); if (this.eng) this.eng.key(name, on); };
+      const k = (name, on) => (ev) => this.padEvent(name, on, ev);
       this._refs = {
         stage: (el) => { this._stageEl = el; this.tryEngine(); },
         gl: (el) => { this._glEl = el; this.tryEngine(); },
         ov: (el) => { this._ovEl = el; this.tryEngine(); },
-        mini: (el) => { this._miniEl = el; if (el) this.drawMaps(); },
+        mini: (el) => { if (el || !this._miniEl || !this._miniEl.isConnected) this._miniEl = el; if (el) this.drawMaps(); }, // Overview and Terrain/Drive each mount their own map canvas
         big: (el) => { this._bigEl = el; if (el) this.drawMaps(); },
-        pad: { upOn: k('up', true), upOff: k('up', false), downOn: k('down', true), downOff: k('down', false), leftOn: k('left', true), leftOff: k('left', false), rightOn: k('right', true), rightOff: k('right', false) }
+        pad: { upOn: k('up', true), upOff: k('up', false), downOn: k('down', true), downOff: k('down', false), leftOn: k('left', true), leftOff: k('left', false), rightOn: k('right', true), rightOff: k('right', false), stopOn: k('stop', true), stopOff: k('stop', false) }
       };
     }
     return this._refs;
@@ -89,8 +132,10 @@ window.NASALComponent = class Component extends DCLogic {
         onOpen: (id) => { this.setState({ sel: id }, () => this.goView('terrain')); },
         onPick: (lat, lon) => this.addSiteAt(lat, lon, ''),
         onLanded: () => this.setState({ landing: false, landed: true }),
-        onRover: (r) => this.setState({ rover: r }),
-        onDriveInput: () => this.capDriveRate(),
+        onRover: (r) => this.setState({ rover: r, roverStatus: r.status }),
+        onDriveInput: () => this.driveInput(),
+        onBrake: () => this.onRoverBrake?.(),
+        onAutopilot: (on, why) => this.setState({ autopilot: on, autopilotWhy: why }),
         onTarget: (i, j) => {
           // In Drive the default camera sits a few metres behind the rover, so a click on nearby ground resolves to the rover's own cell.
           // Don't set a useless 0 m destination; tell the user how to pick a real one instead.
@@ -373,6 +418,8 @@ window.NASALComponent = class Component extends DCLogic {
     return this._dems[k];
   }
   profileFor(site) { const d = this.demFor(site), h = this.state.obsH || 2; if (!d.profs) d.profs = {}; if (!d.profs[h]) d.profs[h] = this.terrLib().profile(d, h / 1000); return d.profs[h]; }
+  // Grid position of the site pin: the patch centre, except in a roaming Drive window that has moved (ox, oy) km away from it.
+  pinGrid(dem) { const c = (dem.N - 1) / 2, i = c - (dem.ox || 0) / dem.cell, j = c - (dem.oy || 0) / dem.cell; return { i: i, j: j, inside: i >= 0 && j >= 0 && i <= dem.N - 1 && j <= dem.N - 1 }; }
   selSite() { const s = this.state; return s.sites.find((x) => x.id === s.sel) || s.sites[0]; }
 
   // ---------- time series ----------
@@ -497,12 +544,12 @@ window.NASALComponent = class Component extends DCLogic {
     for (let v = 0; v < Ncv; v++) raw[v] = (s.wSun * A.sun[v] + s.wEarth * A.earth[v] + s.wGap * (1 - Math.min(1, A.mrun[v] / A.per))) / wsum;
     const N = dem.N, Nv = N * N;
     const sc = TL.upsample(raw, Nc, job.stride, N), sun = TL.upsample(A.sun, Nc, job.stride, N), ear = TL.upsample(A.earth, Nc, job.stride, N), slope = new Float32Array(Nv);
-    let best = null; const c = (N - 1) / 2;
+    let best = null; const c = (N - 1) / 2, pg = this.pinGrid(dem), pc = pg.inside ? pg : { i: c, j: c };
     for (let v = 0; v < Nv; v++) {
       const sl = dem.slope[v];
       slope[v] = sl > 15 ? -1 : sl / 15;
       if (sl > 15) sc[v] = -1; else if (sl > 5) sc[v] *= 1 - 0.6 * (sl - 5) / 10;
-      const i = v % N, j = (v - i) / N, dk = Math.hypot(i - c, j - c) * dem.cell;
+      const i = v % N, j = (v - i) / N, dk = Math.hypot(i - pc.i, j - pc.j) * dem.cell;
       if (dk <= 2.5 && sl <= 8 && sc[v] >= 0 && (!best || sc[v] > best.score)) best = { i: i, j: j, score: sc[v], dist: dk, slope: sl };
     }
     const site0 = this.selSite(), hm = job.hmap, B = job.B, psrC = new Float32Array(Ncv);
@@ -755,10 +802,27 @@ window.NASALComponent = class Component extends DCLogic {
     for (let i = ti + 1; i < n; i++) if ((arr[i] >= thr) !== on) return (i - ti) * stepH;
     return null;
   }
+  // Top-down map field of view: zoom 0 = whole patch, 1 = half, 2 = quarter; centred on the rover (Drive) or the pin, clamped to the patch.
+  regionJob() { return null; } // Overview map source (set by the science layer once the place's terrain is loaded)
+  mapWindow(job = this._tj) {
+    const dem = job.dem, N = dem.N, z = this.state.view === 'region' ? 0 : Math.max(0, Math.min(2, this.state.mapZoom | 0)), f = 1 / (1 << z), sp = (N - 1) * f;
+    let ci = (N - 1) / 2, cj = ci; const s = this.state;
+    if (z) {
+      if (s.view === 'drive' && s.rover && s.rover.x !== undefined) { ci = (s.rover.x + dem.L / 2) / dem.cell; cj = (-s.rover.z + dem.L / 2) / dem.cell; }
+      else { const pg = this.pinGrid(dem); ci = pg.i; cj = pg.j; }
+      if (!isFinite(ci) || !isFinite(cj)) ci = cj = (N - 1) / 2;
+    }
+    const cl = (v) => Math.max(0, Math.min(N - 1 - sp, v - sp / 2));
+    return { f: f, sp: sp, i0: cl(ci), j0: cl(cj) };
+  }
+  mapGridAt(ev) {
+    const r = ev.currentTarget.getBoundingClientRect(), mw = this.mapWindow();
+    return { i: mw.i0 + (ev.clientX - r.left) / r.width * mw.sp, j: mw.j0 + (1 - (ev.clientY - r.top) / r.height) * mw.sp };
+  }
   drawMaps() {
-    const els = [this._miniEl, this._bigEl].filter(Boolean);
-    const job = this._tj;
-    if (!els.length || !job || this.state.view === 'region') return;
+    const els = [this._miniEl, this._bigEl].filter(Boolean), region = this.state.view === 'region';
+    const job = region ? this.regionJob() : this._tj;
+    if (!els.length || !job) return;
     const dem = job.dem, N = dem.N, H = this.terrReady() ? this.heat() : null;
     if (!dem.hs) {
       const hs = new Float32Array(N * N), c = dem.cell, L = [-0.5, 0.5, 0.707];
@@ -776,7 +840,7 @@ window.NASALComponent = class Component extends DCLogic {
     if (job.mapPixels && this._mapKey !== key) { const m=job.mapPixels;off.width=m.M;off.height=m.M;off.getContext('2d').putImageData(new ImageData(m.data,m.M,m.M),0,0);this._mapKey=key; }
     else if (this._mapKey !== key) {
       this._mapKey = key; off.width = mapN; off.height = mapN;
-      const g = off.getContext('2d'), img = g.createImageData(mapN, mapN), d = img.data, sh = this._shadeFull;
+      const g = off.getContext('2d'), img = g.createImageData(mapN, mapN), d = img.data, sh = region ? null : this._shadeFull;
       for (let y = 0; y < mapN; y++) for (let x = 0; x < mapN; x++) {
         const v = Math.min(N - 1, y * mapStep) * N + Math.min(N - 1, x * mapStep), p = ((mapN - 1 - y) * mapN + x) * 4, base = 0.25 + 0.75 * dem.hs[v];
         let r, gg, b;
@@ -796,12 +860,13 @@ window.NASALComponent = class Component extends DCLogic {
       if (el.width !== px) { el.width = px; el.height = px; }
       const ctx = el.getContext('2d');
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = true;
-      ctx.clearRect(0, 0, W, W); ctx.drawImage(off, 0, 0, W, W);
-      const X = (i) => i / (N - 1) * W, Y = (j) => (1 - j / (N - 1)) * W, c = (N - 1) / 2;
+      const mw = this.mapWindow(job), crop = (im) => { const k = im.width / (N - 1); ctx.drawImage(im, mw.i0 * k, (N - 1 - mw.j0 - mw.sp) * k, mw.sp * k, mw.sp * k, 0, 0, W, W); };
+      ctx.clearRect(0, 0, W, W); crop(off);
+      const X = (i) => (i - mw.i0) / mw.sp * W, Y = (j) => (1 - (j - mw.j0) / mw.sp) * W, c = (N - 1) / 2;
       const ring = (i, j, col, r, fill) => { ctx.beginPath(); ctx.arc(X(i), Y(j), r, 0, Math.PI * 2); if (fill) { ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); } else { ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.stroke(); } };
       if (H && H.best) ring(H.best.i, H.best.j, '#FFFFFF', W > 300 ? 9 : 6, false);
       if (s.target && s.target.key === job.key) ring(s.target.i, s.target.j, '#FF9F0A', W > 300 ? 9 : 6, false);
-      ring(c, c, site.color, W > 300 ? 6 : 4.5, true);
+      { const pg = this.pinGrid(dem); ring(pg.i, pg.j, site.color, W > 300 ? 6 : 4.5, true); }
       if (s.view === 'drive' && s.rover && s.rover.x !== undefined) {
         const i = (s.rover.x + dem.L / 2) / dem.cell, j = (-s.rover.z + dem.L / 2) / dem.cell, hx = Math.sin(s.rover.heading), hy = -Math.cos(s.rover.heading), k = W > 300 ? 11 : 8;
         const x0 = X(i), y0 = Y(j);
@@ -815,20 +880,22 @@ window.NASALComponent = class Component extends DCLogic {
 
           if(this._rangeImage!==rc.img){const now=performance.now(),f=Math.min(1,(now-this._rangeFadeAt)/400);if(this._rangeImage&&this._rangePrevious&&f<1){const cv=document.createElement('canvas');cv.width=cv.height=31;const g=cv.getContext('2d');g.globalAlpha=1-f;g.drawImage(this._rangePrevious,0,0);g.globalAlpha=f;g.drawImage(this._rangeImage,0,0);this._rangePrevious=cv;}else this._rangePrevious=this._rangeImage;this._rangeImage=rc.img;this._rangeFadeAt=now;}
           const fade=Math.min(1,(performance.now()-this._rangeFadeAt)/400);
-          if(this._rangePrevious&&fade<1){ctx.globalAlpha=1-fade;ctx.drawImage(this._rangePrevious,0,0,W,W);}
-          ctx.globalAlpha=fade;ctx.drawImage(rc.img,0,0,W,W);ctx.globalAlpha=1;
+          if(this._rangePrevious&&fade<1){ctx.globalAlpha=1-fade;crop(this._rangePrevious);}
+          ctx.globalAlpha=fade;crop(rc.img);ctx.globalAlpha=1;
           if(fade<1&&!this._rangeFadeRAF)this._rangeFadeRAF=requestAnimationFrame(()=>{this._rangeFadeRAF=0;this.drawMaps();});
           if (s.target && s.target.key === job.key && !s.navigationActive) { const target=s.target.j*N+s.target.i; if(rc.routePointsFor&&isFinite(rc.T[target])){const points=rc.routePointsFor(target);for(let a=1;a<points.length;a++){const p=points[a-1],q=points[a];ctx.beginPath();ctx.moveTo(X(p.i),Y(p.j));ctx.lineTo(X(q.i),Y(q.j));ctx.strokeStyle=p.earth>.0005?'#30D158':'#FF9F0A';ctx.lineWidth=W>300?3:2;ctx.stroke();}}else if(isFinite(rc.T[target])){let p=target;ctx.beginPath();let first=true;while(p>=0){const a=p%N,b=(p-a)/N;if(first){ctx.moveTo(X(a),Y(b));first=false;}else ctx.lineTo(X(a),Y(b));p=rc.prev[p];}ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();} }
           const ox = X(rc.o.i), oy = Y(rc.o.j); ctx.beginPath(); ctx.arc(ox, oy, W > 300 ? 6 : 4.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
         }
       }
-      const nav=this.navigationMapPoints?.();if(nav?.length){ctx.beginPath();nav.forEach((p,i)=>{if(i)ctx.lineTo(X(p.i),Y(p.j));else ctx.moveTo(X(p.i),Y(p.j));});ctx.strokeStyle='#071822';ctx.lineWidth=W>300?5:4;ctx.stroke();ctx.strokeStyle='#40A8FF';ctx.lineWidth=W>300?3:2;ctx.stroke();}
-      for(const [rank,p]of (s.bestSpots||[]).entries()){const x=X(p.i*(N-1)/30),y=Y(p.j*(N-1)/30);ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fillStyle='#F2C94C';ctx.fill();ctx.fillStyle='#111';ctx.font='bold 11px Inter';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(rank+1),x,y);}
+      const nav=region?null:this.navigationMapPoints?.();if(nav?.length){ctx.beginPath();nav.forEach((p,i)=>{if(i)ctx.lineTo(X(p.i),Y(p.j));else ctx.moveTo(X(p.i),Y(p.j));});ctx.strokeStyle='#071822';ctx.lineWidth=W>300?5:4;ctx.stroke();ctx.strokeStyle='#40A8FF';ctx.lineWidth=W>300?3:2;ctx.stroke();}
+      for(const [rank,p]of ((!region&&s.bestSpots)||[]).entries()){const x=X(p.i*(N-1)/30),y=Y(p.j*(N-1)/30);ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fillStyle='#F2C94C';ctx.fill();ctx.fillStyle='#111';ctx.font='bold 11px Inter';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(rank+1),x,y);}
       const fs = W > 300 ? 13 : 11;
-      ctx.font = '700 ' + fs + 'px -apple-system, Inter, sans-serif'; ctx.fillStyle = '#FF6961'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText('N', W - 14, 6);
-      const kmPx = W / dem.L * 2, bx = 10, by = W - 10;
+      ctx.font = '700 ' + fs + 'px -apple-system, Inter, sans-serif'; ctx.fillStyle = '#FF6961'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      if (dem.northTurn) { const a = dem.northTurn * Math.PI / 180, cx = W - 22, cy = 25; ctx.save(); ctx.translate(cx, cy); ctx.rotate(a); ctx.strokeStyle = '#FF6961'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, 8); ctx.lineTo(0, -1); ctx.stroke(); ctx.fillText('N', 0, -13); ctx.restore(); } // roaming window: true north is turned from the grid's up
+      else ctx.fillText('N', W - 14, 6);
+      const spanKm = dem.L * mw.f, barKm = spanKm > 10 ? 2 : (spanKm > 5 ? 1 : 0.5), kmPx = W / spanKm * barKm, bx = 10, by = W - 10;
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx, by - 4); ctx.lineTo(bx, by); ctx.lineTo(bx + kmPx, by); ctx.lineTo(bx + kmPx, by - 4); ctx.stroke();
-      ctx.font = '600 ' + (fs - 1) + 'px -apple-system, Inter, sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('2 km', bx, by - 6);
+      ctx.font = '600 ' + (fs - 1) + 'px -apple-system, Inter, sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText((barKm < 1 ? barKm * 1000 + ' m' : barKm + ' km'), bx, by - 6);
     });
   }
   runsOf(test, n) {
@@ -931,7 +998,7 @@ window.NASALComponent = class Component extends DCLogic {
     const legend = { score: ['Poor', 'Great place to land', 'Too steep (over 15°)'], sun: ['Always dark', 'Always sunlit', ''], earth: ['Never sees Earth', 'Always sees Earth', ''], slope: ['Flat', '15°', 'Too steep (over 15°)'] }[s.layer] || ['', '', ''];
     let bestTxt = '';
     if (H && H.best) {
-      const d = this._tj.dem, c = (d.N - 1) / 2, dx = (H.best.i - c) * d.cell, dy = (H.best.j - c) * d.cell;
+      const d = this._tj.dem, c = this.pinGrid(d), dx = (H.best.i - c.i) * d.cell, dy = (H.best.j - c.j) * d.cell;
       const dist = Math.round(Math.hypot(dx, dy) * 1000), az = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
       bestTxt = (dist < 60 ? 'right at the pin' : (dist >= 1000 ? (dist / 1000).toFixed(1) + ' km ' : dist + ' m ') + this.compass(az) + ' of the pin') + ', slope ' + H.best.slope.toFixed(0) + '°';
     }
@@ -962,7 +1029,7 @@ window.NASALComponent = class Component extends DCLogic {
     const hasTarget = !!tv;
     let targetTxt = '', tgt = { sun: '–', earth: '–', slope: '–', score: '–', verdict: '' };
     if (tv) {
-      const d = this._tj.dem, c = (d.N - 1) / 2, v = tv.j * d.N + tv.i, dx = (tv.i - c) * d.cell, dy = (tv.j - c) * d.cell;
+      const d = this._tj.dem, c = this.pinGrid(d), v = tv.j * d.N + tv.i, dx = (tv.i - c.i) * d.cell, dy = (tv.j - c.j) * d.cell;
       const dist = Math.round(Math.hypot(dx, dy) * 1000), az = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360, sl = d.slope[v], sc = H.score[v];
       targetTxt = (dist < 60 ? 'At the pin' : (dist >= 1000 ? (dist / 1000).toFixed(1) + ' km ' : dist + ' m ') + this.compass(az) + ' of the pin') + ', ' + Math.round(d.h[v] * 1000) + ' m relative height';
       tgt = { sun: this.pct(H.sun[v]), earth: this.pct(H.earth[v]), slope: sl.toFixed(0) + '°', score: sc < 0 ? '—' : sc.toFixed(2),
@@ -1186,9 +1253,8 @@ window.NASALComponent = class Component extends DCLogic {
     const psrStat = H && H.psrKm2 !== undefined ? H.psrKm2.toFixed(1) + ' km² (' + Math.round(H.psrKm2 / 256 * 100) + '%)' : '–';
     const onMapClick = (ev) => {
       if (!this._tj) return;
-      const r = ev.currentTarget.getBoundingClientRect(), N = this._tj.dem.N;
-      const fx = (ev.clientX - r.left) / r.width, fy = (ev.clientY - r.top) / r.height;
-      this.setState({ target: { i: Math.max(0, Math.min(N - 1, Math.round(fx * (N - 1)))), j: Math.max(0, Math.min(N - 1, Math.round((1 - fy) * (N - 1)))), key: this._tj.key } });
+      const N = this._tj.dem.N, g = this.mapGridAt(ev);
+      this.setState({ target: { i: Math.max(0, Math.min(N - 1, Math.round(g.i))), j: Math.max(0, Math.min(N - 1, Math.round(g.j))), key: this._tj.key } });
     };
 
     // actions per view
@@ -1214,7 +1280,7 @@ window.NASALComponent = class Component extends DCLogic {
       msg: rv.batt <= 0.5 ? 'Battery empty — speed up time until the Sun returns' : (rv.blocked ? 'Too steep to climb here — try another way' : ''),
       hasMsg: rv.batt <= 0.5 || !!rv.blocked
     };
-    const tips = { region: 'Drag to turn the Moon · scroll to zoom · click a pin', terrain: 'Drag to orbit · scroll to zoom · click the ground to choose a landing spot', drive: s.nearHint ? 'That spot is right next to the rover. Click the top-down map, or zoom out and click farther away.' : 'Drive with W A S D or the arrow keys · click the top-down map or distant ground to set a destination' };
+    const tips = { region: 'Drag to turn the Moon · scroll to zoom · click a pin', terrain: 'Drag to orbit · scroll to zoom · click the ground to choose a landing spot', drive: s.nearHint ? 'That spot is right next to the rover. Click the top-down map, or zoom out and click farther away.' : 'Drive with W A S D or the arrow keys, Space to brake · click the top-down map or distant ground to set a destination' };
 
     // sky chart & details
     const track = (azA, elA) => { const k = Math.max(1, Math.ceil(n / 320)); let d = ''; for (let i = 0; i < n; i += k) { const p = pxy(azA[i], elA[i]); d += (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); } return d; };
@@ -1296,6 +1362,7 @@ window.NASALComponent = class Component extends DCLogic {
       reachFrom: (() => { const o = this._tj ? this.reachOrigin() : null; return !o ? 'the landing site' : (o.from === 'rover' ? 'the rover' : (o.from === 'landing' ? 'your landing site' : (o.from === 'best' ? 'the best landing spot (white ring)' : 'the place pin'))); })(),
       landHere: () => { this.setState({ bigMap: false, mapPick: false }); this.doLand(); },
       addTgt: () => this.addTargetPlace(), addTgtDisabled: !hasTarget || s.sites.length >= 6, addTgtLabel: s.sites.length >= 6 ? 'Compare is full (6)' : 'Add to compare',
+      modeCaption: (s.landing || (s.landed && isTerrain)) ? 'Choose a landing spot and watch the descent' : isTerrain ? 'Inspect sunlight, Earth view and slopes' : isDrive ? 'Drive the rover and plan routes' : 'Pick places and mission dates',
       isLanding: !!s.landing || (!!s.landed && isTerrain), terrainTabOn: isTerrain && !s.landing && !s.landed, showLandBar: !!s.landed && isTerrain && !s.landing && !s.bigMap,
       goTerrainTab: () => { if (this.state.landed) this.setState({ landed: false }); this.goView('terrain'); },
       landAgain: () => { if (this.eng && this.terrReady() && !this.state.landing && this.eng.land()) { this._tf = landTi; this.setState({ landing: true, landed: false, ti: landTi, playing: false }); } },
@@ -1454,10 +1521,20 @@ varying vec3 vW; varying vec3 vN; varying float vS; varying float vH; varying fl
 void main(){ vW = aP; vN = aN; vS = mix(aD.z,aD.x,uShadeMix); vH = aD.y; vTravel=aD.w; gl_Position = uPV*vec4(aP, 1.0); }`;
     const TER_FS = `precision highp float;
 varying vec3 vW; varying vec3 vN; varying float vS; varying float vH; varying float vTravel;
-uniform vec3 uSun; uniform vec3 uCam; uniform float uHeat; uniform float uHalf; uniform sampler2D uImagery; uniform float uHasImagery; uniform float uSurfaceDetail; uniform float uTravel;
+uniform vec3 uSun; uniform vec3 uCam; uniform float uHeat; uniform float uHalf; uniform sampler2D uImagery; uniform float uHasImagery; uniform float uSurfaceDetail; uniform float uTravel; uniform vec2 uOrigin; uniform vec3 uFade;
 float h12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
 float n2(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); vec2 u = f*f*(3.0 - 2.0*f);
   return mix(mix(h12(i), h12(i + vec2(1.0, 0.0)), u.x), mix(h12(i + vec2(0.0, 1.0)), h12(i + vec2(1.0, 1.0)), u.x), u.y); }
+// Cosmetic Drive regolith: value noise with analytic gradient (xy = d/dp) and one sparse bowl crater per cell (x = rim/bowl height, yz = slope). Not measured data.
+vec3 nd(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); vec2 u = f*f*(3.0 - 2.0*f); vec2 du = 6.0*f*(1.0 - f);
+  float a = h12(i), b = h12(i + vec2(1.0, 0.0)), c = h12(i + vec2(0.0, 1.0)), d = h12(i + vec2(1.0, 1.0)); float k1 = b - a, k2 = c - a, k4 = a - b - c + d;
+  return vec3(a + k1*u.x + k2*u.y + k4*u.x*u.y, du*vec2(k1 + k4*u.y, k2 + k4*u.x)); }
+vec3 crater(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); if (h12(i + 17.3) < 0.68) return vec3(0.0);
+  float R = 0.1 + 0.2*h12(i + 71.7); vec2 d = (f - (vec2(1.5*R) + (1.0 - 3.0*R)*vec2(h12(i + 3.1), h12(i + 9.7))))/R; float t = length(d);
+  if (t > 1.5) return vec3(0.0);
+  float rim = 0.22*exp(-10.0*(t - 1.0)*(t - 1.0)), w = max(1.0 - t*t, 0.0);
+  float dh = (t < 1.0 ? 4.0*t*w : 0.0) - 20.0*(t - 1.0)*rim;
+  return vec3(rim - w*w, dh*d/max(t, 0.001)); }
 vec3 viridis(float t){
   vec3 a = vec3(0.180, 0.227, 0.361); vec3 b = vec3(0.369, 0.561, 0.839);
   vec3 c = vec3(0.361, 0.580, 0.439); vec3 d = vec3(0.949, 0.788, 0.298);
@@ -1467,18 +1544,26 @@ vec3 viridis(float t){
 }
 void main(){
   vec3 n = normalize(vN);
-  vec2 q = vW.xz;
+  vec2 q = vW.xz + uOrigin; // site-anchored, so procedural detail does not move when Drive loads the next terrain window
   float camd = length(uCam - vW);
   float dk = 1.0 - smoothstep(0.25, 2.5, camd);
   // Measured DEM normals with the actual LROC WAC 100 m observation mosaic. Acquisition shadows are fixed in the texture; lighting masks remain calculated independently.
   float observed=texture2D(uImagery,vec2(vW.x/(2.0*uHalf)+0.5,0.5-vW.z/(2.0*uHalf))).r;
   float alb=0.16*mix(1.0,0.3+1.2*observed,uHasImagery);
-  float detailFade=uSurfaceDetail*(1.0-smoothstep(0.2,0.5,camd));
-  vec2 metres=q*1000.0;float grit=n2(metres*0.4),fine=n2(metres*4.0)*(1.0-smoothstep(0.015,0.08,camd));
-  float material=(grit-0.5)*0.12+(fine-0.5)*0.04;
-  alb*=1.0+clamp(material,-0.08,0.08)*detailFade;
-  n=normalize(n+vec3(n2(metres*.4+vec2(.1,0.0))-grit,0.0,n2(metres*.4+vec2(0.0,.1))-grit)*0.35*detailFade);
   vec3 V = normalize(uCam - vW);
+  float detailFade=uSurfaceDetail*(1.0-smoothstep(0.25,0.9,camd));
+  if(detailFade>0.001){
+    // Cosmetic regolith detail in site metres. Each octave fades once a pixel covers about half its wavelength, so it never shimmers; distant ground keeps the measured brightness.
+    vec2 metres=q*1000.0;float px=camd*1.3/max(dot(n,V),0.12); // approximate ground metres per pixel
+    float w0=1.0-smoothstep(1.2,4.0,px),w1=1.0-smoothstep(0.3,1.0,px),w2=1.0-smoothstep(0.08,0.26,px),w3=1.0-smoothstep(0.02,0.07,px);
+    vec3 o0=nd(metres/7.0)*w0,o1=nd(metres/1.7+vec2(31.7,11.3))*w1,o2=nd(metres/0.43+vec2(5.1,47.9))*w2,o3=nd(metres/0.11+vec2(19.3,3.7))*w3;
+    vec2 m2=vec2(0.8*metres.x+0.6*metres.y,-0.6*metres.x+0.8*metres.y)/2.6;
+    vec3 c0=crater(metres/11.0)*w0,c1=crater(m2)*w1;
+    vec2 slope=o0.yz*0.05+o1.yz*0.08+o2.yz*0.09+o3.yz*0.09+c0.yz*0.16+vec2(0.8*c1.y-0.6*c1.z,0.6*c1.y+0.8*c1.z)*0.16;
+    float mottle=(o0.x-0.5*w0)*0.14+(o1.x-0.5*w1)*0.10+(o2.x-0.5*w2)*0.07+(o3.x-0.5*w3)*0.07+(c0.x+c1.x)*0.06;
+    alb*=1.0+clamp(mottle,-0.16,0.16)*detailFade;
+    n=normalize(n-vec3(slope.x,0.0,slope.y)*detailFade); // lit below by the real Sun direction: low Sun gives long micro-shadows; lit/shadow state itself stays vS
+  }
   float mu0 = max(dot(n, uSun), 0.0); float mu = max(dot(n, V), 0.03);
   float br = mix(2.0*mu0/(mu0 + mu), mu0, 0.35);
   vec3 col = mix(vec3(1.0,0.975,0.94),vec3(1.0),uSurfaceDetail)*alb*br*vS*3.0;
@@ -1490,19 +1575,31 @@ void main(){
     vec3 hc; float hk = 0.72;
     if (vH < -1.5) { hc = mix(vec3(0.2, 0.5, 0.98), vec3(0.72, 0.9, 1.0), n2(q*4.0)*0.55); }
     else if (vH < -0.5) { hc = vec3(0.60, 0.30, 0.27); hk = 0.38; } // too steep: plain muted red tint (no stripes), as on the top-down map
-    else { hc = viridis(clamp(vH, 0.0, 1.0)); }
+    else { hc = viridis(clamp(vH, 0.0, 1.0)); hk *= 1.0 - 0.6*uSurfaceDetail*(1.0 - smoothstep(0.04, 0.3, camd)); } // Drive: let neutral regolith show near the rover; hazard tints (steep, PSR) stay full strength
     col = mix(col, hc*hs, hk*(1.0 - 0.5*dk)) + col*0.25;
   }
   if(uTravel>.5&&vTravel>=0.0){vec3 travelColor;{float t=clamp(vTravel,0.0,1.0);travelColor=t<.33?mix(vec3(.98,.84,.3),vec3(.88,.4,.13),t/.33):t<.66?mix(vec3(.88,.4,.13),vec3(.48,.13,.48),(t-.33)/.33):mix(vec3(.48,.13,.48),vec3(.08,.10,.24),(t-.66)/.34);}col=mix(col,travelColor*(.65+.35*max(dot(n,normalize(vec3(-.45,.8,-.4))),0.0)),.7);}
-  float edge = max(abs(vW.x), abs(vW.z))/uHalf;
+  // Terrain view fades at the square's border; Drive fades around the rover, inside the loaded window, so re-centring the window is invisible.
+  float edge = uFade.z > 0.0 ? length(vW.xz - uFade.xy)/uFade.z : max(abs(vW.x), abs(vW.z))/uHalf;
   col = mix(col, vec3(0.018, 0.019, 0.022), smoothstep(0.82, 1.0, edge));
   gl_FragColor = vec4(col, 1.0);
 }`;
-    const ROUTE_VS=`attribute vec3 aP;attribute vec3 aPrev;attribute vec3 aNext;attribute float aSide;uniform mat4 uPV;uniform vec3 uViewport;uniform float uWidth;uniform vec3 uCam;varying float vSide;
+    const ROUTE_VS=`attribute vec3 aP;attribute vec3 aPrev;attribute vec3 aNext;attribute float aSide;attribute float aDist;uniform mat4 uPV;uniform vec3 uViewport;uniform float uWidth;uniform vec3 uCam;varying float vSide;varying float vDist;varying float vEye;
 // Lift the ribbon about one pixel above the ground (in world space) so it never z-fights, while hills in front still hide it.
 vec3 lift(vec3 q){return q+vec3(0.0,clamp(distance(uCam,q)*0.0012,0.00015,0.02),0.0);}
-void main(){vec4 p=uPV*vec4(lift(aP),1.0),a=uPV*vec4(lift(aPrev),1.0),b=uPV*vec4(lift(aNext),1.0);vec2 direction=(b.xy/max(b.w,.00001)-a.xy/max(a.w,.00001))*uViewport.xy;direction/=max(length(direction),.00001);vec2 n=vec2(-direction.y,direction.x);p.xy+=n*aSide*uWidth*2.0/uViewport.xy*p.w;vSide=aSide;gl_Position=p;}`;
-    const ROUTE_FS=`precision mediump float;varying float vSide;void main(){gl_FragColor=vec4(abs(vSide)>.72?vec3(.025,.07,.1):vec3(.25,.66,1.0),1.0);}`;
+void main(){vec4 p=uPV*vec4(lift(aP),1.0),a=uPV*vec4(lift(aPrev),1.0),b=uPV*vec4(lift(aNext),1.0);vec2 direction=(b.xy/max(b.w,.00001)-a.xy/max(a.w,.00001))*uViewport.xy;direction/=max(length(direction),.00001);vec2 n=vec2(-direction.y,direction.x);p.xy+=n*aSide*uWidth*2.0/uViewport.xy*p.w;vSide=aSide;vDist=aDist;vEye=distance(uCam,aP);gl_Position=p;}`;
+    const ROUTE_FS=`#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying float vSide;varying float vDist;varying float vEye;uniform float uTime;uniform float uMode;uniform float uRemain;
+// Premultiplied output. Mode 1: driven trail fading behind the rover. Mode 0: glowing ribbon whose core keeps the exact route blue (occlusion review counts it) with bright chevrons flowing toward the destination.
+void main(){float s=abs(vSide);
+if(uMode>.5){float a=exp(-max(vDist-uRemain,0.0)*7.0)*(1.0-smoothstep(.45,1.0,s))*.5;gl_FragColor=vec4(vec3(.55,.8,1.0)*a,a);return;}
+if(s>.62){float a=.85*(1.0-smoothstep(.62,1.0,s))+.08;gl_FragColor=vec4(vec3(.12,.45,.9)*a,a);return;}
+float sp=max(.008,vEye*.05);float f=fract((vDist-s*sp*.45)/sp+uTime*1.3);float c=step(f,.26)*step(s,.5);
+gl_FragColor=vec4(mix(vec3(.25,.66,1.0),vec3(.82,.95,1.0),c),1.0);}`;
     const OBJ_VS = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; uniform mat4 uPV; uniform mat4 uM;
 varying vec3 vN; varying vec3 vC; varying vec3 vW;
 void main(){ vec4 w = uM*vec4(aP, 1.0); vW = w.xyz; vN = (uM*vec4(aN, 0.0)).xyz; vC = aC; gl_Position = uPV*w; }`;
@@ -1650,6 +1747,51 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         }
         return { pos: buf(new Float32Array(Pp)), t: buf(new Float32Array(Tt)), n: Pp.length / 3 };
       })();
+      // Lander flag decal: a procedural canvas texture (plain bold lettering, not any official insignia) on two opposite
+      // flat faces of the octagonal descent stage. Built once; drawn with polygon offset so it never z-fights the hull.
+      const LANDER_FLAG_TEXT = 'NASA';
+      const FLAG = (function () {
+        const vs = 'attribute vec3 aP; attribute vec2 aUV; attribute vec3 aN; uniform mat4 uPV; uniform mat4 uM; varying vec2 vUV; varying vec3 vN; varying vec3 vW;' +
+          'void main(){ vec4 w = uM*vec4(aP, 1.0); vW = w.xyz; vN = (uM*vec4(aN, 0.0)).xyz; vUV = aUV; gl_Position = uPV*w; }';
+        const fs = 'precision highp float; varying vec2 vUV; varying vec3 vN; varying vec3 vW; uniform sampler2D uTex; uniform vec3 uSun; uniform vec3 uCam; uniform float uLit;' +
+          'void main(){ vec3 n = normalize(vN); vec3 v = normalize(uCam - vW); if (dot(n, v) < 0.0) n = -n;' +
+          ' vec3 a = pow(texture2D(uTex, vUV).rgb, vec3(2.2))*0.85; float d = max(dot(n, uSun), 0.0)*uLit;' +
+          ' vec3 col = a*(d*2.2 + 0.07 + 0.05*max(n.y, 0.0)); col = vec3(1.0) - exp(-col*1.6); gl_FragColor = vec4(pow(col, vec3(1.0/2.2)), 1.0); }';
+        const pr = prog(vs, fs);
+        const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+        const c = cv.getContext('2d');
+        c.fillStyle = '#f2f3f5'; c.fillRect(0, 0, 256, 128);
+        c.fillStyle = '#123a8c'; c.fillRect(6, 6, 244, 116);
+        c.fillStyle = '#c8202f'; c.fillRect(6, 104, 244, 10);
+        c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        let fsz = 76; c.font = '800 ' + fsz + 'px Helvetica, Arial, sans-serif';
+        const tw = c.measureText(LANDER_FLAG_TEXT).width; if (tw > 210) { fsz = Math.floor(fsz * 210 / tw); c.font = '800 ' + fsz + 'px Helvetica, Arial, sans-serif'; }
+        c.fillText(LANDER_FLAG_TEXT, 128, 58);
+        const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+        const flip = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flip);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.generateMipmap(gl.TEXTURE_2D);
+        const P3 = [], UV = [], N3 = [], ap = 2.3 * Math.cos(Math.PI / 8) + 0.02, hw = 0.72, hh = 0.36, yc = 2.5;
+        [Math.PI / 8, Math.PI / 8 + Math.PI].forEach((t) => {
+          const n = [Math.cos(t), 0, Math.sin(t)], r = [Math.sin(t), 0, -Math.cos(t)]; // r = viewer's right when facing the face from outside
+          const pt = (sx, sy) => [n[0] * ap + r[0] * hw * sx, yc + hh * sy, n[2] * ap + r[2] * hw * sx];
+          const q = [[pt(-1, -1), 0, 0], [pt(1, -1), 1, 0], [pt(1, 1), 1, 1], [pt(-1, -1), 0, 0], [pt(1, 1), 1, 1], [pt(-1, 1), 0, 1]];
+          q.forEach((e) => { P3.push(e[0][0], e[0][1], e[0][2]); UV.push(e[1], e[2]); N3.push(n[0], n[1], n[2]); });
+        });
+        return { pr: pr, tex: tex, pos: buf(new Float32Array(P3)), uv: buf(new Float32Array(UV)), nrm: buf(new Float32Array(N3)), n: P3.length / 3 };
+      })();
+      function drawFlag(M, PV, cam, sunDir, lit) {
+        const F = FLAG; gl.useProgram(F.pr.p);
+        for (let i = 0; i < enabled.length; i++) gl.disableVertexAttribArray(enabled[i]);
+        enabled = [];
+        [['aP', F.pos, 3], ['aUV', F.uv, 2], ['aN', F.nrm, 3]].forEach((a) => { const loc = F.pr.a[a[0]]; if (loc === undefined || loc < 0) return; gl.bindBuffer(gl.ARRAY_BUFFER, a[1]); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, a[2], gl.FLOAT, false, 0, 0); enabled.push(loc); });
+        U(F.pr, 'uPV', PV); U(F.pr, 'uM', M); U(F.pr, 'uSun', sunDir); U(F.pr, 'uCam', cam.eye); U(F.pr, 'uLit', lit);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, F.tex); gl.uniform1i(F.pr.u.uTex, 0);
+        gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-1, -2);
+        gl.drawArrays(gl.TRIANGLES, 0, F.n);
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+      }
       const DUST = (function () { const d = []; for (let i = 0; i < 700; i++) d.push(Math.random() * Math.PI * 2, 0.15 + Math.random() * 0.45, Math.random() * 1.4, Math.random()); return { b: buf(new Float32Array(d)), n: 700 }; })();
 
       const S = {
@@ -1691,6 +1833,9 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         const f = S.tEarth.az / 360 * H.B, k0 = Math.floor(f) % H.B, k1 = (k0 + 1) % H.B, w = f - Math.floor(f), b = (cj * H.Nc + ci) * H.B;
         return S.tEarth.el - (H.hm[b + k0] * (1 - w) + H.hm[b + k1] * w) > -S.tEarth.rad;
       }
+      // The site pin: the patch centre, except in a roaming Drive window that has moved (ox, oy) km away from it.
+      function pinGrid() { const d = S.terr.dem, c = (d.N - 1) / 2; return [c - (d.ox || 0) / d.cell, c - (d.oy || 0) / d.cell]; }
+      function gridInside(i, j) { const n = S.terr.dem.N - 1; return i >= 0 && j >= 0 && i <= n && j <= n; }
       function gridToWorld(i, j) { const d = S.terr.dem; const x = -d.L / 2 + i * d.cell, z = -(-d.L / 2 + j * d.cell); return [x, groundAtW(x, z), z]; }
 
       // ---- cameras ----
@@ -1732,10 +1877,15 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         const g = groundAtW(eye[0], eye[2]) + 0.03; if (eye[1] < g) eye[1] = g;
         return { eye: eye, tgt: c.tgt, up: [0, 1, 0], fov: fovT, near: 0.004, far: 220 };
       }
-      function smoothDriveCamera(dt,now){if(!S.rover)return;const c=S.dc,R=S.rover;let dh=R.heading-c.hs;while(dh>Math.PI)dh-=2*Math.PI;while(dh< -Math.PI)dh+=2*Math.PI;c.hs+=dh*(1-Math.exp(-dt*10));if((Math.abs(R.v)>1e-7||S.keys.left||S.keys.right)&&!c.orbiting&&now>(c.manualUntil||0))c.yawTarget=0;c.yaw=lerp(c.yaw,c.yawTarget??c.yaw,1-Math.exp(-dt*10));c.pitch=lerp(c.pitch,c.pitchTarget??c.pitch,1-Math.exp(-dt*10));}
+      function smoothDriveCamera(dt,now){if(!S.rover)return;const c=S.dc,R=S.rover;let dh=R.heading-c.hs;while(dh>Math.PI)dh-=2*Math.PI;while(dh< -Math.PI)dh+=2*Math.PI;c.hs+=dh*(1-Math.exp(-dt*10));if((Math.abs(R.v)>1e-7||Math.abs(S.cmd.steer)>0.05)&&!c.orbiting&&now>(c.manualUntil||0))c.yawTarget=0;c.yaw=lerp(c.yaw,c.yawTarget??c.yaw,1-Math.exp(-dt*10));c.pitch=lerp(c.pitch,c.pitchTarget??c.pitch,1-Math.exp(-dt*10));
+        // The camera target trails the rover a little (at most 12 % of the camera distance), so pulling away, braking and bumps read
+        // as motion instead of a rigid lock. A world re-centre (shiftTerrain) moves the rover by kilometres: keep the offset then.
+        const o=c.off||(c.off=[0,0,0]),lp=c.lastPos||(c.lastPos=R.pos.slice()),k=Math.exp(-dt*9),far=Math.hypot(R.pos[0]-lp[0],R.pos[2]-lp[2])>0.5;let len=0;
+        for(let a=0;a<3;a++){o[a]=(o[a]-(far?0:R.pos[a]-lp[a]))*k;lp[a]=R.pos[a];len+=o[a]*o[a];}
+        len=Math.sqrt(len);const max=c.dist*0.12;if(len>max)for(let a=0;a<3;a++)o[a]*=max/len;}
       function driveCam() {
         const R = S.rover, c = S.dc, yaw = c.hs + Math.PI + c.yaw, cp = Math.cos(c.pitch);
-        const tgt = add(R.pos, [0, 0.0017, 0]);
+        const tgt = add(c.off ? add(R.pos, c.off) : R.pos, [0, 0.0017, 0]);
         const eye = add(tgt, scl([Math.sin(yaw) * cp, Math.sin(c.pitch), -Math.cos(yaw) * cp], c.dist));
         const g = groundAtW(eye[0], eye[2]) + 0.0012; if (eye[1] < g) eye[1] = g;
         return { eye: eye, tgt: tgt, up: [0, 1, 0], fov: fovD, near: 0.0004, far: 60 };
@@ -1752,10 +1902,11 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       function initTerrain() { S.tc = terrainStart(); }
       function initDrive() {
         if (!S.terr) return;
-        const p = S.spawn || [0, 0, 0], h = (S.tSun.az + 180) * D2R;
+        const p = S.spawn || [-(S.terr.dem.ox || 0), 0, S.terr.dem.oy || 0], h = (S.tSun.az + 180) * D2R;
         S.rover = { terrainKey:S.terrKey,pos: [p[0], groundAtW(p[0], p[2]), p[2]], heading: h, v: 0, batt: 80, dist: 0, sun: 1, earth: true, blocked: false, n: [0, 1, 0] };
-        S.home??=p.slice();
+        S.home??=p.slice();S.fadeR=0;
         S.dc = { yaw: 0,yawTarget:0, pitch: 0.2,pitchTarget:.2, dist: DRIVE_START_DISTANCE, hs: h };
+        if (S.autopilot) setAutopilot(false, 'reset'); S.auto = null; S.brakeLatch = false; S.cmd = { thr: 0, steer: 0 }; S.driveAdvance = 0; // a new rover starts parked, under manual control
         try { ov.focus({ preventScroll: true }); } catch (err) { }
       }
       // Close fly ends exactly on the Terrain view's opening camera (same site frame, yaw,
@@ -1786,10 +1937,10 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       }
 
       // ---- terrain buffers ----
-      function buildTerrain(dem) {
-        const N = dem.N, L = dem.L, c = dem.cell, h = dem.h, Nv = N * N;
-        const pos = new Float32Array(Nv * 3), nrm = new Float32Array(Nv * 3), dat = new Float32Array(Nv * 4), idx = new Uint32Array((N - 1) * (N - 1) * 6);
-        for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      // Vertex rows j0..j1 of the terrain mesh (also used to build a roaming window a few rows per frame, see stageTerrain).
+      function fillTerrainRows(dem, pos, nrm, dat, j0, j1) {
+        const N = dem.N, L = dem.L, c = dem.cell, h = dem.h;
+        for (let j = j0; j < j1; j++) for (let i = 0; i < N; i++) {
           const v = j * N + i;
           pos[v * 3] = -L / 2 + i * c; pos[v * 3 + 1] = h[v]; pos[v * 3 + 2] = -(-L / 2 + j * c);
           const il = Math.max(0, i - 1), ir = Math.min(N - 1, i + 1), jd = Math.max(0, j - 1), ju = Math.min(N - 1, j + 1);
@@ -1797,6 +1948,11 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           const nn = norm([-dx, 1, dn]);
           nrm[v * 3] = nn[0]; nrm[v * 3 + 1] = nn[1]; nrm[v * 3 + 2] = nn[2]; dat[v * 4] = 1;
         }
+      }
+      function buildTerrain(dem) {
+        const N = dem.N, Nv = N * N;
+        const pos = new Float32Array(Nv * 3), nrm = new Float32Array(Nv * 3), dat = new Float32Array(Nv * 4), idx = new Uint32Array((N - 1) * (N - 1) * 6);
+        fillTerrainRows(dem, pos, nrm, dat, 0, N);
         let k = 0;
         for (let j = 0; j < N - 1; j++) for (let i = 0; i < N - 1; i++) { const a = j * N + i, b = a + 1, cc = a + N, d = cc + 1; idx[k++] = a; idx[k++] = cc; idx[k++] = b; idx[k++] = b; idx[k++] = cc; idx[k++] = d; }
         return { pos: pos, nrm: nrm, dat: dat, idx: idx, Nv: Nv };
@@ -1862,7 +2018,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (T && T.bp) {
           use(P.ter, [['aP', T.bp, 3], ['aN', T.bn, 3], ['aD', T.bd, 4]]);
           gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, T.bi);
-          U(P.ter,'uTravel',S.travelOverlay?1:0); U(P.ter,'uSurfaceDetail',S.view==='drive'&&S.surfaceDetail!==false?1:0); U(P.ter, 'uShadeMix',Math.min(1,(performance.now()-(S.shadeAt||0))/250)); U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
+          U(P.ter,'uTravel',0);/* Travel time is map-only: never paint the 3D ground. */ U(P.ter,'uSurfaceDetail',S.view==='drive'&&S.surfaceDetail!==false?1:0); U(P.ter, 'uShadeMix',Math.min(1,(performance.now()-(S.shadeAt||0))/250)); U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);U(P.ter,'uOrigin',[T.dem.ox||0,-(T.dem.oy||0)]);U(P.ter,'uFade',S.view==='drive'&&S.rover&&S.fadeR>0?[S.rover.pos[0],S.rover.pos[2],S.fadeR]:[0,0,0]);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
           // Stencil marks terrain pixels: the route ribbon is only drawn over ground, never over the sky behind a ridge.
           gl.enable(gl.STENCIL_TEST); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
           gl.drawElements(gl.TRIANGLES, T.g.idx.length, gl.UNSIGNED_INT, 0);
@@ -1874,9 +2030,10 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           const fp = norm(sub(f0, scl(R.n, dot(f0, R.n)))), r = cross(R.n, fp);
           drawObj(basisModel(R.pos, r, R.n, fp, 0.001), RM_, PV, cam, sunDir, Math.max(0.04, R.sun));
         }
-        if (S.lander) {
+        if (S.lander && (S.land || !T || Math.max(Math.abs(S.lander.pos[0]), Math.abs(S.lander.pos[2])) < T.dem.L / 2)) { // not once Drive has roamed away from it
           const Lr = S.lander, M = model(Lr.pos, Lr.yaw, Lr.tilt, 0.001);
           drawObj(M, LM, PV, cam, sunDir, Lr.lit);
+          drawFlag(M, PV, cam, sunDir, Lr.lit);
           gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.depthMask(false);
           if (Lr.thr > 0.01) {
             use(P.pl, [['aP', PLM.pos, 3], ['aT', PLM.t, 1]]);
@@ -1950,7 +2107,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       function compass(F) {
         const eye = F.cam.eye, lbl = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
         for (let k = 0; k < 8; k++) {
-          const sc = toScreen(F.PV, add(eye, scl(azelDir(k * 45, 0), 50)));
+          const sc = toScreen(F.PV, add(eye, scl(azelDir(k * 45 + (S.northTurn || 0), 0), 50))); // northTurn: true north in a roaming window, degrees from grid north
           if (!sc || sc[0] < -20 || sc[0] > S.W + 20) continue;
           g2.font = (k % 2 ? '500 11px ' : '700 13px ') + FONT; g2.textAlign = 'center'; g2.textBaseline = 'bottom';
           g2.fillStyle = k === 0 ? '#FF6961' : 'rgba(245,245,247,0.65)'; g2.fillText(lbl[k], sc[0], sc[1] - 6);
@@ -1982,11 +2139,11 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         S.wpRects = [];
         compass(F);
         if (!S.terr) return;
-        const c = (S.terr.dem.N - 1) / 2, pin = gridToWorld(c, c);
+        const pg = pinGrid(), pin = gridToWorld(pg[0], pg[1]);
 
         if (S.view === 'terrain') {
           const b = toScreen(F.PV, pin), tp = toScreen(F.PV, add(pin, [0, 0.35, 0]));
-          if (b && tp) {
+          if (b && tp && gridInside(pg[0], pg[1])) {
             g2.strokeStyle = 'rgba(255,255,255,0.8)'; g2.lineWidth = 1.5; g2.beginPath(); g2.moveTo(b[0], b[1]); g2.lineTo(tp[0], tp[1]); g2.stroke();
             g2.fillStyle = S.siteColor; g2.beginPath(); g2.arc(b[0], b[1], 4, 0, Math.PI * 2); g2.fill();
             pill(tp[0], tp[1] - 12, S.siteName, { align: 'center', dot: S.siteColor });
@@ -2039,74 +2196,147 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (t > 10.5) { S.trailEnded=now;S.land = null; S.spawn = add(L.T, [0.012, 0, 0.012]); cb.onLanded && cb.onLanded(); }
       }
 
-      function beginTravelLabels(F){S.referenceBoxes=[];if(!S.terr)return;const c=(S.terr.dem.N-1)/2;for(const q of [{i:c,j:c},S.target].filter(Boolean)){const p=toScreen(F.PV,gridToWorld(q.i,q.j));if(p)S.referenceBoxes.push({l:p[0]-170,r:p[0]+170,t:p[1]-65,b:p[1]+12});}}
+      function beginTravelLabels(F){S.referenceBoxes=[];if(!S.terr)return;const pg=pinGrid();for(const q of [{i:pg[0],j:pg[1]},S.target].filter(Boolean)){const p=toScreen(F.PV,gridToWorld(q.i,q.j));if(p)S.referenceBoxes.push({l:p[0]-170,r:p[0]+170,t:p[1]-65,b:p[1]+12});}}
       function referencePill(x,y,text,options){const w=String(text).length*6.2+16,box={l:x-4,r:x+w,t:y-18,b:y+8};if((S.referenceBoxes||[]).some(q=>box.l<q.r+4&&box.r>q.l-4&&box.t<q.b+4&&box.b>q.t-4))return;S.referenceBoxes.push(box);pill(x,y,text,options);}
-      const routeBuffers={body:{},head:{}};
-      function uploadRoute(target,points){if(points.length<2){target.count=0;return;}const p=[],prev=[],next=[],side=[];for(let i=0;i<points.length;i++)for(const s of [-1,1]){const a=points[i],b=points[Math.max(0,i-1)],c=points[Math.min(points.length-1,i+1)];p.push(a.x,a.y,a.z);prev.push(b.x,b.y,b.z);next.push(c.x,c.y,c.z);side.push(s);}for(const [key,data]of Object.entries({p,prev,next,side})){target[key]??=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,target[key]);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.DYNAMIC_DRAW);}target.count=side.length;}
-      function drawNavigationGL(PV,cam){const nav=S.navigation;if(!S.terr||!nav?.points?.length)return;if(S.navKey!==nav.key){S.navKey=nav.key;S.navProgress=0;S.navSamples=surfacePath(S.terr.dem,nav.points);S.navBodyKey='';}const points=S.navSamples;if(points.length<2)return;let start=S.navProgress||0;const live=S.rover?{x:S.rover.pos[0],z:S.rover.pos[2]}:points[start];if(S.rover){let best=Infinity;for(let k=start;k<Math.min(points.length-1,start+80);k++){const a=points[k],b=points[k+1],dx=b.x-a.x,dz=b.z-a.z,f=clamp(((live.x-a.x)*dx+(live.z-a.z)*dz)/(dx*dx+dz*dz||1),0,1),distance=Math.hypot(live.x-a.x-dx*f,live.z-a.z-dz*f);if(distance<best-1e-7){best=distance;start=k;}}S.navProgress=start;S.navCrossTrack=best;}const next=Math.min(points.length-1,start+1),key=S.navKey+'|'+next;if(S.navBodyKey!==key){uploadRoute(routeBuffers.body,points.slice(next));S.navBodyKey=key;}const g=gridOf(live.x,live.z);S.navUnsafe=false;const end=points[next],steps=Math.max(1,Math.ceil(Math.hypot(end.i-g[0],end.j-g[1])*3)),d=S.terr.dem;for(let s=0;s<=steps;s++){const i=g[0]+(end.i-g[0])*s/steps,j=g[1]+(end.j-g[1])*s/steps,k=Math.max(0,Math.min(d.N-1,Math.round(j)))*d.N+Math.max(0,Math.min(d.N-1,Math.round(i)));if(d.slope[k]>20){S.navUnsafe=true;S.navRenderedStart=null;return;}}uploadRoute(routeBuffers.head,surfacePath(S.terr.dem,[{i:g[0],j:g[1]},points[next]]));S.navRenderedStart={x:live.x,z:live.z};S.navRenderedEnd=points.at(-1);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.enable(gl.STENCIL_TEST);gl.stencilFunc(gl.EQUAL,1,0xff);gl.stencilOp(gl.KEEP,gl.KEEP,gl.KEEP);for(const mesh of [routeBuffers.body,routeBuffers.head]){if(!mesh.count)continue;use(P.route,[['aP',mesh.p,3],['aPrev',mesh.prev,3],['aNext',mesh.next,3],['aSide',mesh.side,1]]);U(P.route,'uPV',PV);U(P.route,'uCam',cam.eye);U(P.route,'uViewport',[S.W*S.dpr,S.H*S.dpr,1]);U(P.route,'uWidth',3*S.dpr);gl.drawArrays(gl.TRIANGLE_STRIP,0,mesh.count);}gl.disable(gl.STENCIL_TEST);gl.depthMask(true);gl.depthFunc(gl.LESS);S.navigationDraws=(S.navigationDraws||0)+1;}
-      function drawTripRoute(F){if(S.travelOverlay)for(const p of S.travelGeoLabels||[]){const screen=toScreen(F.PV,gridToWorld(p.i,p.j));if(screen&&screen[0]>20&&screen[0]<S.W-180&&screen[1]>100&&screen[1]<S.H-200)referencePill(screen[0],screen[1],p.text,{size:10});}}
-      function drawTravelReference(F){if(!S.travelOverlay||!S.terr)return;const N=S.terr.dem.N,stride=(N-1)/30;g2.lineWidth=1.5;let labels=new Set();for(const line of S.travelContours||[]){const a=toScreen(F.PV,gridToWorld(line.a[0]*stride,line.a[1]*stride)),b=toScreen(F.PV,gridToWorld(line.b[0]*stride,line.b[1]*stride));if(!a||!b)continue;g2.strokeStyle='rgba(255,255,255,.6)';g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();if(!labels.has(line.hours)&&a[0]>30&&a[0]<S.W-180&&a[1]>100&&a[1]<S.H-200){referencePill(a[0],a[1],line.hours/24+' d',{size:11});labels.add(line.hours);}}/* No km grid: its screen-space lines crossed hills as grey stripes. */}
+      const routeBuffers={body:{},head:{},trail:{}};
+      function uploadRoute(target,points,base=0){if(points.length<2){target.count=0;target.total=base;return;}const p=[],prev=[],next=[],side=[],dist=[],togo=new Float64Array(points.length);togo[points.length-1]=base;for(let i=points.length-2;i>=0;i--){const a=points[i],b=points[i+1];togo[i]=togo[i+1]+Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z);}target.total=togo[0];for(let i=0;i<points.length;i++)for(const s of [-1,1]){const a=points[i],b=points[Math.max(0,i-1)],c=points[Math.min(points.length-1,i+1)];p.push(a.x,a.y,a.z);prev.push(b.x,b.y,b.z);next.push(c.x,c.y,c.z);side.push(s);dist.push(togo[i]);}for(const [key,data]of Object.entries({p,prev,next,side,dist})){target[key]??=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,target[key]);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.DYNAMIC_DRAW);}target.count=side.length;}
+      const BEACON_GLOW=[[14,.07],[7,.16],[3,.4],[1.4,.95]],BEACON_RINGS=[0,.5],ARRIVE_RINGS=[0,.18,.36];
+      function drawRouteBeacon(F,now){const nav=S.navigation;if(S.view!=='drive'||!S.rover)return;const live=!!(nav?.points?.length&&S.navKey===nav.key&&S.navSamples?.length);if(!live)S.routeLeftText='';if(!live&&!(S.arrivedAt&&S.arrivedEnd&&now-S.arrivedAt<3600))return;const end=live?S.navSamples.at(-1):S.arrivedEnd,R=S.rover,kmh=Math.abs(R.v)*3600;if(kmh>.05)S.navKmh=S.navKmh?S.navKmh*.95+kmh*.05:kmh;const remain=Math.max(0,S.navRemain??Math.hypot(end.x-R.pos[0],end.z-R.pos[2])),fmtD=(km)=>km<1?Math.round(km*1000)+' m':km.toFixed(1)+' km',fmtT=(min)=>min<1?'<1 min':min<90?Math.round(min)+' min':(min/60).toFixed(1)+' h';
+if(live&&S.navStartKey!==nav.key){S.navStartKey=nav.key;S.navStartAt=now;S.navStartDist=R.dist||0;S.arrivedAt=0;}
+if(live&&!S.arrivedAt&&((remain<.02&&Math.hypot(end.x-R.pos[0],end.z-R.pos[2])<.04)||(R.arrived&&R.arrivedAt>=S.navStartAt))){S.arrivedAt=now;S.arrivedEnd=end;S.arrivedText='Arrived · '+fmtD(Math.max(S.navTotal||0,(R.dist||0)-S.navStartDist))+' · '+fmtT((now-S.navStartAt)/60000);}
+const b=toScreen(F.PV,[end.x,end.y,end.z]),t=toScreen(F.PV,[end.x,end.y+.22,end.z]),pulse=.5+.5*Math.sin(now*.004),ring=(now%1600)/1600;g2.save();g2.lineCap='round';
+if(b&&t){for(const [w,a] of BEACON_GLOW){g2.globalAlpha=a*(.7+.3*pulse);g2.strokeStyle=w<2?'#E8F7FF':'#7FD0FF';g2.lineWidth=w;g2.beginPath();g2.moveTo(b[0],b[1]);g2.lineTo(t[0],t[1]);g2.stroke();}const rs=Math.max(4,Math.min(40,Math.abs(t[1]-b[1])*.35));for(const k of BEACON_RINGS){const f=(ring+k)%1;g2.globalAlpha=.8*(1-f);g2.strokeStyle='#9FDcFF';g2.lineWidth=1.5;g2.beginPath();g2.ellipse(b[0],b[1],rs*(.3+f),rs*(.3+f)*.35,0,0,Math.PI*2);g2.stroke();}}
+if(S.arrivedAt){const k=(now-S.arrivedAt)/1800;if(b&&k<1){for(const d of ARRIVE_RINGS){const f=Math.max(0,Math.min(1,k*1.4-d));if(f<=0||f>=1)continue;g2.globalAlpha=1-f;g2.strokeStyle='#BFEAFF';g2.lineWidth=3*(1-f)+1;g2.beginPath();g2.ellipse(b[0],b[1],20+140*f,(20+140*f)*.38,0,0,Math.PI*2);g2.stroke();}for(let i=0;i<12;i++){const a=i*Math.PI/6,r=18+90*Math.min(1,k*1.6);g2.globalAlpha=Math.max(0,1-k*1.3);g2.fillStyle='#E8F7FF';g2.beginPath();g2.arc(b[0]+Math.cos(a)*r,b[1]+Math.sin(a)*r*.5-30*k,2.2,0,Math.PI*2);g2.fill();}}const tk=(now-S.arrivedAt)/3600;if(tk<1){g2.globalAlpha=Math.min(1,tk*8,(1-tk)*5);g2.font='600 14px '+FONT;const w=g2.measureText(S.arrivedText).width+36,x=S.W/2-w/2,y=Math.round(S.H*.24)-8*Math.max(0,1-tk*6);g2.fillStyle='rgba(18,22,30,.86)';g2.strokeStyle='rgba(127,208,255,.7)';g2.lineWidth=1;g2.beginPath();g2.roundRect?g2.roundRect(x,y,w,34,17):g2.rect(x,y,w,34);g2.fill();g2.stroke();g2.fillStyle='#E8F7FF';g2.textAlign='center';g2.textBaseline='middle';g2.fillText('✓ '+S.arrivedText,S.W/2,y+17);}S.routeLeftText=tk<1?S.arrivedText:'';g2.restore();return;}
+const text=fmtD(remain)+' left'+(S.navKmh>.05?' · '+fmtT(remain/S.navKmh*60):'');S.routeLeftText=text;const anchor=t||b;if(anchor&&anchor[0]>40&&anchor[0]<S.W-40&&anchor[1]>110&&anchor[1]<S.H-150){g2.globalAlpha=1;g2.font='600 12px '+FONT;const w=g2.measureText(text).width+22,x=Math.max(12,Math.min(S.W-w-12,anchor[0]-w/2)),y=Math.max(96,Math.min(S.H-190,anchor[1]-34));g2.fillStyle='rgba(18,22,30,.82)';g2.strokeStyle='rgba(127,208,255,.55)';g2.lineWidth=1;g2.beginPath();g2.roundRect?g2.roundRect(x,y,w,24,12):g2.rect(x,y,w,24);g2.fill();g2.stroke();g2.fillStyle='#E8F7FF';g2.textAlign='left';g2.textBaseline='middle';g2.fillText(text,x+11,y+12.5);}g2.restore();}
+      function drawNavigationGL(PV,cam){const nav=S.navigation;if(!S.terr||!nav?.points?.length)return;if(S.navKey!==nav.key){S.navKey=nav.key;S.navProgress=0;S.navSamples=surfacePath(S.terr.dem,nav.points);S.navBodyKey='';}const points=S.navSamples;if(points.length<2)return;let start=S.navProgress||0;const live=S.rover?{x:S.rover.pos[0],z:S.rover.pos[2]}:points[start];if(S.rover){let best=Infinity;for(let k=start;k<Math.min(points.length-1,start+80);k++){const a=points[k],b=points[k+1],dx=b.x-a.x,dz=b.z-a.z,f=clamp(((live.x-a.x)*dx+(live.z-a.z)*dz)/(dx*dx+dz*dz||1),0,1),distance=Math.hypot(live.x-a.x-dx*f,live.z-a.z-dz*f);if(distance<best-1e-7){best=distance;start=k;}}S.navProgress=start;S.navCrossTrack=best;}const next=Math.min(points.length-1,start+1),key=S.navKey+'|'+next;if(S.navBodyKey!==key){uploadRoute(routeBuffers.body,points.slice(next));uploadRoute(routeBuffers.trail,points.slice(0,start+1),routeBuffers.body.total+Math.hypot(points[next].x-points[start].x,points[next].y-points[start].y,points[next].z-points[start].z));S.navBodyKey=key;}const g=gridOf(live.x,live.z);S.navUnsafe=false;const end=points[next],steps=Math.max(1,Math.ceil(Math.hypot(end.i-g[0],end.j-g[1])*3)),d=S.terr.dem;for(let s=0;s<=steps;s++){const i=g[0]+(end.i-g[0])*s/steps,j=g[1]+(end.j-g[1])*s/steps,k=Math.max(0,Math.min(d.N-1,Math.round(j)))*d.N+Math.max(0,Math.min(d.N-1,Math.round(i)));if(d.slope[k]>20){S.navUnsafe=true;S.navRenderedStart=null;return;}}uploadRoute(routeBuffers.head,surfacePath(S.terr.dem,[{i:g[0],j:g[1]},points[next]]),routeBuffers.body.total||0);S.navRemain=routeBuffers.head.count?routeBuffers.head.total:routeBuffers.body.total;S.navTotal=Math.max(S.navTotal&&S.navTotalKey===S.navKey?S.navTotal:0,routeBuffers.trail.count?routeBuffers.trail.total:S.navRemain);S.navTotalKey=S.navKey;S.navRenderedStart={x:live.x,z:live.z};S.navRenderedEnd=points.at(-1);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.enable(gl.STENCIL_TEST);gl.stencilFunc(gl.EQUAL,1,0xff);gl.stencilOp(gl.KEEP,gl.KEEP,gl.KEEP);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);for(const mesh of [routeBuffers.trail,routeBuffers.body,routeBuffers.head]){if(!mesh.count)continue;const trail=mesh===routeBuffers.trail;use(P.route,[['aP',mesh.p,3],['aPrev',mesh.prev,3],['aNext',mesh.next,3],['aSide',mesh.side,1],['aDist',mesh.dist,1]]);U(P.route,'uPV',PV);U(P.route,'uCam',cam.eye);U(P.route,'uViewport',[S.W*S.dpr,S.H*S.dpr,1]);U(P.route,'uWidth',(trail?2.5:4.5)*S.dpr);U(P.route,'uTime',(performance.now()%100000)/1000);U(P.route,'uMode',trail?1:0);U(P.route,'uRemain',S.navRemain||0);gl.drawArrays(gl.TRIANGLE_STRIP,0,mesh.count);}gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.disable(gl.BLEND);gl.disable(gl.STENCIL_TEST);gl.depthMask(true);gl.depthFunc(gl.LESS);S.navigationDraws=(S.navigationDraws||0)+1;}
+      function drawTripRoute(F){if(false)for(const p of S.travelGeoLabels||[]){const screen=toScreen(F.PV,gridToWorld(p.i,p.j));if(screen&&screen[0]>20&&screen[0]<S.W-180&&screen[1]>100&&screen[1]<S.H-200)referencePill(screen[0],screen[1],p.text,{size:10});}}
+      function drawTravelReference(F){if(true||!S.terr)return;const N=S.terr.dem.N,stride=(N-1)/30;g2.lineWidth=1.5;let labels=new Set();for(const line of S.travelContours||[]){const a=toScreen(F.PV,gridToWorld(line.a[0]*stride,line.a[1]*stride)),b=toScreen(F.PV,gridToWorld(line.b[0]*stride,line.b[1]*stride));if(!a||!b)continue;g2.strokeStyle='rgba(255,255,255,.6)';g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();if(!labels.has(line.hours)&&a[0]>30&&a[0]<S.W-180&&a[1]>100&&a[1]<S.H-200){referencePill(a[0],a[1],line.hours/24+' d',{size:11});labels.add(line.hours);}}/* No km grid: its screen-space lines crossed hills as grey stripes. */}
 
       function drawDescentTrail(F,now){const points=S.descentTrail;if(!points?.length)return;const fade=S.trailEnded?Math.max(0,1-(now-S.trailEnded)/6000):1;if(!fade)return;for(let i=1;i<points.length;i++){const a=toScreen(F.PV,points[i-1].pos),b=toScreen(F.PV,points[i].pos);if(!a||!b)continue;g2.globalAlpha=fade*(i/points.length)*.8;g2.strokeStyle='#F2C94C';g2.shadowColor='#FFD60A';g2.shadowBlur=8;g2.lineWidth=2;g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();}g2.globalAlpha=fade;g2.shadowBlur=0;pill(S.W>900?24:18,S.W>900?S.H-96:S.H-220,'Illustrative descent path, not a computed trajectory',{size:11});g2.globalAlpha=1;}
 
       // ---- driving ----
+      // Rover simulation. Motion and battery are integrated by rover-sim.mjs (driveFrame) from the simulated seconds the mission
+      // clock advanced this frame (advanceDriveClock) — identically for the keyboard, the on-screen pad, the joystick and the
+      // autopilot. The time multiplier only changes how many simulated seconds a frame covers, never the rover's speed.
+      const noInput=()=>({up:false,down:false,left:false,right:false});
+      S.pad=noInput();S.padHeld={};S.cmd={thr:0,steer:0};S.driveAdvance=0;S.autopilot=false;
+      // Border of the loaded terrain window: stop there (never drive onto missing ground). The component loads the next window
+      // well before this and re-centres the world around the rover (shiftTerrain), so normally the border is never reached.
+      function roverConfine(nx,nz){const R=S.rover,lim=S.terr.dem.L/2-0.4;return (Math.abs(nx)>lim&&Math.abs(nx)>Math.abs(R.pos[0]))||(Math.abs(nz)>lim&&Math.abs(nz)>Math.abs(R.pos[2]))?[R.pos[0],R.pos[2],S.worldLimit?'world-edge':'world-edge-loading']:null;} // worldLimit: the roaming limit, no further window will load
+      function roverSky(utc){const R=S.rover;return S.scienceAt?S.scienceAt(R.pos[0],R.pos[2],utc):null;}
+      // Panel output (W) at the rover's position at a mission time. Hypothetical rover shared with the route planner (science-core
+      // VEHICLE): 160 Wh battery, 0.5 m² sun-tracking panel at 28 % (about 190 W in full sun), 10 W idle load and +45 W while driving.
+      function roverSolarW(utc){const sky=roverSky(utc);return sky?solarPower(sky.sun,sky.sunDirection?.dist||AU_KM):solarPower(clamp(shadeAtW(S.rover.pos[0],S.rover.pos[2]),0,1));}
+      // All manual controls feed one command: keyboard (S.keys), on-screen pad (S.pad) and joystick (S.joyTarget).
+      function driveInput(){const k=S.keys,p=S.pad,j=S.joyTarget||{x:0,y:0};return {thr:clamp((k.up||p.up?1:0)-(k.down||p.down?1:0)-j.y,-1,1),steer:clamp((k.right||p.right?1:0)-(k.left||p.left?1:0)+j.x,-1,1),brake:!!(k.brake||S.brakeHeld||S.brakeLatch)};}
+      function releaseInputs(){S.keys={};S.pad=noInput();S.padHeld={};S.joyTarget={x:0,y:0};S.brakeHeld=false;}
+      function setAutopilot(on,why){on=!!on;const R=S.rover;if(on){if(!R||!S.navigation?.points||S.navigation.points.length<2){on=false;if(R){R.autoStop='no-route';R.autoStopAt=performance.now();}}else{S.auto=null;S.brakeLatch=false;R.autoStop='';R.arrived=false;}}else if(S.autopilot&&R){R.autoStop=why||'off';R.autoStopAt=performance.now();}if(S.autopilot!==on){S.autopilot=on;cb.onAutopilot&&cb.onAutopilot(on,why||'');}return on;}
+      // Route the autopilot follows: the rendered surface path when it is current (shiftTerrain keeps it in world coordinates), else our own.
+      function autoRoute(R){const nav=S.navigation;if(!nav?.points||nav.points.length<2)return null;const A=S.auto||(S.auto={});let pts=S.navKey===nav.key&&S.navSamples?.length>1?S.navSamples:null;if(!pts){if(A.ownKey!==nav.key+'|'+S.terrKey){A.ownKey=nav.key+'|'+S.terrKey;A.own=surfacePath(S.terr.dem,nav.points);}pts=A.own;}if(A.pts!==pts||A.key!==nav.key){A.pts=pts;A.key=nav.key;A.next=routeStartIndex(pts,R.pos[0],R.pos[2]);}return pts.length>1?A:null;}
       function stepDrive(now, dt) {
         const R = S.rover; if (!R || !S.terr) return;
-        const V=VEHICLE,cap=V.capacityWh,maxV=V.flatSpeedKmh/3600,maxSlope=V.maxSlopeDeg,L=S.terr.dem.L,k=S.keys,clock=S.simUTC;
-        // Simulated seconds since the last frame come from the shared mission clock, so rover motion, battery and the HUD clock
-        // advance together: at 3600x one real second is one simulated hour. Larger clock moves (timeline scrubs) only charge or drain.
-        let simDt=0,jumpS=0;
-        if(Number.isFinite(clock)&&Number.isFinite(R.clockUTC)){const d=(clock-R.clockUTC)/1000,frameMax=S.drivePaused?0:modelStepSeconds(.5,S.driveTimeScale??60)+1;if(d>=0&&d<=frameMax)simDt=d;else if(d>0)jumpS=d;}
-        else if(!Number.isFinite(clock)&&!S.drivePaused)simDt=modelStepSeconds(dt,S.driveTimeScale??60);
-        R.clockUTC=clock;
-        S.joy ||= {x:0,y:0};const jt=S.joyTarget||{x:0,y:0},blend=1-Math.exp(-dt/0.1);S.joy.x=lerp(S.joy.x,jt.x,blend);S.joy.y=lerp(S.joy.y,jt.y,blend);let thr=(k.up?1:0)-(k.down?1:0)-S.joy.y;const steer=(k.right?1:0)-(k.left?1:0)+S.joy.x;
-        if (R.batt <= 0.5 && S.drain !== false) thr = 0;
-        R.blocked = false;let driveS=0;
-        if(simDt<=0)R.v=0;
-        else {
-          // Steering is a real-time control; motion is sub-stepped (<= 2 m per step) so the rover follows the ground and stops at
-          // slopes it cannot climb even when one frame covers hundreds of metres.
-          const turn=steer*dt*(Math.abs(R.v)>1e-7||thr?1.1*(R.v<0||(!R.v&&thr<0)?-1:1):0.6),n=Math.min(1500,Math.max(1,Math.ceil(maxV*simDt/0.002))),h=simDt/n;
-          for(let a=0;a<n;a++){
-            R.heading+=turn/n;
-            const f=[Math.sin(R.heading),0,-Math.cos(R.heading)],dir=R.v>1e-9?1:(R.v< -1e-9?-1:(thr<0?-1:1)),look=Math.max(0.004,maxV*h*1.5);
-            const h0=groundAtW(R.pos[0],R.pos[2]),h1=groundAtW(R.pos[0]+f[0]*look*dir,R.pos[2]+f[2]*look*dir),ang=Math.atan((h1-h0)/look)/D2R;
-            if((thr||Math.abs(R.v)>1e-9)&&Math.abs(ang)>maxSlope){R.v=0;R.blocked=!!thr;break;}
-            // Same slope slow-down as the route planner: speed falls linearly to 30 % of flat speed at the slope limit.
-            const vCap=maxV*Math.max(0.15,1-0.7*Math.abs(ang)/maxSlope);
-            if(thr)R.v+=thr*0.0001*h;else R.v*=Math.exp(-3*h);
-            R.v=clamp(R.v,-vCap*0.35,vCap);if(!thr&&Math.abs(R.v)<1e-7)R.v=0;
-            if(!R.v)continue;
-            R.pos[0]=clamp(R.pos[0]+f[0]*R.v*h,-L/2+0.4,L/2-0.4);R.pos[2]=clamp(R.pos[2]+f[2]*R.v*h,-L/2+0.4,L/2-0.4);
-            R.dist+=Math.abs(R.v)*h;driveS+=h;
-          }
+        const V=VEHICLE,cap=V.capacityWh,L=S.terr.dem.L,clock=S.simUTC;
+        // Simulated seconds this frame: exactly what the component advanced the mission clock by. The rover keeps its own copy of
+        // the clock; a lasting disagreement with the mission clock is a jump (timeline scrub, Skip to Earthrise) and only charges
+        // or drains the parked rover. A one-frame disagreement (state hand-over at an hour boundary) is ignored.
+        let simDt=S.drivePaused?0:S.driveAdvance,jumpS=0;S.driveAdvance=0;
+        if(Number.isFinite(clock)){
+          if(!Number.isFinite(R.clockUTC))R.clockUTC=clock;
+          else{const expected=R.clockUTC+simDt*1000,diff=clock-expected;
+            if(Math.abs(diff)<=1500+simDt){R.clockUTC=clock;R.clockOff=0;}
+            else if((R.clockOff=(R.clockOff||0)+1)>=3){if(diff>0)jumpS=diff/1000;R.clockUTC=clock;R.clockOff=0;}
+            else R.clockUTC=expected;}
         }
-        R.pos[1] = groundAtW(R.pos[0], R.pos[2]);
+        const t=Number.isFinite(R.clockUTC)?R.clockUTC:clock;
+        for(const name in S.padHeld){const q=S.padHeld[name];q.frames++;if(q.release&&q.frames>1&&now-q.at>=220){S.pad[name]=false;delete S.padHeld[name];}}
+        const inp=driveInput(),manual=Math.abs(inp.thr)>ROVER.deadZone||Math.abs(inp.steer)>ROVER.deadZone;
+        if(S.autopilot&&(manual||inp.brake))setAutopilot(false,manual?'manual':'brake');
+        // Throttle and steering are eased in real time, so starts and stops look smooth at any multiplier; brake is immediate.
+        const rdt=S.realDt||dt; // controls follow real elapsed time, also on slow frames
+        S.cmd.thr=inp.brake?0:easeInput(S.cmd.thr,inp.thr,rdt);S.cmd.steer=easeInput(S.cmd.steer,inp.steer,rdt);
+        let route=S.autopilot?autoRoute(R):null;
+        // A route that disappears while the autopilot is on (replanning, a new terrain window) gets 8 s to come back.
+        if(S.autopilot&&!route){S.autoLostAt??=now;if(now-S.autoLostAt>8000)setAutopilot(false,'no-route');}else S.autoLostAt=null;
+        R.wants=manual||!!S.autopilot;
+        // Steering is a real-time control; reversing steers like a car, and a parked rover pivots in place.
+        const thr=S.cmd.thr,rolling=Math.abs(R.v)>1e-9,rev=R.v< -1e-9||(!rolling&&thr<0),turn=simDt>0&&!route?S.cmd.steer*rdt*(rolling||Math.abs(thr)>ROVER.deadZone?(rev?-1.1:1.1):0.7):0;
+        const res=driveFrame(R,{throttle:thr,turn,brake:inp.brake,route,jumpS},simDt,{groundAt:groundAtW,confine:roverConfine,unlimited:S.drain===false,solarWAt:(ago)=>roverSolarW(t-ago*1000)});
+        if(S.drivePaused)R.v=0;
+        R.block=res.blocked||'';R.blocked=res.blocked==='too-steep';R.edge=res.blocked==='world-edge-loading'||res.blocked==='world-edge';R.slopeDeg=res.slopeDeg;R.remainingKm=route?res.remainingKm:0;
+        if(res.movedKm>0)R.arrived=false;
+        if(res.arrived){R.arrived=true;R.arrivedAt=now;setAutopilot(false,'arrived');}
+        if(S.brakeLatch&&Math.abs(R.v)<=1e-9)S.brakeLatch=false;
         const nn = normalAtW(R.pos[0], R.pos[2]),nb=1-Math.exp(-dt*12);
         R.n = norm([lerp(R.n[0], nn[0], nb), lerp(R.n[1], nn[1], nb), lerp(R.n[2], nn[2], nb)]);
-        const scientific=S.scienceAt?S.scienceAt(R.pos[0],R.pos[2],clock):null;
+        const scientific=roverSky(t);
         R.sun=scientific?scientific.sun:clamp(shadeAtW(R.pos[0],R.pos[2]),0,1);
         R.earth=scientific?scientific.earth>.0005:earthVisAtW(R.pos[0],R.pos[2]);R.earthWhy=R.earth?'':(S.tEarth.el < -S.tEarth.rad?'below':'hill');
-        // Hypothetical rover shared with the route planner (science-core VEHICLE): 160 Wh battery, 0.5 m² sun-tracking panel at
-        // 28 % (about 190 W in full sun), 10 W idle load and +45 W while driving. Sunlit: it charges; in shadow: it drains.
-        const solar=(sky)=>solarPower(sky.sun,sky.sunDirection?.dist||AU_KM),solarW=scientific?solar(scientific):solarPower(R.sun),moving=Math.abs(R.v)>1e-9;
+        const solarW=scientific?solarPower(scientific.sun,scientific.sunDirection?.dist||AU_KM):solarPower(R.sun),moving=Math.abs(R.v)>1e-9;
         R.solarW=solarW;R.loadW=V.idleW+(moving?V.driveW:0);R.netW=solarW-R.loadW;R.rate=R.netW/cap*100;
-        const totalS=simDt+jumpS;
-        if(S.drain===false)R.batt=100;
-        else if(totalS>0){let wh=R.batt/100*cap;const driveFrac=driveS/totalS;
-          if(totalS<=900||!S.scienceAt)wh=clamp(wh+(solarW-V.idleW-V.driveW*driveFrac)*totalS/3600,0,cap);
-          else{const samples=Math.min(2000,Math.ceil(totalS/900)),step=totalS/samples;for(let a=0;a<samples;a++){const sky=S.scienceAt(R.pos[0],R.pos[2],clock-(totalS-(a+.5)*step)*1000);wh=clamp(wh+(solar(sky)-V.idleW-V.driveW*driveFrac)*step/3600,0,cap);}}
-          R.batt=wh/cap*100;}
-
-        if (now - S.lastCb > 200) { S.lastCb = now; cb.onRover && cb.onRover({ x: R.pos[0], z: R.pos[2], heading: R.heading, batt: R.batt, rate: R.rate, netW: R.netW, solarW: R.solarW, loadW: R.loadW, sun: R.sun, earth: R.earth, earthWhy: R.earthWhy, kmh: Math.abs(R.v) * 3600, dist: R.dist, blocked: R.blocked }); }
+        forecastTick(R,now,moving?16:48);
+        if (now - S.lastCb > 200) { S.lastCb = now; cb.onRover && cb.onRover({ x: R.pos[0], z: R.pos[2], heading: R.heading, batt: R.batt, rate: R.rate, netW: R.netW, solarW: R.solarW, loadW: R.loadW, sun: R.sun, earth: R.earth, earthWhy: R.earthWhy, kmh: Math.abs(R.v) * 3600, routeLeft: S.routeLeftText || '', dist: R.dist, blocked: R.blocked, edge: R.edge, status: roverStatus(now) }); }
+        // Drive fades the ground out around the rover at the distance to the nearest border of the loaded window: it shrinks at once,
+        // and grows back gradually after a re-centre, so far terrain fades in instead of popping.
+        { const room = Math.max(0.4, L / 2 - Math.max(Math.abs(R.pos[0]), Math.abs(R.pos[2]))); S.fadeR = S.fadeR > 0 ? Math.min(room, S.fadeR + (room - S.fadeR) * (1 - Math.exp(-dt * 0.7))) : room; }
       }
+      // What the battery does if the rover stays parked here (rover-sim forecastParked), up to the mission end (at most 60 days).
+      // The solar input at the rover's spot is scanned a few samples per frame (the horizon-atlas lookup is too slow to look weeks
+      // ahead inside one frame) and re-scanned when the rover has moved 8 m or the clock 15 min; the battery forecast itself then
+      // only reads that cached series. `fresh` scans synchronously (button presses).
+      function solarAtW(x,z,utc){const sky=S.scienceAt?S.scienceAt(x,z,utc):null;return sky?solarPower(sky.sun,sky.sunDirection?.dist||AU_KM):solarPower(clamp(shadeAtW(x,z),0,1));}
+      function forecastTick(R,now,budget){
+        const t=Number.isFinite(R.clockUTC)?R.clockUTC:S.simUTC;if(!Number.isFinite(t)||S.drain===false)return;
+        const end=Number.isFinite(S.missionEndUTC)?S.missionEndUTC:t+30*86400000,F=R.fc;let J=R.fcJob;
+        if(!J&&(!F||(now-F.at>400&&(Math.hypot(R.pos[0]-F.x,R.pos[2]-F.z)>0.008||t<F.t0||F.end!==end))||(now-F.at>1500&&t-F.t0>900000)))J=R.fcJob={x:R.pos[0],z:R.pos[2],t0:t,end,scan:createSolarScan(clamp((end-t)/1000,0,60*86400))};
+        if(J&&advanceSolarScan(J.scan,(s)=>solarAtW(J.x,J.z,J.t0+s*1000),budget)){J.at=now;R.fc=J;R.fcJob=null;}
+      }
+      function roverForecast(R,now,fresh){
+        const t=Number.isFinite(R.clockUTC)?R.clockUTC:S.simUTC;
+        if(fresh){R.fc=null;R.fcJob=null;forecastTick(R,now,Infinity);}
+        const F=R.fc;if(!F)return null;
+        return forecastParked(R.batt/100*VEHICLE.capacityWh,(s)=>scanSolarW(F.scan,s+(t-F.t0)/1000),Math.max(0,(F.end-t)/1000));
+      }
+      const fmtWait=(min)=>min<1?'under a minute':min<90?Math.round(min)+' min':min<48*60?(min/60).toFixed(1)+' h':(min/1440).toFixed(1)+' days';
+      // Machine-readable rover status for the UI (also delivered ~5x per second in onRover(...).status). See rover-control.mjs.
+      function roverStatus(now,fresh){
+        const R=S.rover;if(!R)return null;now??=performance.now();
+        const V=VEHICLE,cap=V.capacityWh,wh=R.batt/100*cap,unlimited=S.drain===false,moving=Math.abs(R.v)>1e-9,inp=driveInput(),t=Number.isFinite(R.clockUTC)?R.clockUTC:S.simUTC;
+        const f=unlimited?{nextSunS:0,fullS:0,emptyS:Infinity,restartS:0}:(roverForecast(R,now,fresh)||{nextSunS:NaN,fullS:NaN,emptyS:NaN,restartS:NaN,pending:true}),fin=(s)=>Number.isFinite(s)?s/60:null,utc=(s)=>Number.isFinite(s)?t+s*1000:null;
+        const charging=!unlimited&&R.solarW>V.idleW+0.5,depleted=!unlimited&&!!R.depleted,noRoute=!S.autopilot&&R.autoStop==='no-route'&&now-(R.autoStopAt||0)<5000;
+        const wants=!!S.autopilot||Math.abs(inp.thr)>ROVER.deadZone||Math.abs(inp.steer)>ROVER.deadZone;
+        const reason=roverReason({moving,wants,missionEnded:!!S.missionEnded,paused:!!S.drivePaused||S.driveTimeScale===0,waiting:!!S.waitingCharge,depleted,charging,blocked:moving?'':R.block,autopilot:S.autopilot||noRoute,hasRoute:!noRoute&&!!(S.navigation?.points?.length>1),arrived:!!R.arrived&&now-(R.arrivedAt||0)<8000});
+        const range=unlimited?Infinity:Math.max(0,wh-ROVER.emptyPct/100*cap)/(V.idleW+V.driveW)*V.flatSpeedKmh,sunHere=Number.isFinite(f.nextSunS);
+        const strandedRisk=unlimited||charging||f.pending?'none':!sunHere?(depleted?'stranded':'no-sun'):'shadow';
+        const metres=(km)=>km<1?Math.round(km*1000)+' m':km.toFixed(1)+' km',warning=strandedRisk==='no-sun'&&R.batt<40?'no-sun-low-battery':strandedRisk==='shadow'&&R.batt<20?'shadow-low-battery':'';
+        const untilSun=sunHere?fmtWait(f.nextSunS/60):'',warningMessage=warning==='no-sun-low-battery'?'No sunlight reaches this spot before the mission ends. Battery '+Math.round(R.batt)+' % — about '+metres(range)+' of range left: drive back into sunlight.':warning?'In shadow: battery '+Math.round(R.batt)+' %, about '+metres(range)+' of range. The Sun returns here in '+untilSun+'.':'',message={
+          'mission-ended':'Mission time is over. Extend the mission to keep driving.',
+          'waiting-for-charge':'Fast-forwarding until the battery is full…',
+          'paused':'Simulation paused. Press play or a drive control to continue.',
+          'battery-empty':sunHere?'Battery empty. The Sun returns here in '+untilSun+'.':f.pending?'Battery empty.':'Battery empty and no sunlight reaches this spot before the mission ends. The rover is stranded.',
+          'charging-wait':'Battery empty — recharging in sunlight. Driving resumes at '+ROVER.restartPct+' %'+(Number.isFinite(f.restartS)?' (about '+fmtWait(Math.max(0,f.restartS)/60)+')':'')+'.',
+          'too-steep':'Too steep here (limit '+V.maxSlopeDeg+'°). Turn or back away.',
+          'world-edge-loading':'Loading the next stretch of terrain…',
+          'world-edge':'End of the mapped area: the terrain grid stops 300 km from the place. Turn back.',
+          'route-blocked':'Autopilot stopped: the route crosses ground steeper than '+V.maxSlopeDeg+'°. Steer around it or pick another destination.',
+          'no-route':S.autopilot?'Autopilot is waiting for the route…':'Autopilot needs a route. Choose a destination first.',
+          'arrived':'Arrived at the destination.'}[reason]||'';
+        return {moving,reason,message,warning,warningMessage,wantsToMove:wants,paused:!!S.drivePaused,missionEnded:!!S.missionEnded,missionEndUTC:Number.isFinite(S.missionEndUTC)?S.missionEndUTC:null,waitingForCharge:!!S.waitingCharge,utc:t,
+          speedKmh:Math.abs(R.v)*3600,reversing:R.v< -1e-9,slopeDeg:R.slopeDeg||0,distKm:R.dist,timeScale:S.drivePaused?0:(S.driveTimeScale??60),maxTimeScale:driveScaleCap(),
+          battPct:R.batt,batteryWh:wh,capacityWh:cap,unlimited,depleted,restartPct:ROVER.restartPct,solarW:R.solarW||0,loadW:R.loadW||0,netPowerW:unlimited?0:(R.netW||0),sunFraction:R.sun,sunlit:R.sun>0.02,charging,
+          minutesToFull:unlimited?0:fin(f.fullS),fullUTC:unlimited?t:utc(f.fullS),minutesToEmpty:unlimited?null:(R.netW< -0.5?wh/-R.netW*60:fin(f.emptyS)),minutesToRestart:depleted?fin(f.restartS):0,
+          canRechargeHere:unlimited||charging||(f.pending?null:sunHere),forecastPending:!!f.pending,minutesToSun:charging?0:fin(f.nextSunS),nextSunUTC:charging?t:utc(f.nextSunS),strandedRisk,rangeKm:range,
+          autopilot:{engaged:!!S.autopilot,available:!!(S.navigation?.points?.length>1),remainingKm:S.autopilot?(R.remainingKm||0):0,etaMinutes:S.autopilot&&R.remainingKm?R.remainingKm/V.flatSpeedKmh*60:null,stopped:R.autoStop||''},
+          earthVisible:!!R.earth};
+      }
+      // Fastest time multiplier that makes sense right now: by hand 1 s = 2 min, on autopilot 1 s = 1 h, parked 1 s = 1 day.
+      function driveScaleCap(){const R=S.rover;if(!R||S.view!=='drive')return Infinity;if(S.autopilot)return ROVER.autoMaxScale;const i=driveInput();return Math.abs(i.thr)>ROVER.deadZone||Math.abs(i.steer)>ROVER.deadZone||Math.abs(R.v)>1e-9?ROVER.manualMaxScale:Infinity;}
 
       // ---- loop ----
       let raf = 0, last = performance.now(), alive = true, lastF = null, lastOv = 0;
       function frame(now) {
         if (!alive) return;
         raf = requestAnimationFrame(frame);
-        const dt = Math.min(0.1, (now - last) / 1000); last = now;
+        const dt = Math.min(0.1, (now - last) / 1000); S.realDt = Math.min(0.25, (now - last) / 1000); last = now;
         let anim = performance.now()-(S.shadeAt||0)<300;
         if (S.fly) {
           const F = S.fly, p = Math.min(1, (now - F.t0) / F.dur);
@@ -2125,7 +2355,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if(S.trailEnded&&now-S.trailEnded<6000)anim=true;
         if (S.land) { stepLanding(now, dt); anim = true; }
         if (S.dust0 > 0 && now - S.dust0 < 4500) anim = true;
-        if (S.view === 'drive' && S.rover) { if(S.dc.zoomTarget)S.dc.dist=lerp(S.dc.dist,S.dc.zoomTarget,1-Math.exp(-dt*16));stepDrive(now, dt);smoothDriveCamera(dt,now); anim = true; }
+        if (S.view === 'drive' && S.rover) { if(S.dc.zoomTarget)S.dc.dist=lerp(S.dc.dist,S.dc.zoomTarget,1-Math.exp(-dt*16));stepDrive(now, dt);smoothDriveCamera(dt,now); anim = true; } else S.driveAdvance = 0;
         resize();
         if (!S.dirty && !anim) {
           if (S.view === 'region' && S.sel && lastF && !S.rc.low && now - lastOv > 33) { lastOv = now; g2.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); g2.clearRect(0, 0, S.W, S.H); drawOverlayRegion(lastF, now); }
@@ -2141,7 +2371,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           lastF = F;
           if (S.rc.low) { const sn = S.snap || (S.snap = document.createElement('canvas')); if (sn.width !== cv.width || sn.height !== cv.height) { sn.width = cv.width; sn.height = cv.height; } sn.getContext('2d').drawImage(cv, 0, 0); S.snapAt = now; }
         }
-        else { const cam = S.view === 'drive' && S.rover ? driveCam() : terrCam(); const F = drawGround(cam, now); drawOverlayGround(F, now); beginTravelLabels(F); drawTripRoute(F); drawTravelReference(F); drawDescentTrail(F,now); lastF = null; }
+        else { const cam = S.view === 'drive' && S.rover ? driveCam() : terrCam(); const F = drawGround(cam, now); drawOverlayGround(F, now); beginTravelLabels(F); drawTripRoute(F); drawTravelReference(F); drawDescentTrail(F,now); drawRouteBeacon(F,now); lastF = null; }
         if (S.xfade) { const a = 1 - (now - S.xfade.t0) / S.xfade.dur; if (a > 0 && S.snap) { g2.globalAlpha = a * a * (3 - 2 * a); g2.drawImage(S.snap, 0, 0, S.W, S.H); g2.globalAlpha = 1; } else S.xfade = null; }
         if (S.fade > 0) { g2.fillStyle = 'rgba(0,0,0,' + S.fade.toFixed(3) + ')'; g2.fillRect(0, 0, S.W, S.H); }
       }
@@ -2210,10 +2440,10 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         S.dirty = true;
       }
       function onWheel(e) { e.preventDefault(); S.fly = null; zoom(Math.exp(clamp(e.deltaY * 0.0012, -0.5, 0.5))); }
-      const KEYMAP = { ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
+      const KEYMAP = { ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ' ': 'brake', x: 'brake', X: 'brake' };
       // Listen on window, not only the canvas: after clicking », Route here or the map the canvas loses focus and the keys used to stop working.
-      function onKey(e, on) { const m = KEYMAP[e.key]; if (!m || S.view !== 'drive') return; if (!on) { S.keys[m] = false; return; } const t = e.target; if (e.ctrlKey || e.metaKey || e.altKey || (t && t.closest && t.closest('input,select,textarea,[contenteditable],[role=dialog],[aria-modal=true],.route-page,.tour-card')) || document.querySelector('.bigmap.route-page')) return; e.preventDefault(); if (!S.keys[m]) cb.onDriveInput && cb.onDriveInput(); S.keys[m] = true; }
-      const kd = (e) => onKey(e, true), ku = (e) => onKey(e, false), blur = () => { S.keys = {}; }, noCtx = (e) => e.preventDefault();
+      function onKey(e, on) { const m = KEYMAP[e.key]; if (!m || S.view !== 'drive') return; if (!on) { S.keys[m] = false; return; } const t = e.target; if (e.ctrlKey || e.metaKey || e.altKey || (t && t.closest && t.closest('input,select,textarea,[contenteditable],[role=dialog],[aria-modal=true],.route-page,.tour-card')) || document.querySelector('.bigmap.route-page')) return; if (e.key === ' ' && t && t.closest && t.closest('button,a,summary,[role=button],[role=slider],[role=tab]')) return; /* Space on a focused control keeps its normal meaning */ e.preventDefault(); if (m === 'brake') { if (!S.keys.brake) { S.brakeLatch = true; cb.onBrake && cb.onBrake(); } } else if (!S.keys[m]) cb.onDriveInput && cb.onDriveInput(); S.keys[m] = true; }
+      const kd = (e) => onKey(e, true), ku = (e) => onKey(e, false), blur = () => { releaseInputs(); }, noCtx = (e) => e.preventDefault();
       ov.addEventListener('pointerdown', onDown); ov.addEventListener('pointermove', onMove); ov.addEventListener('pointerup', onUp);
       ov.addEventListener('pointercancel', e => {S.dc.orbiting=false;touches.delete(e.pointerId);pinch=0;drag=null;}); ov.addEventListener('lostpointercapture', e => {S.dc.orbiting=false;touches.delete(e.pointerId);pinch=0;drag=null;}); ov.addEventListener('dblclick', onDbl); ov.addEventListener('wheel', onWheel, { passive: false });
       ov.addEventListener('contextmenu', noCtx); window.addEventListener('keydown', kd); window.addEventListener('keyup', ku); window.addEventListener('blur', blur);
@@ -2223,7 +2453,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         setView(v) {
           if (v === S.view) return;
           const prev = S.view;
-          S.view = v; S.fly = null; S.keys = {};
+          S.view = v; S.fly = null; releaseInputs(); if (S.autopilot) setAutopilot(false, 'view');
           if (v !== 'terrain') { if (S.land) S.descentTrail = null; S.land = null; } // an interrupted descent leaves no trail behind
           if (v === 'terrain') { if (prev !== 'drive') initTerrain(); else if (S.rover) { S.tc.tgt = add(S.rover.pos, [0, 0.05, 0]); S.tc.dist = 2.5; } }
           else if (v === 'drive') {if(!S.rover||S.rover.terrainKey!==S.terrKey)initDrive();else{S.dc.yawTarget=0;S.dc.zoomTarget=DRIVE_START_DISTANCE;}}
@@ -2243,6 +2473,45 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           if (S.view === 'terrain') initTerrain(); else if (S.view === 'drive') initDrive();
           S.dirty = true;
         },
+        // Drive roaming: swap in the next terrain window (same grid, centre moved by sx km east / sy km north) without resetting
+        // anything. Every world-space quantity moves by the opposite amount, and overlapping vertices keep their data, so the
+        // rover, camera, route and lighting stay exactly where they were on screen.
+        // Build the next window's mesh ahead of shiftTerrain, a few milliseconds per call; true once it is complete (null cancels).
+        stageTerrain(dem, budgetMs) {
+          if (!dem) { S.staged = null; return true; }
+          let st = S.staged; const N = dem.N;
+          if (!st || st.dem !== dem) {
+            st = S.staged = { dem: dem, row: 0, g: null };
+            if (S.terr && S.terr.dem.N === N) st.g = { pos: new Float32Array(N * N * 3), nrm: new Float32Array(N * N * 3), dat: new Float32Array(N * N * 4), idx: S.terr.g.idx, Nv: N * N }; // same triangles
+            else { st.g = buildTerrain(dem); st.row = N; }
+          }
+          const t0 = performance.now();
+          while (st.row < N && performance.now() - t0 < (budgetMs || 4)) { const j1 = Math.min(N, st.row + 12); fillTerrainRows(dem, st.g.pos, st.g.nrm, st.g.dat, st.row, j1); st.row = j1; }
+          return st.row >= N;
+        },
+        shiftTerrain(dem, key, sx, sy, shade) {
+          const old = S.terr; if (!old || S.land) return false;
+          const g = S.staged && S.staged.dem === dem && S.staged.row >= dem.N ? S.staged.g : buildTerrain(dem), N = dem.N, od = old.g.dat, dat = g.dat, same = old.dem.N === N;
+          const di = Math.round(sx / dem.cell), dj = Math.round(sy / dem.cell);
+          for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+            const v = (j * N + i) * 4, oi = i + di, oj = j + dj;
+            if (same && oi >= 0 && oj >= 0 && oi < N && oj < N) { const o = (oj * N + oi) * 4; dat[v] = od[o]; dat[v + 1] = od[o + 1]; dat[v + 2] = od[o + 2]; dat[v + 3] = od[o + 3]; }
+            else { const lit = shade ? shade[j * N + i] : 1; dat[v] = lit; dat[v + 2] = lit; dat[v + 3] = -1; }
+          }
+          S.staged = null; S.terr = { dem: dem, g: g, bp: old.bp, bn: old.bn, bd: old.bd, bi: old.bi }; S.terrKey = key; S.hz = null;
+          if (old.imageTexture) gl.deleteTexture(old.imageTexture);
+          if (dem.imagery) { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, dem.imagery); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.generateMipmap(gl.TEXTURE_2D); S.terr.imageTexture = t; }
+          { const T = S.terr; gl.bindBuffer(gl.ARRAY_BUFFER, T.bp); gl.bufferData(gl.ARRAY_BUFFER, g.pos, gl.STATIC_DRAW); gl.bindBuffer(gl.ARRAY_BUFFER, T.bn); gl.bufferData(gl.ARRAY_BUFFER, g.nrm, gl.STATIC_DRAW); gl.bindBuffer(gl.ARRAY_BUFFER, T.bd); gl.bufferData(gl.ARRAY_BUFFER, g.dat, gl.DYNAMIC_DRAW);
+            if (g.idx !== old.g.idx) { gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, T.bi); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, g.idx, gl.STATIC_DRAW); } }
+          const seen = new Set(), move = (p) => { if (!p || seen.has(p)) return; seen.add(p); if (Array.isArray(p)) { p[0] -= sx; p[2] += sy; } else { if (Number.isFinite(p.x)) { p.x -= sx; p.z += sy; } if (Number.isFinite(p.i)) { p.i -= di; p.j -= dj; } } };
+          if (S.rover) { move(S.rover.pos); S.rover.terrainKey = key; S.rover.edge = false; }
+          move(S.home); move(S.spawn); move(S.tc.tgt); move(S.best); move(S.target);
+          if (S.lander) { move(S.lander.pos); move(S.lander.base); }
+          for (const q of S.descentTrail || []) move(q.pos);
+          for (const q of S.navSamples || []) move(q);
+          move(S.navRenderedStart); move(S.navRenderedEnd); S.navBodyKey = '';
+          S.dirty = true; return true;
+        },
         setHorizon(hm, Nc, B, stride) { S.hz = { hm: hm, Nc: Nc, B: B, stride: stride }; },
         setShade(arr) { if (!S.terr) return; const d = S.terr.g.dat,mix=Math.min(1,(performance.now()-(S.shadeAt||0))/250);for(let i=0;i<arr.length;i++){d[i*4+2]=d[i*4+2]+(d[i*4]-d[i*4+2])*mix;d[i*4]=arr[i];}S.shadeAt=performance.now(); gl.bindBuffer(gl.ARRAY_BUFFER, S.terr.bd); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d); S.dirty = true; },
         setHeat(arr) {
@@ -2253,10 +2522,24 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         flyTo(lat, lon, close, done) { if (S.view !== 'region') { if (done) done(); return; } flyTo(lat, lon, close, done); },
         land() { return startLanding(); },
         key(name, on) { S.keys[name] = on; },
+        // On-screen drive pad (held like a key) and joystick (x right, y down, each -1..1).
+        // A quick tap still nudges the rover: a press lasts at least 220 ms and one simulation frame (see stepDrive).
+        pad(name, on) { if (on) { S.pad[name] = true; S.padHeld[name] = { at: performance.now(), frames: 0, release: false }; } else if (S.padHeld[name]) S.padHeld[name].release = true; else S.pad[name] = false; },
         joystick(x,y){S.joyTarget={x,y};},
+        // brake(): stop now — cancels the autopilot, drops held on-screen inputs and brakes until the rover is at rest.
+        // brake(true)/brake(false): press / release a held brake (Space key, Stop button).
+        brake(held) { if (held === false) { S.brakeHeld = false; return; } S.brakeHeld = held === true; S.brakeLatch = true; S.pad = noInput(); S.padHeld = {}; S.joyTarget = { x: 0, y: 0 }; if (S.autopilot) setAutopilot(false, 'brake'); },
+        setAutopilot(on) { return setAutopilot(on, on ? '' : 'off'); },
+        getAutopilot() { return !!S.autopilot; },
+        // The component calls this once per frame with the simulated seconds it advanced the mission clock by.
+        advanceDriveClock(seconds) { if (S.view === 'drive' && S.rover && seconds > 0) S.driveAdvance += seconds; },
+        driveScaleCap() { return driveScaleCap(); },
+        getRoverStatus(fresh) { return roverStatus(performance.now(), fresh); },
+        // Review/test hook: overwrite rover fields (e.g. {batt: 3}) or teleport ({x, z}).
+        debugRover(patch) { const R = S.rover; if (!R) return; const { x, z, ...rest } = patch || {}; Object.assign(R, rest); if (Number.isFinite(x) && Number.isFinite(z)) { R.pos[0] = x; R.pos[2] = z; R.pos[1] = groundAtW(x, z); R.v = 0; } R.fc = null; R.fcJob = null; },
         getNavigationPath(){if(!S.navigation)return [];if(S.navKey!==S.navigation.key)return S.navigation.points;const p=S.navSamples||[],g=S.rover?gridOf(S.rover.pos[0],S.rover.pos[2]):[p[0]?.i,p[0]?.j];return [{i:g[0],j:g[1]},...p.slice((S.navProgress||0)+1)];},
         ensureRover(){if(S.terr&&(!S.rover||S.rover.terrainKey!==S.terrKey))initDrive();},
-        getDriveState(){if(!S.rover)return null;const r=S.rover;return {x:r.pos[0],z:r.pos[2],heading:r.heading,batt:r.batt,dist:r.dist,terrainKey:S.terrKey,camera:{yaw:S.dc.yaw,followHeading:S.dc.hs,distance:S.dc.dist},routeStart:S.navRenderedStart,routeEnd:S.navRenderedEnd,routeCrossTrack:S.navCrossTrack||0,routeNeedsReplan:!!S.navUnsafe,navigationDraws:S.navigationDraws||0};},
+        getDriveState(){if(!S.rover)return null;const r=S.rover;return {x:r.pos[0],z:r.pos[2],heading:r.heading,batt:r.batt,dist:r.dist,terrainKey:S.terrKey,camera:{yaw:S.dc.yaw,followHeading:S.dc.hs,distance:S.dc.dist},routeStart:S.navRenderedStart,routeEnd:S.navRenderedEnd,routeCrossTrack:S.navCrossTrack||0,routeNeedsReplan:!!S.navUnsafe,navigationDraws:S.navigationDraws||0,edge:!!r.edge,speed:r.v,kmh:Math.abs(r.v)*3600,autopilot:!!S.autopilot,depleted:!!r.depleted,home:S.home?[S.home[0],S.home[2]]:null,fadeKm:S.fadeR||0};},
         findRover(){if(!S.rover)return;S.dc.orbiting=false;S.dc.yawTarget=0;S.dc.pitchTarget=.2;S.dc.zoomTarget=DRIVE_START_DISTANCE;S.dc.manualUntil=0;S.dirty=true;},
         resetRover() { S.spawn = S.home||null; if (S.view === 'drive') initDrive(); S.dirty = true; },
         focusGrid(i,j){S.tc.tgt=gridToWorld(i,j);S.tc.dist=2.5;S.tc.pitch=.4;S.dirty=true;},

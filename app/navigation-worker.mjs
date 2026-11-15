@@ -1,13 +1,20 @@
 import { Ephemeris, VEHICLE, batteryAfter, RAD } from "./science-core.mjs";
-import { reachSteps } from "./route-search.mjs";
+import {
+  reachSteps,
+  slopeAStar,
+  pathCorridor,
+  slopeRouteLabels,
+} from "./route-search.mjs";
 import { buildTripPlan } from "./planning-analysis.mjs";
 import { smoothPlan } from "./route-smoothing.mjs";
 import {
   navigationGeometry,
   navigationSky,
   terrainPotential,
-  terrainCorridor,
 } from "./drive-navigation.mjs";
+// Budget of the battery-aware search; beyond it the slope-feasible route is returned, flagged.
+const ENERGY_SEARCH_MS = 1200,
+  ENERGY_SEARCH_EXPANSIONS = 12000;
 let generation = 0;
 onmessage = async ({ data: q }) => {
   if (q.type === "cancel") {
@@ -113,7 +120,40 @@ onmessage = async ({ data: q }) => {
       });
       return;
     }
-    const terrain = terrainPotential(g, q.dem.slope);
+    const reply = (plan, extra = {}) =>
+      postMessage({
+        type: "navigation",
+        job: q.job,
+        terrainKey: q.terrainKey,
+        targetKey: q.targetKey,
+        origin: q.origin,
+        start: q.start,
+        plan,
+        ...extra,
+      });
+    const clock = () => performance.now(),
+      began = clock(),
+      vehicle = { ...VEHICLE, initialFraction: q.battery / 100 };
+    // 1. Fast slope-only A*: is there any drivable way at all, and roughly where?
+    const base = slopeAStar({
+      N: g.N,
+      cellKm: q.dem.cell,
+      slope: q.dem.slope,
+      origin: g.origin,
+      goal: g.goal,
+      edgeFor: g.edgeFor,
+    });
+    if (!base.found) {
+      reply({
+        reachable: false,
+        reason:
+          "No drivable way there: ground steeper than the rover's 20° limit separates the rover from the destination. Pick a point on this side of the steep ground.",
+      });
+      return;
+    }
+    // 2. Energy/time search only inside a corridor around that path, with a bounded budget.
+    const corridor = pathCorridor(g.N, base.path, q.dem.slope, 3),
+      terrain = terrainPotential(g, corridor);
     let terrainStep;
     do {
       terrainStep = terrain.next();
@@ -123,95 +163,94 @@ onmessage = async ({ data: q }) => {
         if (generation !== token) return;
       }
     } while (!terrainStep.done);
-    const potential = terrainStep.value;
-    if (
-      !Number.isFinite(potential.times[g.origin]) ||
-      potential.times[g.origin] > q.maxHours
-    ) {
-      postMessage({
-        type: "navigation",
-        job: q.job,
-        terrainKey: q.terrainKey,
-        targetKey: q.targetKey,
-        origin: q.origin,
-        start: q.start,
-        plan: {
-          reachable: false,
-          reason: !Number.isFinite(potential.times[g.origin])
-            ? "No terrain path from the rover: the 20° slope limit or blocked corners separate the destination."
-            : "Even without charging stops, this terrain route exceeds the selected planning horizon.",
-        },
-      });
-      return;
-    }
-    const search = async (slope, maxExpansions) => {
-      const it = reachSteps({
+    const potential = terrainStep.value,
+      // Longer than the planning horizon even without stops: skip straight to the fallback.
+      hopeless = !(potential.times[g.origin] <= q.maxHours),
+      deadline = clock() + ENERGY_SEARCH_MS;
+    const it = reachSteps({
+      N: g.N,
+      cellKm: q.dem.cell,
+      slope: corridor,
+      origin: g.origin,
+      goal: g.goal,
+      heuristic: (cell) => potential.times[cell],
+      edgeFor: g.edgeFor,
+      sky,
+      startMs: q.start,
+      vehicle,
+      maxHours: q.maxHours,
+      timeBinHours: q.maxHours > 72 ? 3 : 1,
+      maxExpansions: ENERGY_SEARCH_EXPANSIONS,
+      shouldStop: () => hopeless || clock() > deadline,
+    });
+    let n;
+    do {
+      n = it.next();
+      if (!n.done) {
+        postMessage({ type: "progress", job: q.job, ...n.value });
+        await new Promise((r) => setTimeout(r, 0));
+        if (generation !== token) return;
+      }
+    } while (!n.done);
+    if (generation !== token) return;
+    let r = n.value,
+      searchScope = "terrain corridor";
+    const points = new Proxy([], { get: (_, key) => g.point(Number(key)) }),
+      trip = {
         N: g.N,
+        points,
+        slope: q.dem.slope,
+        start: q.start,
+        sizeKm: q.dem.L,
         cellKm: q.dem.cell,
-        slope,
-        origin: g.origin,
-        goal: g.goal,
-        heuristic: (cell) => potential.times[cell],
-        edgeFor: g.edgeFor,
-        sky,
-        startMs: q.start,
-        vehicle: { ...VEHICLE, initialFraction: q.battery / 100 },
-        maxHours: q.maxHours,
-        timeBinHours: q.maxHours > 72 ? 3 : 1,
-        maxExpansions,
-      });
-      let n;
-      do {
-        n = it.next();
-        if (!n.done) {
-          postMessage({ type: "progress", job: q.job, ...n.value });
-          await new Promise((r) => setTimeout(r, 0));
-          if (generation !== token) return;
-        }
-      } while (!n.done);
-      if (generation !== token) return;
-      return n.value;
-    };
-    // Try a narrow terrain corridor first; its feasible result is not an optimality claim.
-    // If energy/timing makes that corridor unsuitable, expand to the complete fine grid.
-    let r = await search(terrainCorridor(g, potential, q.dem.slope), 20000);
-    if (!r || generation !== token) return;
-    let searchScope = "terrain corridor";
-    if (!Number.isFinite(r.T[g.goal])) {
-      r = await search(q.dem.slope, 80000);
-      searchScope = "full fine grid";
-    }
-    if (!r || generation !== token) return;
-    const points = new Proxy([], { get: (_, key) => g.point(Number(key)) });
-    let plan = buildTripPlan(
-        {
-          N: g.N,
-          points,
-          slope: q.dem.slope,
-          start: q.start,
-          sizeKm: q.dem.L,
-          cellKm: q.dem.cell,
+      };
+    let plan;
+    if (Number.isFinite(r.T[g.goal])) {
+      plan = buildTripPlan(trip, r, sky, g.goal);
+      // Any-angle smoothing of the 8-connected grid path (falls back to the grid path).
+      plan = smoothPlan(q, g, ephem, plan);
+      plan.energyVerified = true;
+    } else {
+      // 3. The battery-aware search found nothing in its budget: still return the drivable
+      // route, timed honestly with charging stops and flagged as not energy-verified.
+      searchScope = "slope-only fallback";
+      // Light beyond the planning horizon is not loaded; hold the last known sky there.
+      const limit = q.start + q.maxHours * 3600000 - 900000,
+        held = (cell, ms) => sky(cell, Math.min(ms, limit)),
+        heldEphem = {
+          state: (ms) => ephem.state(Math.min(ms, limit)),
+          topo: ephem.topo,
         },
-        r,
-        sky,
-        g.goal,
-      );
-    // Any-angle smoothing of the 8-connected grid path (falls back to the grid path).
-    plan = smoothPlan(q, g, ephem, plan);
-    if (!plan.reachable)
-      plan.reason = r.incomplete
-        ? "No route found that keeps the battery charged: the way there likely crosses long shadow. Try a closer or sunlit point, or another date."
-        : "No energy-feasible route found from the rover for these dates and battery. Try another destination or planning horizon.";
-    postMessage({
-      type: "navigation",
-      job: q.job,
-      terrainKey: q.terrainKey,
-      targetKey: q.targetKey,
-      origin: q.origin,
-      start: q.start,
-      plan,
+        labels = slopeRouteLabels({
+          N: g.N,
+          cellKm: q.dem.cell,
+          slope: q.dem.slope,
+          path: base.path,
+          sky: held,
+          startMs: q.start,
+          edgeFor: g.edgeFor,
+          vehicle,
+          maxHours: q.maxHours,
+          waitHours: q.maxHours > 72 ? 3 : 1,
+        });
+      if (!labels) throw Error("Route timing failed. Please try again.");
+      plan = buildTripPlan(trip, labels, held, g.goal);
+      plan.needsCharging = true;
+      plan.energyVerified = false;
+      plan.chargingStops = labels.chargingStops;
+      plan.depleted = labels.depleted;
+      plan.note = labels.depleted
+        ? "Drivable route, but the battery runs flat on the way: no sunlight to recharge on this route in the planning window."
+        : "Drivable route; the battery must be recharged on the way (stops included in the time).";
+      plan = smoothPlan(q, g, heldEphem, plan, VEHICLE, {
+        allowDepleted: true,
+        maxHours: Infinity,
+      });
+    }
+    reply(plan, {
       expanded: r.expanded,
       searchScope,
+      planMs: Math.round(clock() - began),
     });
   } catch (e) {
     if (generation === token)

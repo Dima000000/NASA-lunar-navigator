@@ -4,7 +4,7 @@ import { conservativeSlopes } from "./route-search.mjs";
 import { tripCSV } from "./planning-analysis.mjs";
 import { skyPanorama } from "./sky-panorama.mjs";
 import { interpolateVisualState } from "./visual-time.mjs";
-import { MAX_TIME_SCALE, TIME_PRESETS, timeRateLabel } from "./drive-navigation.mjs";
+import { MAX_TIME_SCALE, TIME_PRESETS, timeRateLabel, shouldReplan } from "./drive-navigation.mjs";
 export function withUIPass(Base, science) {
   return class UIPass extends Base {
     constructor(...args) {
@@ -49,7 +49,14 @@ export function withUIPass(Base, science) {
           });
           this.setState({
             navigationActive: true,
-            navigationStatus: "Route ready · " + this.fmtH(m.plan.hours),
+            navigationStatus:
+              "Route ready · " +
+              this.fmtH(m.plan.hours) +
+              (m.plan.needsCharging
+                ? m.plan.depleted
+                  ? " · battery will run flat (no sunlight on the way)"
+                  : " · includes charging stops"
+                : ""),
             routeAlert: "",
           });
         }
@@ -470,21 +477,16 @@ export function withUIPass(Base, science) {
         return;
       const r = this.eng?.getDriveState(),
         d = this._tj?.dem;
-      if (!r || !d || performance.now() - (this._navSentAt || 0) < 1800) return;
-      const old = this._navigation.origin,
-        dist =
-          Math.hypot(
-            (r.x + d.L / 2) / d.cell - old.i,
-            (-r.z + d.L / 2) / d.cell - old.j,
-          ) * d.cell,
-        elapsed = Math.abs(
-          (this._visualUTC || this.state.start) - this._navigation.start,
-        );
+      if (!r || !d) return;
+      // Keep the published route while it is still valid: replan only when the rover has
+      // left it or it became unsafe (see shouldReplan), never just because time or distance passed.
       if (
-        r.routeNeedsReplan ||
-        r.routeCrossTrack > d.cell ||
-        dist > d.cell * 4 ||
-        elapsed > 3600000
+        shouldReplan({
+          needsReplan: r.routeNeedsReplan,
+          crossTrackKm: r.routeCrossTrack,
+          cellKm: d.cell,
+          sinceLastRequestMs: performance.now() - (this._navSentAt || 0),
+        })
       )
         this.requestNavigation();
     }
@@ -545,6 +547,8 @@ export function withUIPass(Base, science) {
           dem: {
             N: d.N,
             L: d.L,
+            ox: d.ox || 0,
+            oy: d.oy || 0,
             cell: d.cell,
             h: d.h,
             slope: d.slope,
@@ -568,6 +572,27 @@ export function withUIPass(Base, science) {
         sheet: null,
       });
       this.requestNavigation();
+    }
+    // Point card "Drive here": make the picked point the rover destination,
+    // enter Drive if needed, then plan the route from the rover.
+    // Overview top-down map: the selected place's 16 km patch, once its terrain is loaded.
+    regionJob() {
+      const site = this.selSite(),
+        p = site && science.bySite(site);
+      if (!p?.heights) return null;
+      const dem = this.demFor(site);
+      return { key: "region|" + dem.key, dem };
+    }
+    driveHere() {
+      if (!this.state.target) return;
+      const enter = this.state.view !== "drive";
+      if (enter) this.goView("drive");
+      this.setState({ bigMap: false, mapPick: false, sheet: null });
+      setTimeout(() => {
+        if (this.state.view !== "drive" || !this.state.target) return;
+        this.setState({ navigationActive: true, tripOpen: false });
+        this.requestNavigation();
+      }, enter ? 400 : 0);
     }
     tripView() {
       const m = this._navigation;
@@ -874,6 +899,22 @@ export function withUIPass(Base, science) {
         if (rate > 0) this._lastDriveRate = rate;
         this.setState({ driveTimeScale: rate });
       };
+      // Continuous log-scale speed slider (1× … MAX_TIME_SCALE); driveTimeScale stays the single source of truth.
+      const rateCur = this.state.drivePaused ? 0 : this.state.driveTimeScale;
+      v.rateLogMax = Math.log10(MAX_TIME_SCALE).toFixed(4);
+      v.driveRateLog = Math.log10(Math.max(1, rateCur || 1)).toFixed(4);
+      v.driveRateLabel = timeRateLabel(rateCur);
+      v.onDriveRateLog = (e) => {
+        const x = Number(e.target.value);
+        if (!Number.isFinite(x)) return;
+        let rate = Math.pow(10, x);
+        // Gentle detent on the presets, otherwise keep 2 significant digits.
+        const near = TIME_PRESETS.find((r) => Math.abs(Math.log10(r) - x) < 0.04);
+        rate = near ?? Number(rate.toPrecision(2));
+        rate = Math.min(MAX_TIME_SCALE, Math.max(1, rate));
+        this._lastDriveRate = rate;
+        this.setState({ driveTimeScale: rate, drivePaused: false });
+      };
       // » cycles real time → 1 min → 10 min → 1 h → 1 day per real second.
       const rateNow = this.state.driveTimeScale,
         nextRate =
@@ -1023,6 +1064,14 @@ export function withUIPass(Base, science) {
       v.missionStartPct = startPct;
       v.missionEndPct = endPct;
       v.missionWidth = endPct - startPct;
+      {
+        // Drive: compact mission axis driven by the same clock as the date/time readout.
+        const now = this._visualUTC ?? mission.start,
+          f = Math.max(0, Math.min(1, (now - mission.start) / Math.max(1, mission.end - mission.start)));
+        v.driveAxisPct = (f * 100).toFixed(2);
+        v.driveAxisTitle =
+          "Mission time: " + this.dur(Math.max(0, now - mission.start) / 3600000) + " of " + this.dur((mission.end - mission.start) / 3600000) + " (liftoff " + v.missionEndLabel + ")";
+      }
       v.missionCancel = () => {
         this._missionDrag = null;
         this.setState({});
@@ -1073,6 +1122,40 @@ export function withUIPass(Base, science) {
       v.targetPointLabel =
         this.state.view === "drive" ? "Destination" : "Your landing point";
       v.routeHere = () => this.routeHere();
+      v.driveHere = () => this.driveHere();
+      {
+        const site = this.selSite(),
+          prod = site && science.bySite(site),
+          region = this.state.view === "region";
+        v.showRegionMini = region && !!prod && !this.state.sheet;
+        v.regionMapReady = !!prod?.heights;
+        v.regionMapLoading = v.showRegionMini && !v.regionMapReady;
+        v.regionMiniCls =
+          "mini2 rmini mat" + (this.state.regionMapOpen ? " open" : "");
+        if (v.regionMapLoading && this._regionMapLoad !== prod.meta.key) {
+          this._regionMapLoad = prod.meta.key;
+          science
+            .loadTerrain(prod.meta.key)
+            .then(() => this.setState({}), () => {});
+        }
+        // Phones: the side map is hidden, so a compact button opens it.
+        v.mapFab = () =>
+          region
+            ? this.setState({ regionMapOpen: !this.state.regionMapOpen })
+            : this.setState({ bigMap: true, sheet: null });
+        v.showMapFab = region ? v.showRegionMini : !!v.showMini;
+      }
+      {
+        const z = Math.max(0, Math.min(2, this.state.mapZoom | 0)),
+          L = this._tj?.dem?.L || 16,
+          km = L / (1 << z);
+        v.mapSpanLabel = (km >= 10 ? Math.round(km) : +km.toFixed(1)) + " km";
+        v.mapZoomIn = () => this.setState({ mapZoom: Math.min(2, z + 1) });
+        v.mapZoomOut = () => this.setState({ mapZoom: Math.max(0, z - 1) });
+        v.mapZoomInOff = z >= 2;
+        v.mapZoomOutOff = z <= 0;
+      }
+      v.driveHereLabel = this._navBusy ? "Planning…" : "Drive here";
       v.tripOpen = !!this.state.tripOpen;
       v.closeTrip = () => this.setState({ tripOpen: false });
       v.trip = v.tripOpen ? this.tripView() : {};
@@ -1157,7 +1240,7 @@ export function withUIPass(Base, science) {
       };
       // Travel time / drive range is computed only on request in Drive.
       const inDrive = this.state.view === "drive";
-      v.travelOverlay = inDrive && !!this.state.travelOverlay;
+      v.travelOverlay = false; // travel time is drawn on the top-down map only
       v.reachOn = inDrive && !!this.state.mapReach;
       v.showTravelLegend = v.travelOverlay && !this.state.tripOpen;
       v.toggleTravelOverlay = () => {
@@ -1207,7 +1290,7 @@ export function withUIPass(Base, science) {
       }
       this.eng?.set({ travelGeoLabels: this._geoLabels || [] });
       this.eng?.set({
-        travelOverlay: inDrive && !!this.state.travelOverlay,
+        travelOverlay: false,
         travelContours: this._routeResult?.contours || [],
         travelOrigin: this.reachOrigin(),
       });
@@ -1242,9 +1325,9 @@ export function withUIPass(Base, science) {
         return;
       }
       const d = jb.dem,
-        c = (d.N - 1) / 2,
-        dx = (i - c) * d.cell,
-        dy = (j - c) * d.cell,
+        pin = this.pinGrid(d),
+        dx = (i - pin.i) * d.cell,
+        dy = (j - pin.j) * d.cell,
         dist = Math.round(Math.hypot(dx, dy) * 1000),
         az = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360,
         where =
@@ -1315,6 +1398,7 @@ export function withUIPass(Base, science) {
       v.roverAddTip = roverHere
         ? "Add the rover's current position as a place to compare"
         : "Available once a rover is on the ground (Drive mode)";
+      v.routeLeft = (this.state.navigationActive && this.state.rover?.routeLeft) || "";
       v.addRoverPlace = () => {
         const rv = this.state.rover,
           j2 = this._tj;
@@ -1364,14 +1448,10 @@ export function withUIPass(Base, science) {
       const prevMapClick = v.onMapClick;
       v.onMapClick = (e) => {
         if (!this.state.mapPlacePick || !this._tj) return prevMapClick(e);
-        const rc = e.currentTarget.getBoundingClientRect(),
+        const g = this.mapGridAt(e),
           N = this._tj.dem.N,
           cl = (x) => Math.max(0, Math.min(N - 1, x));
-        this.addDemPlace(
-          cl(((e.clientX - rc.left) / rc.width) * (N - 1)),
-          cl((1 - (e.clientY - rc.top) / rc.height) * (N - 1)),
-          "",
-        );
+        this.addDemPlace(cl(g.i), cl(g.j), "");
       };
       // Pick on the 3D globe (Overview)
       v.pickDisabled = full;
@@ -1402,8 +1482,10 @@ export function withUIPass(Base, science) {
       if (H && tv && jb && v.tgt) {
         const d = jb.dem,
           k = tv.j * d.N + tv.i,
-          c = (d.N - 1) / 2,
-          ck = c * d.N + c,
+          pin = this.pinGrid(d),
+          // Compare with the pin only while it lies inside this terrain window.
+          c = pin.inside ? Math.round(pin.i) : NaN,
+          ck = Math.round(pin.j) * d.N + Math.round(pin.i),
           sc = H.score[k],
           sl = d.slope[k],
           days = Math.max(

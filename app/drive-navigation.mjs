@@ -97,8 +97,9 @@ export function navigationGeometry(q) {
     f = enu(q.site.lat, q.site.lon),
     cache = new Map();
   const coordinates = (i, j) => {
-    const x = (-d.L / 2 + i * d.cell) * 1000,
-      y = (-d.L / 2 + j * d.cell) * 1000,
+    // (ox, oy): km offset of a roaming terrain window from the site pin.
+    const x = ((d.ox || 0) - d.L / 2 + i * d.cell) * 1000,
+      y = ((d.oy || 0) - d.L / 2 + j * d.cell) * 1000,
       s = (x * x + y * y) / (4 * R_M * R_M),
       a = 1 / (1 + s),
       v = f.up.map(
@@ -299,4 +300,23 @@ export function navigationSky(ephem, q, geometry) {
     cache.set(key, result);
     return result;
   };
+}
+// Replanning policy: a published route is kept until it is actually wrong. Driving along it,
+// or the clock advancing, never triggers a new search (that made the drawn line jump);
+// only leaving the route, or the route becoming unsafe, does — and not more than once per `minGapMs`.
+export const REPLAN_DEVIATION_CELLS = 2.5,
+  REPLAN_MIN_GAP_MS = 3000;
+export function shouldReplan({
+  hasRoute = true,
+  busy = false,
+  needsReplan = false,
+  crossTrackKm = 0,
+  cellKm,
+  sinceLastRequestMs = Infinity,
+  deviationCells = REPLAN_DEVIATION_CELLS,
+  minGapMs = REPLAN_MIN_GAP_MS,
+}) {
+  if (!hasRoute || busy || sinceLastRequestMs < minGapMs) return false;
+  if (needsReplan) return true;
+  return Number.isFinite(crossTrackKm) && crossTrackKm > deviationCells * cellKm;
 }

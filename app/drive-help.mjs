@@ -6,20 +6,20 @@ const steps = [
   [
     [".ui-drive .pad", ".ui-drive .joystick"],
     "Drive the rover",
-    "Hold W A S D or the arrow keys, or use these buttons. Drag the scene to look around.",
-    "Drag this joystick to drive and turn. Drag the scene to look around.",
+    "Hold W A S D or the arrow keys, or hold these buttons. Space or the red square brakes. Drag the scene to look around.",
+    "Drag this joystick to drive and turn; let go to stop, or press the red Stop button. Drag the scene to look around.",
   ],
   [
     [".ui-drive .mmc"],
     "Choose where to go",
-    "Click this top-down map (or distant ground) to set a destination, then press Route here. Follow the blue line: it avoids slopes the rover cannot climb.",
-    "Tap distant ground to set a destination, then press Route here. Follow the blue line: it avoids slopes the rover cannot climb.",
+    "Click this top-down map (or distant ground) to set a destination, then press Route here. Follow the route yourself or press Start autopilot: it avoids slopes the rover cannot climb.",
+    "Tap distant ground to set a destination, then press Route here. Follow the route yourself or press Start autopilot: it avoids slopes the rover cannot climb.",
   ],
   [
     [".ui-drive .pad .turbo"],
     "Speed up time",
-    "» speeds up time: 1 s = 1 h while driving, up to 1 s = 1 day while parked. Clock and battery move together: it charges in sunlight and drains in shadow.",
-    "Use the time speed in the Rover menu: 1 s = 1 h while driving, up to 1 s = 1 day while parked. The battery charges in sunlight and drains in shadow.",
+    "» speeds up time: up to 1 s = 2 min while you drive, 1 s = 1 h on autopilot, 1 s = 1 day while parked. The rover itself never goes faster than 0.7 km/h. Clock and battery move together: it charges in sunlight and drains in shadow.",
+    "Use the time speed in the Rover menu: up to 1 s = 2 min while you drive, 1 s = 1 h on autopilot, 1 s = 1 day while parked. The battery charges in sunlight and drains in shadow.",
   ],
 ];
 const visible = (el) => {

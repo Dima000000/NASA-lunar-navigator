@@ -207,6 +207,66 @@ try {
   report.checks.push(
     "Route starts at the live rover and stays rendered during movement and steering",
   );
+  // On-screen pad: hold = drive (even when the pointer slides off the button), release = stop; speed is the rover's real speed.
+  const padStart = await p.evaluate(() => NASAL.eng.getDriveState().dist),
+    forward = await p
+      .getByRole("button", { name: "Drive forward", exact: true })
+      .boundingBox();
+  await p.mouse.move(forward.x + forward.width / 2, forward.y + forward.height / 2);
+  await p.mouse.down();
+  await p.mouse.move(forward.x - 60, forward.y - 60);
+  await p.waitForFunction(
+    (d) => NASAL.eng.getDriveState().dist > d + 0.003,
+    padStart,
+    { timeout: 60000 },
+  );
+  const rolling = await p.evaluate(() => NASAL.eng.getRoverStatus());
+  assert(rolling.moving && rolling.reason === "ok");
+  assert(rolling.speedKmh > 0 && rolling.speedKmh <= 0.7 + 1e-9);
+  assert(rolling.timeScale <= rolling.maxTimeScale);
+  await p.mouse.up();
+  await p.waitForFunction(() => NASAL.eng.getDriveState().kmh === 0, null, {
+    timeout: 30000,
+  });
+  const padStopped = await p.evaluate(() => NASAL.eng.getDriveState().dist);
+  await p.waitForTimeout(700);
+  assert.equal(
+    await p.evaluate(() => NASAL.eng.getDriveState().dist),
+    padStopped,
+  );
+  assert(
+    await p
+      .getByRole("button", { name: "Brake and stop", exact: true })
+      .first()
+      .isVisible(),
+  );
+  // Autopilot follows the planned route and any manual input takes over again.
+  await p.locator(".autopilot-btn").click();
+  await p.waitForFunction(
+    (d) =>
+      NASAL.eng.getRoverStatus().autopilot.engaged &&
+      NASAL.eng.getDriveState().dist > d + 0.003,
+    padStopped,
+    { timeout: 60000 },
+  );
+  // The autopilot first steers back onto the route from wherever manual driving left the rover.
+  await p.waitForFunction(
+    () => NASAL.eng.getDriveState().routeCrossTrack < 0.002,
+    null,
+    { timeout: 60000 },
+  );
+  await p.keyboard.down("Space");
+  await p.waitForFunction(
+    () =>
+      !NASAL.eng.getRoverStatus().autopilot.engaged &&
+      NASAL.eng.getDriveState().kmh === 0,
+    null,
+    { timeout: 30000 },
+  );
+  await p.keyboard.up("Space");
+  report.checks.push(
+    "On-screen pad drives while held and stops on release; autopilot follows the route; Space brakes and disengages it",
+  );
   report.frameTiming = await p.evaluate(
     () =>
       new Promise((resolve) => {
@@ -242,7 +302,7 @@ try {
       return (
         Math.abs(r.camera.distance - 0.025) < 0.001 &&
         Math.abs(r.camera.yaw) < 0.02 &&
-        Math.abs(r.camera.followHeading - r.heading) < 0.05
+        Math.abs(Math.atan2(Math.sin(r.camera.followHeading - r.heading), Math.cos(r.camera.followHeading - r.heading))) < 0.05
       );
     },
     null,
@@ -252,7 +312,14 @@ try {
   assert(Math.abs(found.camera.distance - 0.025) < 0.001);
   assert(Math.abs(found.camera.yaw) < 0.02);
   assert(Math.hypot(found.x - located.x, found.z - located.z) < 0.01);
-  assert(Math.abs(found.camera.followHeading - found.heading) < 0.05);
+  assert(
+    Math.abs(
+      Math.atan2(
+        Math.sin(found.camera.followHeading - found.heading),
+        Math.cos(found.camera.followHeading - found.heading),
+      ),
+    ) < 0.05,
+  ); // headings are equal modulo a full turn
   report.checks.push(
     "Find rover restores the follow camera without resetting rover position; steering centres the view",
   );

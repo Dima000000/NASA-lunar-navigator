@@ -182,3 +182,19 @@ test("zero and very large user time rates keep clock and vehicle steps bounded t
   assert.equal(modelStepSeconds(0.1, -10), 0);
   assert.equal(modelStepSeconds(0.1, NaN), 0);
 });
+test("replanning is triggered by leaving the route or an unsafe route, never by time or progress alone", async () => {
+  const { shouldReplan } = await import("../app/drive-navigation.mjs");
+  const cellKm = 0.033;
+  // On the route: no replan however long ago the last request was.
+  assert.equal(shouldReplan({ cellKm, crossTrackKm: 0.01, sinceLastRequestMs: 1e9 }), false);
+  assert.equal(shouldReplan({ cellKm, crossTrackKm: 2.4 * cellKm }), false);
+  // Left the route by more than the threshold.
+  assert.equal(shouldReplan({ cellKm, crossTrackKm: 2.6 * cellKm }), true);
+  // Route became invalid.
+  assert.equal(shouldReplan({ cellKm, needsReplan: true }), true);
+  // Never while a search is running, without a route, or right after the previous request.
+  assert.equal(shouldReplan({ cellKm, needsReplan: true, busy: true }), false);
+  assert.equal(shouldReplan({ cellKm, needsReplan: true, hasRoute: false }), false);
+  assert.equal(shouldReplan({ cellKm, crossTrackKm: 1, sinceLastRequestMs: 500 }), false);
+  assert.equal(shouldReplan({ cellKm, crossTrackKm: NaN }), false);
+});
