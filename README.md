@@ -17,6 +17,10 @@ Project for [NASA Space Apps Challenge 2026 — Lunar Landing Site Navigator](ht
 
 **Result:** compare locations and dates against measured LOLA horizons, inspect 3D terrain and find five high-scoring surface-stay windows of a year. A hypothetical rover demonstrates constraints from moving shadows, energy and terrain.
 
+## Team — Dark Vector
+
+Dark Vector
+
 ## Key findings
 
 All values below use a **2 m mast**, **hourly samples**, **7-day stays**, **6 h start grid**, Sun/Earth/short-night weights **50/30/20**. Visible means more than 0.05% of an apparent disc clears the sampled horizon.
