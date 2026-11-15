@@ -43,7 +43,7 @@ Annual predictions use 8,760 hours in 2026. Study periods, terrain releases and 
 
 ## Loading and performance
 
-Measured overview and interface load first; detailed default-site data follow in the background. Other site grids, LROC textures, route atlases and ephemeris years load on request. Interacting with the globe upgrades the measured overview to full global/polar detail. No procedural terrain replaces missing data.
+Measured overview and interface load first; detailed default-site data follow in the background. Other site grids, LROC textures, route atlases and ephemeris years load on request. The full-detail globe loads automatically in the background right after the first frame. No procedural terrain replaces missing data.
 
 **Initial load: 1.15 MB, 3.63 s on Fast 4G**, fresh browser context and cache disabled, on the development computer. [Measurement](public/research/initial-load.json). Chromium preset: 1,012,500 B/s download, 168,750 B/s upload, 165 ms adjusted latency. Device and hosting conditions affect results. A clean Linux GitHub runner independently measured **1.25 MB / 4.02 s** in [the validation record](public/research/ci-review.json).
 
