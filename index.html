@@ -30,6 +30,7 @@
       <sc-if data-bind-value="{{hud.hasMsg}}" data-bind-hint-placeholder-val="{{ false }}">
         <div class="hmsg">{{hud.msg}}</div>
       </sc-if>
+      <div class="drive-zoom mat" aria-label="Rover camera zoom"><button data-bind-onClick="{{driveZoomIn}}" aria-label="Zoom rover camera in">+</button><input type="range" min="-5.2983" max="3.1781" step="0.01" data-bind-value="{{driveZoom}}" data-bind-onInput="{{onDriveZoom}}" aria-label="Rover camera distance"><button data-bind-onClick="{{driveZoomOut}}" aria-label="Zoom rover camera out">−</button><button data-bind-onClick="{{driveZoomReset}}" aria-label="Reset rover camera distance">⟲</button></div>
       <div class="pad">
         <button class="turbo" data-bind-aria-pressed="{{turbo}}" data-bind-onClick="{{toggleTurbo}}" aria-label="Fast mode"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 6l7 6-7 6M12 6l7 6-7 6"></path></svg></button>
         <button data-bind-onPointerDown="{{pad.upOn}}" data-bind-onPointerUp="{{pad.upOff}}" data-bind-onPointerLeave="{{pad.upOff}}" data-bind-onPointerCancel="{{pad.upOff}}" aria-label="Drive forward"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5l7 10H5z"></path></svg></button>

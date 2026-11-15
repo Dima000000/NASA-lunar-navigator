@@ -1991,7 +1991,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         }
         if (S.land) { stepLanding(now, dt); anim = true; }
         if (S.dust0 > 0 && now - S.dust0 < 4500) anim = true;
-        if (S.view === 'drive' && S.rover) { stepDrive(now, dt); anim = true; }
+        if (S.view === 'drive' && S.rover) { if(S.dc.zoomTarget)S.dc.dist=lerp(S.dc.dist,S.dc.zoomTarget,1-Math.exp(-dt*16));stepDrive(now, dt); anim = true; }
         resize();
         if (!S.dirty && !anim) {
           if (S.view === 'region' && S.sel && lastF && now - lastOv > 33) { lastOv = now; g2.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); g2.clearRect(0, 0, S.W, S.H); drawOverlayRegion(lastF, now); }
@@ -2055,7 +2055,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       function onDbl(e) { if (S.view !== 'region') return; const rect = ov.getBoundingClientRect(), h = hitAt(e.clientX - rect.left, e.clientY - rect.top); if (h) cb.onOpen && cb.onOpen(h.id); }
       function zoom(k) {
         if (S.view === 'region') S.rc.dist = clamp(S.rc.dist * k, 0.03, 6);
-        else if (S.view === 'drive') S.dc.dist = clamp(S.dc.dist * k, 0.005, 0.15);
+        else if (S.view === 'drive') S.dc.zoomTarget = clamp((S.dc.zoomTarget || S.dc.dist) * k, 0.005, 24);
         else S.tc.dist = clamp(S.tc.dist * k, 0.05, 30);
         S.dirty = true;
       }
@@ -2102,6 +2102,9 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         key(name, on) { S.keys[name] = on; },
         resetRover() { S.spawn = null; if (S.view === 'drive') initDrive(); S.dirty = true; },
         zoom(k) { zoom(k); },
+        setDriveZoom(value){S.dc.zoomTarget=clamp(value,.005,24);S.dirty=true;},
+        getDriveZoom(){return S.dc.zoomTarget||S.dc.dist;},
+        resetDriveZoom(){S.dc.zoomTarget=DRIVE_START_DISTANCE;},
         reset() { if (S.view === 'region') initRegion(null); else if (S.view === 'terrain') initTerrain(); else S.dc = { yaw: 0, pitch: 0.2, dist: DRIVE_START_DISTANCE, hs: S.rover ? S.rover.heading : 0 }; S.fly = null; S.dirty = true; },
         destroy() {
           alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect();
