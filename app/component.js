@@ -1,4 +1,5 @@
 import {buildCSV} from './csv-export.mjs';
+export const DRIVE_START_DISTANCE = 0.035;
 
 window.NASALComponent = class Component extends DCLogic {
   constructor(...args) {
@@ -1681,7 +1682,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (!S.terr) return;
         const p = S.spawn || (S.target ? gridToWorld(S.target.i, S.target.j) : [0, 0, 0]), h = (S.tSun.az + 180) * D2R;
         S.rover = { pos: [p[0], groundAtW(p[0], p[2]), p[2]], heading: h, v: 0, batt: 80, dist: 0, sun: 1, earth: true, blocked: false, n: [0, 1, 0] };
-        S.dc = { yaw: 0, pitch: 0.2, dist: 0.014, hs: h };
+        S.dc = { yaw: 0, pitch: 0.2, dist: DRIVE_START_DISTANCE, hs: h };
         try { ov.focus({ preventScroll: true }); } catch (err) { }
       }
       function flyTo(lat, lon, close, done) {
@@ -2101,7 +2102,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         key(name, on) { S.keys[name] = on; },
         resetRover() { S.spawn = null; if (S.view === 'drive') initDrive(); S.dirty = true; },
         zoom(k) { zoom(k); },
-        reset() { if (S.view === 'region') initRegion(null); else if (S.view === 'terrain') initTerrain(); else S.dc = { yaw: 0, pitch: 0.2, dist: 0.014, hs: S.rover ? S.rover.heading : 0 }; S.fly = null; S.dirty = true; },
+        reset() { if (S.view === 'region') initRegion(null); else if (S.view === 'terrain') initTerrain(); else S.dc = { yaw: 0, pitch: 0.2, dist: DRIVE_START_DISTANCE, hs: S.rover ? S.rover.heading : 0 }; S.fly = null; S.dirty = true; },
         destroy() {
           alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect();
           ov.removeEventListener('pointerdown', onDown); ov.removeEventListener('pointermove', onMove); ov.removeEventListener('pointerup', onUp);
