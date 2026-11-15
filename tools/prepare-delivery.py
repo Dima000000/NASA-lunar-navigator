@@ -56,7 +56,7 @@ for site in json.loads((DATA/'catalog.json').read_text()):
     files[(base/'lroc-wac.jpg').as_posix()]={'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
 # Verification badge is a small runtime status, not a downloaded research report.
 save('verification-status.json',json.dumps(json.loads((ROOT/'public/research/verification-status.json').read_text(encoding='utf-8')),separators=(',',':')).encode())
-for p in DATA.rglob('*.json'):
+for p in sorted(DATA.rglob('*.json')):
     name=p.relative_to(DATA).as_posix()
     if name not in ('delivery-manifest.json','checksums.json'):files[name]={'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
 save('delivery-manifest.json',json.dumps({'format':1,'files':files},indent=2).encode())

@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.png -text
+*.jpg -text
+*.woff2 -text
+*.f32 -text
+*.u8 -text
+*.bin -text
+*.gz -text
