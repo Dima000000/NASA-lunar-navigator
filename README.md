@@ -45,7 +45,7 @@ Annual predictions use 8,760 hours in 2026. Study periods, terrain releases and 
 
 Measured overview and interface load first; detailed default-site data follow in the background. Other site grids, LROC textures, route atlases and ephemeris years load on request. Interacting with the globe upgrades the measured overview to full global/polar detail. No procedural terrain replaces missing data.
 
-**Initial load: 1.15 MB, 3.63 s on Fast 4G**, fresh browser context and cache disabled, on the development computer. [Measurement](public/research/initial-load.json). Chromium preset: 1,012,500 B/s download, 168,750 B/s upload, 165 ms adjusted latency. Device and hosting conditions affect results.
+**Initial load: 1.15 MB, 3.63 s on Fast 4G**, fresh browser context and cache disabled, on the development computer. [Measurement](public/research/initial-load.json). Chromium preset: 1,012,500 B/s download, 168,750 B/s upload, 165 ms adjusted latency. Device and hosting conditions affect results. A clean Linux GitHub runner independently measured **1.25 MB / 4.02 s** in [the validation run](https://github.com/Dima000000/NASA-lunar-navigator/actions/runs/43692710856).
 
 Illumination and map pixels are calculated in a worker with one active job and latest-time coalescing. A 20 s driving + 6 h/s playback + 4× CPU-throttling run measured **107 FPS average and 16.7 ms p95 interval**. [Conditions](public/research/review-dynamic-performance.json). This does not establish performance on every laptop.
 
@@ -61,7 +61,7 @@ Illumination and map pixels are calculated in a worker with one active job and l
 | JPL NAIF SPICE kernels incl. DE440 | MOON_ME Sun/Earth vectors | Hourly 2024–2036; lossless year files |
 | JPL Horizons | Independent validation | Airless observer tables |
 
-[Provenance](public/data/PROVENANCE.md), [direct NASA retrieval audit](public/data/direct-source-audit.json), [input hashes](tools/science-inputs.json), [derived checksums](public/data/checksums.json). The NASA reconstruction workflow publishes new binary inputs as release assets; Git retains code, small metadata and validation records. Bootstrap verifies every input hash and can fall back to an immutable historical snapshot.
+[Provenance](public/data/PROVENANCE.md), [direct NASA retrieval audit](public/data/direct-source-audit.json), [input hashes](tools/science-inputs.json), [derived checksums](public/data/checksums.json). [Versioned input archive](https://github.com/Dima000000/NASA-lunar-navigator/releases/tag/data-v20261115). The NASA reconstruction workflow publishes new binary inputs as release assets; Git retains code, small metadata and validation records. Bootstrap verifies every input hash and can fall back to an immutable historical snapshot.
 
 ## Known limitations
 

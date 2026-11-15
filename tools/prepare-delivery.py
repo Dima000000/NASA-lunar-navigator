@@ -12,9 +12,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'public' / 'data'
 files = {e['path']:{'bytes':e['bytes'],'sha256':e['sha256']} for e in json.loads((ROOT/'tools/science-inputs.json').read_text(encoding='utf-8'))['files']}
 def save(name, data):
+    name=Path(name).as_posix()
     p=DATA/name; p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
     files[name]={'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()}
 def packed(name, data):
+    name=Path(name).as_posix()
     save(name,gzip.compress(data,compresslevel=9,mtime=0));files[name]['decodedBytes']=len(data);files[name]['decodedSha256']=hashlib.sha256(data).hexdigest()
 def encoded_resize(source, target, size):
     # Decode heights before resampling; interpolating encoded RGB corrupts carries.
@@ -51,9 +53,9 @@ for site in json.loads((DATA/'catalog.json').read_text()):
     packed(str(base/'height.u16.gz'),q.astype('<u2').tobytes())
     save(str(base/'height.json'),json.dumps({'base':offset,'step':step,'N':481,'max_error_m':float(np.max(np.abs(offset+q*step-source))),'role':'Optional display-only quantization; science uses losslessly packed float32.'}).encode())
     p=DATA/base/'lroc-wac.jpg';Image.open(DATA/base/'lroc-wac.png').convert('L').save(p,quality=90,optimize=True)
-    files[str(base/'lroc-wac.jpg')]={'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
+    files[(base/'lroc-wac.jpg').as_posix()]={'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
 # Verification badge is a small runtime status, not a downloaded research report.
-save('verification-status.json',(ROOT/'public/research/verification-status.json').read_bytes())
+save('verification-status.json',json.dumps(json.loads((ROOT/'public/research/verification-status.json').read_text(encoding='utf-8')),separators=(',',':')).encode())
 for p in DATA.rglob('*.json'):
     name=p.relative_to(DATA).as_posix()
     if name not in ('delivery-manifest.json','checksums.json'):files[name]={'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}

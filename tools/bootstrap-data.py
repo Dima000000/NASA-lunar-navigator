@@ -33,7 +33,7 @@ def main():
                 req=urllib.request.Request(url,headers={'User-Agent':'Lunar-Navigator-data-bootstrap'})
                 with urllib.request.urlopen(req,timeout=60) as response,path.open('wb') as out:
                     while block:=response.read(1024*1024):out.write(block)
-            restore(path,args.target,manifest);print('Restored and verified scientific inputs.');return
+            restore(path,args.target,manifest);print('Restored and verified scientific inputs from '+url);return
         except Exception as e:
             failures.append(str(e))
             if path.exists():path.unlink()

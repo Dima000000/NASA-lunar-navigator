@@ -1,0 +1,44 @@
+{
+  "commit": "7ae1ac16e516f360ac6b67b43364919598a57abd",
+  "run": "https://github.com/Dima000000/NASA-lunar-navigator/actions/runs/43692710856",
+  "platform": "Clean GitHub Actions Ubuntu runner, Chromium",
+  "conclusion": "success",
+  "tests": 11,
+  "checks": [
+    "Fast 4G cold start; no startup research downloads or full science arrays",
+    "Actual browser CSV exported for the independently verified JPL month",
+    "Worker illumination agrees with the reference calculation",
+    "Conservative slope / Pareto-label route worker completes",
+    "Lazy mast-height profiles and local terrain transitions",
+    "Adjacent-year ephemerides, raw gzip delivery and actual top-five search",
+    "Another site loads only when selected",
+    "Custom-point spatial horizons extend to 300 km and agree with the pin profile",
+    "Overview interaction upgrades to original full measured globe data and geometry",
+    "Missing startup asset retries three times and shows an actionable error"
+  ],
+  "errors": [],
+  "initial": {
+    "readyMs": 4024.5999999999767,
+    "bytes": 1250405,
+    "profile": "Chromium Fast 4G: 1,012,500 B/s download, 168,750 B/s upload, 165 ms latency, fresh context, cache disabled"
+  },
+  "light": {
+    "N": 481,
+    "error": 0,
+    "atlasBins": 72
+  },
+  "route": {
+    "reachable": 180,
+    "expanded": 10480,
+    "pruned": 674,
+    "incomplete": false
+  },
+  "custom": {
+    "N": 241,
+    "extent": 300000,
+    "bins": 72,
+    "centreProfileDifferenceDeg": 0,
+    "finite": true
+  },
+  "failureMessage": "Could not load data/overview/global.png (HTTP 404). Please reload to retry."
+}

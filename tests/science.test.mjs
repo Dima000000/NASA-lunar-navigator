@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import {
   Ephemeris,
@@ -243,4 +244,16 @@ test("optional display-only quantization stays within half its documented height
     assert.ok(m.max_error_m <= m.step / 2 + 0.0001);
     assert.equal(m.step, 0.1);
   }
+});
+
+test("delivery URLs and hashes are portable across Windows and Linux", () => {
+  const data = new URL("../public/data/", import.meta.url);
+  const manifest = JSON.parse(fs.readFileSync(new URL("delivery-manifest.json", data)));
+  for (const [name, m] of Object.entries(manifest.files)) {
+    assert.ok(!name.includes("\\"), name);
+    const bytes = fs.readFileSync(new URL(name, data));
+    assert.equal(bytes.length, m.bytes, name);
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), m.sha256, name);
+  }
+  assert.ok(manifest.files["sites/cr/dem.f32.gz"].decodedSha256);
 });
