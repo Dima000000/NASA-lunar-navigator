@@ -72,7 +72,7 @@ try {
     readyMs: NASALInitialReadyMs,
     resources: performance
       .getEntriesByType("resource")
-      .map((x) => ({ name: x.name, bytes: x.transferSize })),
+      .map((x) => ({ name: x.name, bytes: x.transferSize, startTime: x.startTime })),
   }));
   report.initial = {
     readyMs: initial.readyMs,
@@ -86,7 +86,7 @@ try {
   );
   assert.ok(report.initial.bytes < 5e6);
   assert.ok(!network.some((x) => /\/research\//.test(x)));
-  assert.ok(!network.some((x) => /sp_dem_L1|moon_dem_4k|ephem\.bin$/.test(x)));
+  assert.ok(!initial.resources.some((x) => x.startTime < initial.readyMs && /sp_dem_L1|moon_dem_4k|ephem\.bin$/.test(x.name)));
   step(
     "Fast 4G cold start; no startup research downloads or full science arrays",
   );
