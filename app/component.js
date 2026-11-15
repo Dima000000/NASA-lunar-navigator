@@ -790,7 +790,7 @@ window.NASALComponent = class Component extends DCLogic {
         if (rc) {
           if(!rc.img){const cv=document.createElement('canvas'),K=31;cv.width=cv.height=K;const g=cv.getContext('2d'),im=g.createImageData(K,K),bands=[[1,92,148,112],[3,242,201,76],[6,227,147,107],[Infinity,217,83,79]];for(let y=0;y<K;y++)for(let x=0;x<K;x++){const t=rc.T[Math.round(y*(N-1)/(K-1))*N+Math.round(x*(N-1)/(K-1))];if(!Number.isFinite(t))continue;const col=bands.find(b=>t<=b[0]),p=((K-1-y)*K+x)*4;im.data.set([col[1],col[2],col[3],125],p);}g.putImageData(im,0,0);rc.img=cv;}
 
-          if(this._rangeImage!==rc.img){this._rangePrevious=this._rangeImage;this._rangeImage=rc.img;this._rangeFadeAt=performance.now();}
+          if(this._rangeImage!==rc.img){const now=performance.now(),f=Math.min(1,(now-this._rangeFadeAt)/400);if(this._rangeImage&&this._rangePrevious&&f<1){const cv=document.createElement('canvas');cv.width=cv.height=31;const g=cv.getContext('2d');g.globalAlpha=1-f;g.drawImage(this._rangePrevious,0,0);g.globalAlpha=f;g.drawImage(this._rangeImage,0,0);this._rangePrevious=cv;}else this._rangePrevious=this._rangeImage;this._rangeImage=rc.img;this._rangeFadeAt=now;}
           const fade=Math.min(1,(performance.now()-this._rangeFadeAt)/400);
           if(this._rangePrevious&&fade<1){ctx.globalAlpha=1-fade;ctx.drawImage(this._rangePrevious,0,0,W,W);}
           ctx.globalAlpha=fade;ctx.drawImage(rc.img,0,0,W,W);ctx.globalAlpha=1;
