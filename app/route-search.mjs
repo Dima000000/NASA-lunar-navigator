@@ -150,7 +150,7 @@ export function* reachSteps({
       i = k % N,
       j = Math.floor(k / N);
     expanded++;
-    if(expanded % 256 === 0) yield {expanded,maxExpansions};
+    if (expanded % 256 === 0) yield { expanded, maxExpansions };
     if (t < T[k]) {
       T[k] = t;
       best[k] = id;
@@ -224,4 +224,10 @@ export function conservativeSlopes(fine, displayN, routeN) {
   return out;
 }
 
-export function paretoReach(options){const steps=reachSteps(options);let next;do next=steps.next();while(!next.done);return next.value;}
+export function paretoReach(options) {
+  const steps = reachSteps(options);
+  let next;
+  do next = steps.next();
+  while (!next.done);
+  return next.value;
+}

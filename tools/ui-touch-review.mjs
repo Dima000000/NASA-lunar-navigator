@@ -1,0 +1,118 @@
+import { fileURLToPath } from "node:url";
+import { chromium } from "playwright";
+import fs from "node:fs";
+import assert from "node:assert/strict";
+const dir =
+  process.env.UI_REVIEW_OUT ||
+  fileURLToPath(new URL("../work/ui-pass-review/", import.meta.url));
+fs.mkdirSync(dir, { recursive: true });
+const baseURL = process.env.BASE_URL || "http://127.0.0.1:4173/";
+const b = await chromium.launch({
+  headless: true,
+  ...(process.env.CHROME_BIN
+    ? { executablePath: process.env.CHROME_BIN }
+    : process.platform === "win32"
+      ? {
+          executablePath:
+            "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+        }
+      : {}),
+  args: ["--no-proxy-server"],
+});
+const report = { errors: [] };
+try {
+  const c = await b.newContext({
+      viewport: { width: 390, height: 844 },
+      deviceScaleFactor: 2,
+      isMobile: true,
+      hasTouch: true,
+    }),
+    p = await c.newPage();
+  await p.addInitScript(() =>
+    localStorage.setItem("lunar-navigator-tour-v1", "done"),
+  );
+  p.on("pageerror", (e) => report.errors.push(e.message));
+  await p.goto(baseURL);
+  await p.waitForFunction(() => window.NASALInitialReadyMs);
+  await p.getByRole("button", { name: "Drive", exact: true }).click();
+  await p.waitForFunction(() => NASAL.terrReady());
+  await p.waitForTimeout(1500);
+  const s = await c.newCDPSession(p),
+    joy = await p.locator(".joystick").boundingBox(),
+    x = joy.x + joy.width / 2,
+    y = joy.y + joy.height / 2;
+  await s.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x, y, id: 1 }],
+  });
+  await s.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ x, y: y - 42, id: 1 }],
+  });
+  const start = await p.evaluate(() => ({
+    distance: NASAL.state.rover.dist,
+    time: NASAL._visualUTC,
+  }));
+  await p.waitForTimeout(19000);
+  await s.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ x: x + 32, y: y - 32, id: 1 }],
+  });
+  const heading = await p.evaluate(() => NASAL.state.rover.heading);
+  await p.waitForTimeout(2000);
+  await s.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await p.waitForTimeout(600);
+  report.drive = await p.evaluate(
+    ({ start, heading }) => ({
+      metres: (NASAL.state.rover.dist - start.distance) * 1000,
+      modelSeconds: (NASAL._visualUTC - start.time) / 1000,
+      headingChange: NASAL.state.rover.heading - heading,
+      scrollY,
+      joystick: document.querySelector(".joystick").style.cssText,
+    }),
+    { start, heading },
+  );
+  assert(report.drive.metres >= 200);
+  assert(Math.abs(report.drive.headingChange) > 0.1);
+  assert.equal(report.drive.scrollY, 0);
+  const zoom = await p.evaluate(() => NASAL.eng.getDriveZoom());
+  await s.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [
+      { x: 235, y: 350, id: 1 },
+      { x: 310, y: 350, id: 2 },
+    ],
+  });
+  await s.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [
+      { x: 215, y: 350, id: 1 },
+      { x: 335, y: 350, id: 2 },
+    ],
+  });
+  await s.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await p.waitForTimeout(500);
+  const nextZoom = await p.evaluate(() => NASAL.eng.getDriveZoom());
+  assert(nextZoom < zoom);
+  await p.getByRole("button", { name: "Reset rover camera distance" }).click();
+  await p.waitForTimeout(500);
+  assert(
+    Math.abs((await p.evaluate(() => NASAL.eng.getDriveZoom())) - 0.025) < 1e-6,
+  );
+  report.pinch = { before: zoom, after: nextZoom, reset: 0.025 };
+  await p.screenshot({ path: dir + "/after-touch-200m.png" });
+  fs.writeFileSync(
+    dir + "/touch-controls.json",
+    JSON.stringify(report, null, 2),
+  );
+  console.log(JSON.stringify(report));
+  assert.equal(report.errors.length, 0);
+} finally {
+  await b.close();
+}

@@ -1,19 +1,164 @@
-const KEY='lunar-navigator-tour-v1';
-const steps=[
- ['.stage','Explore the real Moon','This is the real south pole of the Moon, from NASA LOLA terrain. Drag the scene to look around.'],
- ['.plist','Pick a landing site','Choose a named place here, or select a point on the map to inspect the terrain.'],
- ['.mission-selector','Set landing and liftoff','Drag the two mission handles, or open Mission dates to enter UTC times. Statistics and comparisons use this interval.'],
- ['.playb','Watch the changing light','Press play to watch the Sun, Earth and shadows move. Playback speed is in Options.'],
- ['.planning-actions','Find a useful opportunity','Find top 5 windows searches dates for this place. Best spots for these dates searches positions for your mission.'],
- ['.topr .seg','Drive the rover','Select Drive to explore at rover scale. Use the arrow controls or the touch joystick; time and battery advance together.']
+const KEY = "lunar-navigator-tour-v1";
+const steps = [
+  [
+    ".stage",
+    "Explore the real Moon",
+    "This is the real south pole of the Moon, from NASA LOLA terrain. Drag the scene to look around.",
+  ],
+  [
+    ".plist",
+    "Pick a landing site",
+    "Choose a named place here, or select a point on the map to inspect the terrain.",
+  ],
+  [
+    ".mission-selector",
+    "Set landing and liftoff",
+    "Drag the two mission handles, or open Mission dates to enter UTC times. Statistics and comparisons use this interval.",
+  ],
+  [
+    ".playb",
+    "Watch the changing light",
+    "Press play to watch the Sun, Earth and shadows move. Playback speed is in Options.",
+  ],
+  [
+    ".planning-actions",
+    "Find a useful opportunity",
+    "Find top 5 windows searches dates for this place. Best spots for these dates searches positions for your mission.",
+  ],
+  [
+    ".topr .seg",
+    "Drive the rover",
+    "Select Drive to explore at rover scale. Use the arrow controls or the touch joystick; time and battery advance together.",
+  ],
 ];
-export class GuidedTour{
- constructor(app){this.app=app;this.index=-1;this.key=e=>{if(this.index<0||e.target.matches('input,select,textarea'))return;if(['Enter','ArrowRight','ArrowLeft','Escape','Tab'].includes(e.key)){e.preventDefault();e.stopImmediatePropagation();if(e.key==='Escape')this.stop();else if(e.key==='ArrowLeft')this.show(this.index-1);else if(e.key==='Tab'){const bs=[...this.card.querySelectorAll('button')].filter(b=>!b.disabled),i=bs.indexOf(document.activeElement);bs[(i+(e.shiftKey?-1:1)+bs.length)%bs.length]?.focus();}else this.next();}};this.resize=()=>this.position();window.addEventListener('keydown',this.key,true);window.addEventListener('resize',this.resize);window.addEventListener('scroll',this.resize,true);}
- first(){let seen=false;try{seen=localStorage.getItem(KEY)==='done';}catch{}if(!seen)this.start();}
- start(){this.previousFocus=document.activeElement;this.previousSheet=this.app.state.sheet;this.app.setState({sheet:null,playing:false,driveCard:true});this.show(0);}
- next(){if(this.index===steps.length-1)this.stop();else this.show(this.index+1);}
- show(i){this.index=Math.max(0,i);const [selector,title,text]=steps[this.index];this.app.setState({sheet:this.index===4?'expert':null,driveCard:true});if(!this.root){this.root=document.createElement('div');this.root.className='guided-tour';this.root.innerHTML='<div class="tour-focus"></div><section class="tour-card mat" role="dialog" aria-modal="true" aria-label="Quick tour"><small class="tour-count"></small><h2></h2><p></p><div class="tour-actions"><button class="btn sm tour-skip">Skip</button><button class="btn sm tour-back">Back</button><button class="btn sm pri tour-next">Next</button></div></section>';document.body.append(this.root);this.card=this.root.querySelector('.tour-card');this.root.querySelector('.tour-skip').onclick=()=>this.stop();this.root.querySelector('.tour-back').onclick=()=>this.show(this.index-1);this.root.querySelector('.tour-next').onclick=()=>this.next();}this.card.querySelector('h2').textContent=title;this.card.querySelector('p').textContent=text;this.card.querySelector('.tour-count').textContent=(this.index+1)+' / '+steps.length;this.card.querySelector('.tour-back').disabled=this.index===0;this.card.querySelector('.tour-next').textContent=this.index===steps.length-1?'Start exploring':'Next';this.selector=selector;cancelAnimationFrame(this.frame);this.frame=requestAnimationFrame(()=>{document.querySelector(selector)?.scrollIntoView({block:'nearest'});this.position();this.card.querySelector('.tour-next').focus({preventScroll:true});});}
- position(){if(this.index<0||!this.root)return;const el=document.querySelector(this.selector),w=innerWidth,h=innerHeight,r=el?.getBoundingClientRect()||{left:20,top:20,width:w-40,height:h/3};const focus=this.root.querySelector('.tour-focus'),full=this.selector==='.stage';Object.assign(focus.style,{left:(full?20:Math.max(4,r.left-5))+'px',top:(full?100:Math.max(4,r.top-5))+'px',width:(full?w-40:Math.min(w-8,r.width+10))+'px',height:(full?Math.max(80,h/3):Math.min(h-8,r.height+10))+'px'});const ch=this.card.offsetHeight,cw=this.card.offsetWidth;let top=r.bottom+18;if(top+ch>h-12)top=Math.max(12,r.top-ch-18);if(w<600)top=h-ch-12;Object.assign(this.card.style,{top:top+'px',left:Math.max(12,Math.min(w-cw-12,r.left))+'px'});if(w<600&&top<r.bottom+8&&top+ch>r.top){this.card.style.top='12px';}}
- stop(){try{localStorage.setItem(KEY,'done');}catch{}this.index=-1;cancelAnimationFrame(this.frame);this.root?.remove();this.root=null;this.app.setState({sheet:this.previousSheet||null});this.previousFocus?.focus?.({preventScroll:true});}
- destroy(){this.index=-1;cancelAnimationFrame(this.frame);this.root?.remove();window.removeEventListener('keydown',this.key,true);window.removeEventListener('resize',this.resize);window.removeEventListener('scroll',this.resize,true);}
+export class GuidedTour {
+  constructor(app) {
+    this.app = app;
+    this.index = -1;
+    this.key = (e) => {
+      if (this.index < 0 || e.target.matches("input,select,textarea")) return;
+      if (
+        ["Enter", "ArrowRight", "ArrowLeft", "Escape", "Tab"].includes(e.key)
+      ) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (e.key === "Escape") this.stop();
+        else if (e.key === "ArrowLeft") this.show(this.index - 1);
+        else if (e.key === "Tab") {
+          const bs = [...this.card.querySelectorAll("button")].filter(
+              (b) => !b.disabled,
+            ),
+            i = bs.indexOf(document.activeElement);
+          bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]?.focus();
+        } else this.next();
+      }
+    };
+    this.resize = () => this.position();
+    window.addEventListener("keydown", this.key, true);
+    window.addEventListener("resize", this.resize);
+    window.addEventListener("scroll", this.resize, true);
+  }
+  first() {
+    let seen = false;
+    try {
+      seen = localStorage.getItem(KEY) === "done";
+    } catch {}
+    if (!seen) this.start();
+  }
+  start() {
+    this.previousFocus = document.activeElement;
+    this.previousSheet = this.app.state.sheet;
+    this.app.setState({ sheet: null, playing: false, driveCard: true });
+    this.show(0);
+  }
+  next() {
+    if (this.index === steps.length - 1) this.stop();
+    else this.show(this.index + 1);
+  }
+  show(i) {
+    this.index = Math.max(0, i);
+    const [selector, title, text] = steps[this.index];
+    this.app.setState({
+      sheet: this.index === 4 ? "expert" : null,
+      driveCard: true,
+    });
+    if (!this.root) {
+      this.root = document.createElement("div");
+      this.root.className = "guided-tour";
+      this.root.innerHTML =
+        '<div class="tour-focus"></div><section class="tour-card mat" role="dialog" aria-modal="true" aria-label="Quick tour"><small class="tour-count"></small><h2></h2><p></p><div class="tour-actions"><button class="btn sm tour-skip">Skip</button><button class="btn sm tour-back">Back</button><button class="btn sm pri tour-next">Next</button></div></section>';
+      document.body.append(this.root);
+      this.card = this.root.querySelector(".tour-card");
+      this.root.querySelector(".tour-skip").onclick = () => this.stop();
+      this.root.querySelector(".tour-back").onclick = () =>
+        this.show(this.index - 1);
+      this.root.querySelector(".tour-next").onclick = () => this.next();
+    }
+    this.card.querySelector("h2").textContent = title;
+    this.card.querySelector("p").textContent = text;
+    this.card.querySelector(".tour-count").textContent =
+      this.index + 1 + " / " + steps.length;
+    this.card.querySelector(".tour-back").disabled = this.index === 0;
+    this.card.querySelector(".tour-next").textContent =
+      this.index === steps.length - 1 ? "Start exploring" : "Next";
+    this.selector = selector;
+    cancelAnimationFrame(this.frame);
+    this.frame = requestAnimationFrame(() => {
+      document.querySelector(selector)?.scrollIntoView({ block: "nearest" });
+      this.position();
+      this.card.querySelector(".tour-next").focus({ preventScroll: true });
+    });
+  }
+  position() {
+    if (this.index < 0 || !this.root) return;
+    const el = document.querySelector(this.selector),
+      w = innerWidth,
+      h = innerHeight,
+      r = el?.getBoundingClientRect() || {
+        left: 20,
+        top: 20,
+        width: w - 40,
+        height: h / 3,
+      };
+    const focus = this.root.querySelector(".tour-focus"),
+      full = this.selector === ".stage";
+    Object.assign(focus.style, {
+      left: (full ? 20 : Math.max(4, r.left - 5)) + "px",
+      top: (full ? 100 : Math.max(4, r.top - 5)) + "px",
+      width: (full ? w - 40 : Math.min(w - 8, r.width + 10)) + "px",
+      height:
+        (full ? Math.max(80, h / 3) : Math.min(h - 8, r.height + 10)) + "px",
+    });
+    const ch = this.card.offsetHeight,
+      cw = this.card.offsetWidth;
+    let top = r.bottom + 18;
+    if (top + ch > h - 12) top = Math.max(12, r.top - ch - 18);
+    if (w < 600) top = h - ch - 12;
+    Object.assign(this.card.style, {
+      top: top + "px",
+      left: Math.max(12, Math.min(w - cw - 12, r.left)) + "px",
+    });
+    if (w < 600 && top < r.bottom + 8 && top + ch > r.top) {
+      this.card.style.top = "12px";
+    }
+  }
+  stop() {
+    try {
+      localStorage.setItem(KEY, "done");
+    } catch {}
+    this.index = -1;
+    cancelAnimationFrame(this.frame);
+    this.root?.remove();
+    this.root = null;
+    this.app.setState({ sheet: this.previousSheet || null });
+    this.previousFocus?.focus?.({ preventScroll: true });
+  }
+  destroy() {
+    this.index = -1;
+    cancelAnimationFrame(this.frame);
+    this.root?.remove();
+    window.removeEventListener("keydown", this.key, true);
+    window.removeEventListener("resize", this.resize);
+    window.removeEventListener("scroll", this.resize, true);
+  }
 }
