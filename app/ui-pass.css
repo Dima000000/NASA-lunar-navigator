@@ -12,3 +12,5 @@
 .ui-pass .brow{display:grid!important;grid-template-columns:minmax(120px,42%) minmax(0,1fr)!important;gap:12px!important}.ui-pass .bname{width:auto!important;max-width:none!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.35;font-size:12px}.ui-pass .bbar{min-width:0;align-self:center}.ui-pass .charts svg{overflow:visible}.ui-pass .charts .pnl>svg{overflow:visible;width:100%}.ui-pass .charts .clegend{display:flex!important;flex-wrap:wrap;gap:6px 12px;font-size:12px}.ui-pass .chart-site-legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px;font-size:12px}.chart-site-legend span{display:flex;gap:6px;align-items:center}
 
 .help-dot{padding:0!important;min-width:20px;min-height:20px!important;border-radius:50%;font-size:11px;color:var(--ui-text-2);background:rgba(118,118,128,.2)}.more-stats{margin-top:12px;font-size:12px}.more-stats summary{cursor:pointer;color:var(--ui-text-2);padding:8px 0}
+
+.methods{margin:16px 0;padding:12px;border:1px solid rgba(255,255,255,.12);border-radius:14px}.methods>summary{cursor:pointer;font-weight:600}.methods .sect{margin-top:14px}

@@ -481,6 +481,7 @@
         </div>
         <p class="note">Gläser et al. report 92.3% and 95.66% time with any Sun visible at specific, different Connecting Ridge points over 19 years, at 2 m and 10 m. These are not annual values for every point. <a href="https://elib.dlr.de/94242/1/EPSC2014-136-1.pdf" target="_blank" rel="noopener">Source and exact coordinates</a>. <a href="research/annual-illumination.csv" target="_blank" rel="noopener">Annual results</a> and <a href="research/shackleton-literature-comparison.csv" target="_blank" rel="noopener">Shackleton publication comparison</a>.</p>
       </div>
+      <details class="methods"><summary>Methods &amp; limits</summary>
       <div class="sect">
         <div class="sh">How the metrics are defined</div>
         <dl class="kv">
@@ -539,6 +540,7 @@
         </sc-if>
         <p class="note">{{winNote}}</p>
       </div>
+      </details>
       <div class="sect">
         <div class="sh">Right now</div><p class="note"><a data-bind-href="{{siteSource}}" target="_blank" rel="noopener">Source for this place ↗</a> · {{siteSourceLabel}}</p>
         <dl class="kv">
@@ -559,6 +561,7 @@
         <label class="fl" style="margin-top: 8px"><span>Earth contact · {{wEarth}}</span><input class="rng" type="range" min="0" max="100" step="5" data-bind-value="{{wEarth}}" data-bind-onChange="{{onWEarth}}"></label>
         <label class="fl" style="margin-top: 8px"><span>Short darkness · {{wGap}}</span><input class="rng" type="range" min="0" max="100" step="5" data-bind-value="{{wGap}}" data-bind-onChange="{{onWGap}}"></label>
       </div>
+      <details class="methods"><summary>Data sources, export &amp; scientific limits</summary>
       <div class="sect">
         <div class="sh">Export &amp; verify</div><p class="note">Imagery: <a href="https://data.lroc.im-ldi.com/lroc/view_rdr/WAC_ROI_SOUTH_SUMMER" target="_blank" rel="noopener">LROC WAC summer mosaic, 100 m/pixel</a>. The photograph includes fixed acquisition shadows from 2010; calculated Sun visibility and power use the current date independently.</p>
         <div style="display: flex; gap: 8px; flex-wrap: wrap">
@@ -573,6 +576,7 @@
         <p class="note">Data &amp; sources: Sun/Earth geometry from an hourly NASA/JPL SPICE DE440 MOON_ME vector table, with observer position correction, checkable against <a href="https://ssd.jpl.nasa.gov/horizons/app.html" target="_blank" rel="noopener">NASA/JPL Horizons</a>. Terrain uses measured NASA LOLA elevations (16 × 16 km, 33 m display grid; 20–80 m source near the pole) from <a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener">NASA Goddard PGDA</a>. Site coordinates: DLR Connecting Ridge study, LROC; ≈ marks approximate values. Font: Inter (SIL OFL). Data derivatives and exact coverage: <a href="data/PROVENANCE.md" target="_blank">provenance</a>. Catalogue site horizons include terrain to 300 km. Published PSRs are used directly. Vehicle capabilities and suitability thresholds are explicit scenario assumptions. Geometric visibility is not panel output or a certified radio link.</p>
         <p class="note">Positions use hourly SPICE vectors for 2024–2036 UTC (DE440, MOON_ME). Live monthly Horizons verification status is shown above; archival checks alone do not certify a full month. Azimuth is clockwise from north; longitudes are east-positive. Sunlight is not panel power, Earth in view is not a guaranteed radio link, and this is not a landing-safety assessment.</p>
       </div>
+      </details>
     </div>
   </sc-if>
 </div>
