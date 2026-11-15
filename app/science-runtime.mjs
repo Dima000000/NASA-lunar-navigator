@@ -406,8 +406,8 @@ export function enhancedComponent(Base, S) {
           this._routeToken++;
           this.setState({
             routeStatus: m.incomplete
-              ? "Approximate route search reached its budget; reachable cells shown are feasible."
-              : "Time + energy route ready · Pareto labels, conservative cell slopes",
+              ? "Search budget reached: far areas may be missing; coloured areas are reachable."
+              : "Drive times ready · time and battery modelled, slopes over 20° avoided",
           });
         }
         if (m.type === "error") {
@@ -509,6 +509,7 @@ export function enhancedComponent(Base, S) {
         })
         .finally(() => {
           this._dataLoading = false;
+          this._addingPlace = false;
           super.setState({});
         });
     }
@@ -533,6 +534,7 @@ export function enhancedComponent(Base, S) {
         );
       if (missing) {
         const job = ++this._prepareToken || (this._prepareToken = 1);
+        this._addingPlace = customMissing;
         this.loadTask(async () => {
           await Promise.all([
             ...(terrainMissing
@@ -558,9 +560,18 @@ export function enhancedComponent(Base, S) {
       const site = this.selSite(),
         p = S.bySite(site);
       if (p?.heights) return super.goView(view);
-      this.loadTask(async () => {
+      const load = async () => {
         if (p) await S.loadTerrain(p.meta.key);
         else await Promise.all([window.RealMoon.ensureLocal(), S.loadMask()]);
+      };
+      // From the globe: fly in while the terrain loads (no pause before the camera moves).
+      if (this.state.view === "region" && this.eng) {
+        const ready = this.loadTask(load);
+        ready.catch(() => {});
+        return super.goView(view, ready);
+      }
+      this.loadTask(async () => {
+        await load();
         super.goView(view);
       }).catch(() => {});
     }
@@ -965,7 +976,17 @@ export function enhancedComponent(Base, S) {
       if (!this.eng) return;
       const ser = this.series(),
         utc = ser.times[Math.min(this.state.ti, ser.n - 1)];
-      this.eng.set({ simUTC: utc });
+      // While driving the clock is continuous; do not snap the rover's clock back to the hour step.
+      const live = this._visualUTC;
+      this.eng.set({
+        simUTC:
+          this.state.view === "drive" &&
+          Number.isFinite(live) &&
+          live >= utc &&
+          live - utc <= ser.stepH * 3600000
+            ? live
+            : utc,
+      });
       if (!(this._tj?.dem.product || this._tj?.dem.customAtlas))
         this.eng.set({ scienceAt: null });
       if (
@@ -1053,8 +1074,11 @@ export function enhancedComponent(Base, S) {
           (this._dataLoading || this._detailLoading
             ? (this._detailLoading
                 ? "Refining measured lunar detail… "
-                : "Loading measured data… ") +
-              (window.NASALDataProgress
+                : this._addingPlace
+                  ? "Adding place: tracing its horizon… "
+                  : "Loading measured data… ") +
+              (window.NASALDataProgress &&
+              window.NASALDataProgress.loaded < window.NASALDataProgress.total
                 ? (window.NASALDataProgress.loaded / 1e6).toFixed(1) +
                   " / " +
                   (window.NASALDataProgress.total / 1e6).toFixed(1) +

@@ -177,7 +177,8 @@ test("zero and very large user time rates keep clock and vehicle steps bounded t
   assert.equal(modelStepSeconds(0.02, 60), 1.2);
   assert.equal(modelStepSeconds(0.1, 0), 0);
   assert.equal(modelStepSeconds(0.1, 123.45, true), 0);
-  assert.equal(modelStepSeconds(0.1, 1e200), 30);
+  assert.equal(modelStepSeconds(0.1, 1e200), 8640);
+  assert.equal(modelStepSeconds(1, 3600), 3600);
   assert.equal(modelStepSeconds(0.1, -10), 0);
   assert.equal(modelStepSeconds(0.1, NaN), 0);
 });

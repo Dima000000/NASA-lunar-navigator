@@ -1,6 +1,7 @@
 import { Ephemeris, VEHICLE, batteryAfter, RAD } from "./science-core.mjs";
 import { reachSteps } from "./route-search.mjs";
 import { buildTripPlan } from "./planning-analysis.mjs";
+import { smoothPlan } from "./route-smoothing.mjs";
 import {
   navigationGeometry,
   navigationSky,
@@ -181,8 +182,8 @@ onmessage = async ({ data: q }) => {
       searchScope = "full fine grid";
     }
     if (!r || generation !== token) return;
-    const points = new Proxy([], { get: (_, key) => g.point(Number(key)) }),
-      plan = buildTripPlan(
+    const points = new Proxy([], { get: (_, key) => g.point(Number(key)) });
+    let plan = buildTripPlan(
         {
           N: g.N,
           points,
@@ -195,9 +196,11 @@ onmessage = async ({ data: q }) => {
         sky,
         g.goal,
       );
+    // Any-angle smoothing of the 8-connected grid path (falls back to the grid path).
+    plan = smoothPlan(q, g, ephem, plan);
     if (!plan.reachable)
       plan.reason = r.incomplete
-        ? "No feasible route found within the search budget. Try a closer point or another date."
+        ? "No route found that keeps the battery charged: the way there likely crosses long shadow. Try a closer or sunlit point, or another date."
         : "No energy-feasible route found from the rover for these dates and battery. Try another destination or planning horizon.";
     postMessage({
       type: "navigation",

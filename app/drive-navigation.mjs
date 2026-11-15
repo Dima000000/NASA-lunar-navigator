@@ -62,13 +62,32 @@ export function surfacePath(dem, points) {
   }
   return out;
 }
+// Fastest Drive time multiplier: one real second is one simulated day.
+export const MAX_TIME_SCALE = 86400;
+// Fast-forward presets, cycled by the » button.
+export const TIME_PRESETS = [1, 60, 600, 3600, 86400];
+// No per-frame cap: one real second at 3600x is exactly one simulated hour.
+// The rover sub-steps its motion along the terrain instead (see stepDrive).
 export function modelStepSeconds(realDt, scale, paused = false) {
   return paused
     ? 0
-    : Math.min(
-        30,
-        Math.max(0, realDt) * Math.max(0, Number.isFinite(scale) ? scale : 0),
-      );
+    : Math.max(0, realDt) *
+        Math.min(MAX_TIME_SCALE, Math.max(0, Number.isFinite(scale) ? scale : 0));
+}
+// "1 s = 1 h" style description of a time multiplier.
+export function timeRateLabel(scale) {
+  if (!(scale > 0)) return "paused";
+  const units = [
+    [86400, "day"],
+    [3600, "h"],
+    [60, "min"],
+  ];
+  for (const [s, u] of units)
+    if (scale >= s) {
+      const v = scale / s;
+      return "1 s = " + (Number.isInteger(v) ? v : v.toFixed(1)) + " " + (u === "day" && v !== 1 ? "days" : u);
+    }
+  return scale === 1 ? "real time" : "1 s = " + (Number.isInteger(scale) ? scale : scale.toFixed(1)) + " s";
 }
 export function navigationGeometry(q) {
   const d = q.dem,
