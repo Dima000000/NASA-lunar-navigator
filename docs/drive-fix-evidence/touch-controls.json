@@ -1,9 +1,10 @@
 {
   "errors": [],
   "drive": {
-    "metres": 221.7020952896918,
-    "modelSeconds": 1143.576,
-    "headingChange": 0.45808249703248993,
+    "metres": 279.38783363665357,
+    "modelSeconds": 1440.12,
+    "selectedTimeMultiplier": 300,
+    "headingChange": 0.44592427568542625,
     "scrollY": 0,
     "joystick": "--joy-x: 0px; --joy-y: 0px;"
   },
