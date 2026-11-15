@@ -389,7 +389,7 @@ export function enhancedComponent(Base, S) {
       this.syncWorkerYears();
       this._scienceWorker.onmessage = ({ data: m }) => {
         if(m.type==='bestProgress'&&m.job===this._bestJob){this._bestProgress=m.progress;if(performance.now()-(this._progressPaint||0)>200){this._progressPaint=performance.now();this.setState({bestStatus:'Ranking measured grid points… '+Math.round(m.progress*100)+'%'});}return;}
-        if(m.type==='bestSpots'&&m.job===this._bestJob){this.setState({bestSpots:m.rows,bestStatus:'Top five spots · 533 m grid · hourly samples'});return;}
+        if(m.type==='bestSpots'&&m.job===this._bestJob){this.setState({bestSpots:m.rows,bestStatus:'Top five spots · 533 m grid · LOLA horizon · any part of each disc visible'});return;}
         if(m.type==='trip'){this._trip=m;this.setState({});return;}
         if(m.type==='routeProgress'&&m.job===this._routeJob){this._routeExpanded=m.expanded;if(performance.now()-(this._progressPaint||0)>200){this._progressPaint=performance.now();this.setState({});}return;}
         if (m.type === "windows") {

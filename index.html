@@ -467,7 +467,7 @@
   <sc-if data-bind-value="{{sheetExpert}}" data-bind-hint-placeholder-val="{{ false }}">
     <div class="sheet mat" role="dialog" aria-label="Details and settings">
       <div class="shead"><h2 class="stitle">Science details</h2><button class="xb" data-bind-onClick="{{closeSheet}}" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
-      <div class="sect"><div class="sh">Scientific verification</div><p class="note">{{ephemerisStatus}}</p><p class="note">{{scienceStatus}}</p><a class="btn sm" href="research/browser-vs-horizons.csv" target="_blank" rel="noopener">Browser CSV vs JPL · comparison table ↗</a><a class="btn sm" href="research/SCIENCE_REVIEW.md" target="_blank" rel="noopener">Methods, publications &amp; limits ↗</a></div>
+      <div class="sect"><div class="sh">Scientific verification</div><p class="note">{{ephemerisStatus}}</p><p class="note">{{scienceStatus}}</p><p class="note">{{validationFacts}}</p><div class="science-summary"><b>Data</b><ul><li><a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener">NASA LOLA elevations and horizons</a></li><li><a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">JPL Sun / Earth ephemerides</a></li><li><a href="https://data.lroc.im-ldi.com/lroc/view_rdr/WAC_ROI_SOUTH_SUMMER" target="_blank" rel="noopener">LROC imagery and published shadow maps</a></li></ul><b>Key limits</b><ul><li>Earth in view does not guarantee a radio link.</li><li>Sun visibility is not a spacecraft power forecast.</li><li>533 m routing cannot resolve narrow hazards.</li><li>Vehicle, slope limits and long-route pruning are scenario assumptions.</li><li>Fine texture and descent animation are illustrative.</li></ul></div><a class="btn sm" href="research/browser-vs-horizons.csv" target="_blank" rel="noopener">Browser CSV vs JPL · comparison table ↗</a><a class="btn sm" href="research/SCIENCE_REVIEW.md" target="_blank" rel="noopener">Methods, publications &amp; limits ↗</a></div>
       <div class="sect"><div class="sh planning-actions">Find the best landing dates</div><button class="btn sm" data-bind-onClick="{{findBestSpots}}">Best spots for these dates</button><p class="note" role="status">{{bestStatus}}</p><sc-for data-bind-list="{{bestRows}}" as="spot"><button class="best-spot btn" data-bind-onClick="{{spot.pick}}"><b>{{spot.rank}} · {{spot.coords}}</b><span>{{spot.summary}}</span></button></sc-for><p class="note">Ranks stays by Sun visibility, Earth visibility and the longest night, using your ranking weights and observer height. These are geometric opportunities; no trajectory or landing-safety assessment.</p><label class="fl"><span>Search year</span><input class="inp" type="number" min="2024" max="2034" data-bind-value="{{windowYear}}" data-bind-onChange="{{onWindowYear}}"></label><label class="fl"><span>Stay duration · hours</span><input class="inp" type="number" min="1" max="720" data-bind-value="{{stayHours}}" data-bind-onChange="{{onStayHours}}"></label><button class="btn sm pri" data-bind-onClick="{{findWindows}}">Find top 5 windows</button><p class="note">{{windowStatus}}</p><sc-for data-bind-list="{{windowRows}}" as="w"><div class="sect"><button class="btn sm" data-bind-onClick="{{w.pick}}">{{w.title}} ↗</button><p class="note">☀ {{w.sun}} · ⊕ {{w.earth}} · longest night {{w.dark}} · {{w.score}}</p></div></sc-for></div>
       <p class="note" style="margin-top: 0">For mission planners and judges: how the numbers are calculated, the exact values behind the cards, and links to check them against NASA/JPL Horizons. You don’t need this panel to use the app.</p>
       <div class="sect" style="margin-top: 16px">
@@ -482,9 +482,10 @@
         <div class="seg full" role="group" aria-label="Observer height">
           <sc-for data-bind-list="{{obsOpts}}" as="o" hint-placeholder-count="3"><button data-bind-aria-pressed="{{o.on}}" data-bind-onClick="{{o.pick}}">{{o.label}}</button></sc-for>
         </div>
-        <p class="note">Gläser et al. report 92.3% and 95.66% time with any Sun visible at specific, different Connecting Ridge points over 19 years, at 2 m and 10 m. These are not annual values for every point. <a href="https://elib.dlr.de/94242/1/EPSC2014-136-1.pdf" target="_blank" rel="noopener">Source and exact coordinates</a>. <a href="research/annual-illumination.csv" target="_blank" rel="noopener">Annual results</a> and <a href="research/shackleton-literature-comparison.csv" target="_blank" rel="noopener">Shackleton publication comparison</a>.</p>
+
       </div>
       <details class="methods"><summary>Methods &amp; limits</summary>
+        <p class="note">Gläser et al. report 92.3% and 95.66% time with any Sun visible at specific, different Connecting Ridge points over 19 years, at 2 m and 10 m. These are not annual values for every point. <a href="https://elib.dlr.de/94242/1/EPSC2014-136-1.pdf" target="_blank" rel="noopener">Source and exact coordinates</a>. <a href="research/annual-illumination.csv" target="_blank" rel="noopener">Annual results</a> and <a href="research/shackleton-literature-comparison.csv" target="_blank" rel="noopener">Shackleton publication comparison</a>.</p>
       <div class="sect">
         <div class="sh">How the metrics are defined</div>
         <dl class="kv">
@@ -544,13 +545,13 @@
         <p class="note">{{winNote}}</p>
       </div>
       </details>
-      <div class="sect">
+      <details class="methods"><summary>Live geometry</summary><div class="sect">
         <div class="sh">Right now</div><p class="note"><a data-bind-href="{{siteSource}}" target="_blank" rel="noopener">Source for this place ↗</a> · {{siteSourceLabel}}</p>
         <dl class="kv">
           <sc-for data-bind-list="{{proRows}}" as="r" hint-placeholder-count="8"><div class="kvr"><dt>{{r.k}}</dt><dd>{{r.v}}</dd></div></sc-for>
         </dl>
       </div>
-      <div class="sect">
+      </details><div class="sect">
         <div class="sh">Count the Sun or Earth as visible when</div>
         <select class="sel" data-bind-value="{{visDef}}" data-bind-onChange="{{onVisDef}}">
           <option value="any">any part of the disk is up</option>

@@ -16,7 +16,7 @@ function makeSky(q){
         hi = a.heights_m.indexOf(q.height),
         cache = new Map();
       const sky = (k, ms) => {
-        const hour = Math.round(ms / 900000),
+        const hour = q.cache===false?ms/900000:Math.round(ms / 900000),
           key = k + N * N * hour;
         if(q.cache!==false&&cache.has(key)) return cache.get(key);
         const p = q.points[k],
