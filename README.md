@@ -5,7 +5,7 @@
 **Challenge:** https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/
 
 
-> Not affiliated with or endorsed by NASA. Uses openly published NASA/JPL data. Research and education; not operational landing or navigation certification.
+> Not affiliated with or endorsed by NASA. NASA data are used under their public terms. Research and education; not operational landing or navigation certification.
 
 ## What it is for
 
