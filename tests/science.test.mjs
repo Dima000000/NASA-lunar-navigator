@@ -248,12 +248,29 @@ test("optional display-only quantization stays within half its documented height
 
 test("delivery URLs and hashes are portable across Windows and Linux", () => {
   const data = new URL("../public/data/", import.meta.url);
-  const manifest = JSON.parse(fs.readFileSync(new URL("delivery-manifest.json", data)));
+  const manifest = JSON.parse(
+    fs.readFileSync(new URL("delivery-manifest.json", data)),
+  );
   for (const [name, m] of Object.entries(manifest.files)) {
     assert.ok(!name.includes("\\"), name);
     const bytes = fs.readFileSync(new URL(name, data));
     assert.equal(bytes.length, m.bytes, name);
-    assert.equal(createHash("sha256").update(bytes).digest("hex"), m.sha256, name);
+    assert.equal(
+      createHash("sha256").update(bytes).digest("hex"),
+      m.sha256,
+      name,
+    );
   }
   assert.ok(manifest.files["sites/cr/dem.f32.gz"].decodedSha256);
+  const provenance = JSON.parse(
+    fs.readFileSync(new URL("checksums.json", data)),
+  );
+  for (const [name, expected] of Object.entries(provenance.files)) {
+    const bytes = fs.readFileSync(new URL(name, data));
+    assert.equal(
+      createHash("sha256").update(bytes).digest("hex"),
+      expected,
+      name,
+    );
+  }
 });

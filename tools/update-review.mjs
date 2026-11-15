@@ -140,13 +140,34 @@ readme = readme.replace(
 );
 write("README.md", readme);
 const data = new URL("public/data/", root),
-  checks = { generated: "2026-11-14", algorithm: "sha256", files: {} };
+  sourceNames = new Set(
+    read("tools/science-inputs.json").files.map((e) => e.path),
+  ),
+  checks = {
+    generated: "2026-11-15",
+    algorithm: "sha256",
+    scope:
+      "Authoritative input files and tracked science metadata. Generated delivery products use delivery-manifest.json.",
+    files: {},
+  };
 function walk(p, prefix = "") {
   for (const e of fs.readdirSync(p, { withFileTypes: true })) {
     const name = prefix + e.name,
       u = new URL(e.name + (e.isDirectory() ? "/" : ""), p);
     if (e.isDirectory()) walk(u, name + "/");
-    else if (name !== "checksums.json")
+    else if (
+      sourceNames.has(name) ||
+      name === "PROVENANCE.md" ||
+      (name.endsWith(".json") &&
+        !name.startsWith("ephem/") &&
+        !name.startsWith("overview/") &&
+        !name.endsWith("/height.json") &&
+        ![
+          "checksums.json",
+          "delivery-manifest.json",
+          "verification-status.json",
+        ].includes(name))
+    )
       checks.files[name] = crypto
         .createHash("sha256")
         .update(fs.readFileSync(u))
