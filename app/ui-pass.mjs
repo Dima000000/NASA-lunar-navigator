@@ -1,3 +1,4 @@
+import {skyPanorama} from "./sky-panorama.mjs";
 import {interpolateVisualState} from "./visual-time.mjs";
 export function withUIPass(Base, science) {
  return class UIPass extends Base {
@@ -22,6 +23,7 @@ export function withUIPass(Base, science) {
    v.driveTimeScale=this.state.driveTimeScale;v.onDriveTimeScale=e=>this.setState({driveTimeScale:Number(e.target.value)});v.toggleTurbo=()=>this.setState({driveTimeScale:this.state.driveTimeScale===300?60:300});v.turbo=this.state.driveTimeScale===300;
    if(this.state.view==='drive'&&this._visualUTC){v.timeSmall=new Date(this._visualUTC).toISOString().slice(11,19)+' UTC · ×'+this.state.driveTimeScale+' time';}
    v.joyDown=e=>this.joystickEvent(e);v.joyMove=e=>this.joystickEvent(e);v.joyUp=e=>this.joystickEvent(e,true);
+   if(this.state.sheet==='charts')for(const col of v.cmpCols||[]){const site=this.state.sites.find(s=>s.name===col.name);if(site){const o=ser.sites[site.id];col.panorama=skyPanorama(o,this.state.model==='G1'?this.profileFor(site):null,Math.min(this.state.ti,ser.n-1));}}
    return v;
   }
  };
