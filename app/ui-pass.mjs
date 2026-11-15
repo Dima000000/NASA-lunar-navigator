@@ -7,6 +7,57 @@ export function withUIPass(Base, science) {
   return class UIPass extends Base {
     constructor(...args) {
       super(...args);
+      this._navJob = 0;
+      this._navWorker = new Worker(
+        new URL("./navigation-worker.mjs", import.meta.url),
+        { type: "module" },
+      );
+      this._navWorker.onmessage = ({ data: m }) => {
+        if (m.job !== this._navJob) return;
+        if (m.type === "progress") {
+          if (performance.now() - (this._navPaint || 0) > 200) {
+            this._navPaint = performance.now();
+            this.setState({
+              navigationStatus:
+                "Planning from the rover… " + m.expanded + " states",
+            });
+          }
+          return;
+        }
+        this._navBusy = false;
+        if (m.type === "navigationError") {
+          this.navigationFailure(m.reason);
+          return;
+        }
+        if (m.type === "navigation") {
+          if (
+            m.terrainKey !== this._tj?.key ||
+            m.targetKey !== this.navigationTargetKey()
+          )
+            return;
+          if (!m.plan.reachable) {
+            this.navigationFailure(m.plan.reason);
+            return;
+          }
+          this._navigation = m;
+          this._navigation.key = "navigation-" + m.job;
+          this._tripURLKey = null;
+          this.eng?.set({
+            navigation: { key: this._navigation.key, points: m.plan.rows },
+          });
+          this.setState({
+            navigationActive: true,
+            navigationStatus: "Route ready · " + m.plan.hours.toFixed(1) + " h",
+            routeAlert: "",
+          });
+        }
+      };
+      this._navWorker.onerror = () => {
+        this._navBusy = false;
+        this.navigationFailure(
+          "Navigation could not finish. Please try again.",
+        );
+      };
       Object.assign(this.state, {
         driveTimeScale: 60,
         routeDays: 1,
@@ -15,6 +66,14 @@ export function withUIPass(Base, science) {
     }
     componentDidMount() {
       super.componentDidMount();
+      this._driveLayoutListener = () => {
+        cancelAnimationFrame(this._driveLayoutRAF);
+        this._driveLayoutRAF = requestAnimationFrame(() =>
+          this.syncDriveLayout(),
+        );
+      };
+      window.addEventListener("resize", this._driveLayoutListener);
+      this._hudResizeObserver = new ResizeObserver(this._driveLayoutListener);
       this._tour = new GuidedTour(this);
       this._tourTimer = setTimeout(() => this._tour.first(), 1200);
     }
@@ -24,15 +83,23 @@ export function withUIPass(Base, science) {
         "|",
       );
     }
-    componentDidUpdate() {
-      super.componentDidUpdate();
+    syncDriveLayout() {
       const root = document.querySelector(".ui-drive"),
         hud = root?.querySelector(".hud");
-      if (hud) {
-        const bottom = hud.getBoundingClientRect().bottom + "px";
-        if (root.style.getPropertyValue("--drive-hud-bottom") !== bottom)
-          root.style.setProperty("--drive-hud-bottom", bottom);
+      if (!hud) return;
+      if (this._hudObserved !== hud) {
+        this._hudResizeObserver?.disconnect();
+        this._hudResizeObserver?.observe(hud);
+        this._hudObserved = hud;
       }
+      const bottom = hud.getBoundingClientRect().bottom + "px";
+      if (root.style.getPropertyValue("--drive-hud-bottom") !== bottom)
+        root.style.setProperty("--drive-hud-bottom", bottom);
+    }
+    componentDidUpdate() {
+      this.updateNavigation();
+      super.componentDidUpdate();
+      this.syncDriveLayout();
       if (this._bestBasis && this._bestBasis !== this.bestBasis()) {
         this._bestBasis = null;
         this._bestJob = (this._bestJob || 0) + 1;
@@ -44,6 +111,11 @@ export function withUIPass(Base, science) {
       }
     }
     componentWillUnmount() {
+      window.removeEventListener("resize", this._driveLayoutListener);
+      cancelAnimationFrame(this._driveLayoutRAF);
+      this._hudResizeObserver?.disconnect();
+      clearTimeout(this._routeAlertTimer);
+      this._navWorker?.terminate();
       clearTimeout(this._tourTimer);
       this._tour?.destroy();
       if (this._tripURL) URL.revokeObjectURL(this._tripURL);
@@ -237,39 +309,160 @@ export function withUIPass(Base, science) {
       }
       return super.reachOrigin();
     }
+    goView(view) {
+      if (view === "drive" && this.state.view !== "drive")
+        this.setState({ driveCard: false, sitesOpen: false });
+      return super.goView(view);
+    }
+    navigationTargetKey() {
+      const t = this.state.target;
+      return t ? t.key + "|" + t.i + "|" + t.j : "";
+    }
+    navigationFailure(reason) {
+      this._navigation = null;
+      this.eng?.set({ navigation: null });
+      clearTimeout(this._routeAlertTimer);
+      this.setState({
+        navigationActive: false,
+        navigationStatus: reason,
+        routeAlert: reason,
+      });
+      this._routeAlertTimer = setTimeout(
+        () => this.setState({ routeAlert: "" }),
+        10000,
+      );
+    }
+    updateNavigation() {
+      const key = this.navigationTargetKey();
+      if (
+        this._navTargetKey &&
+        (this._navTargetKey !== key ||
+          (this._navigation &&
+            this._tj &&
+            this._navigation.terrainKey !== this._tj.key))
+      ) {
+        this._navWorker.postMessage({ type: "cancel" });
+        this._navJob++;
+        this._navBusy = false;
+        this._navigation = null;
+        this._navTargetKey = "";
+        this.state.navigationActive = false;
+        this.eng?.set({ navigation: null });
+      }
+      if (!this._navigation || this._navBusy || this.state.view !== "drive")
+        return;
+      const r = this.eng?.getDriveState(),
+        d = this._tj?.dem;
+      if (!r || !d || performance.now() - (this._navSentAt || 0) < 1800) return;
+      const old = this._navigation.origin,
+        dist =
+          Math.hypot(
+            (r.x + d.L / 2) / d.cell - old.i,
+            (-r.z + d.L / 2) / d.cell - old.j,
+          ) * d.cell,
+        elapsed = Math.abs(
+          (this._visualUTC || this.state.start) - this._navigation.start,
+        );
+      if (
+        r.routeNeedsReplan ||
+        r.routeCrossTrack > d.cell ||
+        dist > d.cell * 4 ||
+        elapsed > 3600000
+      )
+        this.requestNavigation();
+    }
+    navigationMapPoints() {
+      return this.state.navigationActive ? this.eng?.getNavigationPath() : null;
+    }
+    async requestNavigation() {
+      const j = this._tj,
+        t = this.state.target;
+      if (!j || !t || t.key !== j.key) return;
+      this.eng?.ensureRover();
+      const r = this.eng?.getDriveState();
+      if (!r || r.terrainKey !== j.key) {
+        this.navigationFailure(
+          "Enter Drive to place the rover before planning a route.",
+        );
+        return;
+      }
+      const d = j.dem,
+        origin = {
+          i: Math.max(0, Math.min(d.N - 1, (r.x + d.L / 2) / d.cell)),
+          j: Math.max(0, Math.min(d.N - 1, (-r.z + d.L / 2) / d.cell)),
+        },
+        start = this._visualUTC ?? this.state.start + this.state.ti * 3600000,
+        targetKey = this.navigationTargetKey(),
+        job = ++this._navJob;
+      this._navWorker.postMessage({ type: "cancel" });
+      this._navTargetKey = targetKey;
+      this._navBusy = true;
+      this._navSentAt = performance.now();
+      this.setState({
+        navigationStatus: "Planning from the rover…",
+        routeAlert: "",
+      });
+      try {
+        await science.ephem.ensureRange(
+          start,
+          start + (this.state.routeDays || 1) * 86400000,
+        );
+        if (job !== this._navJob || j.key !== this._tj?.key) return;
+        const product = d.product || d.customAtlas;
+        if (this._navigation && this._navigation.targetKey !== targetKey) {
+          this._navigation = null;
+          this.eng?.set({ navigation: null });
+        }
+        this._navWorker.postMessage({
+          type: "navigate",
+          job,
+          terrainKey: j.key,
+          targetKey,
+          origin,
+          target: { i: t.i, j: t.j },
+          start,
+          battery: r.batt,
+          height: this.state.obsH || 2,
+          maxHours: (this.state.routeDays || 1) * 24,
+          years: science.ephem.workerYears(),
+          dem: {
+            N: d.N,
+            L: d.L,
+            cell: d.cell,
+            h: d.h,
+            slope: d.slope,
+            centerHeightM: d.centerHeightM,
+          },
+          site: this.selSite(),
+          atlas: product.atlas,
+          atlasMeta: product.meta.atlas,
+        });
+      } catch (e) {
+        if (job === this._navJob) {
+          this._navBusy = false;
+          this.navigationFailure(e.message);
+        }
+      }
+    }
     routeHere() {
-      this.setState({ mapReach: true, tripOpen: true, sheet: null });
-      this.reach();
+      this.setState({
+        navigationActive: true,
+        tripOpen: this.state.view !== "drive",
+        sheet: null,
+      });
+      this.requestNavigation();
     }
     tripView() {
-      const target = this.state.target,
-        j = this._tj;
-      if (!target || !j)
+      const m = this._navigation;
+      if (!m?.plan?.reachable)
         return {
-          status: "Choose a point on the map, then Route here.",
+          status:
+            this.state.navigationStatus ||
+            "Choose a destination, then Route here.",
           ready: false,
         };
-      const rc = this.reach();
-      if (!rc)
-        return { status: "Computing an energy-feasible route…", ready: false };
-      const stride = (j.dem.N - 1) / 30,
-        goal =
-          Math.round(target.j / stride) * 31 + Math.round(target.i / stride),
-        key = rc.k + "|" + goal;
-      if (this._tripWanted !== key) {
-        this._tripWanted = key;
-        this._scienceWorker.postMessage({ type: "trip", key: rc.k, goal });
-      }
-      const answer = this._trip;
-      if (
-        !answer ||
-        answer.key !== rc.k ||
-        answer.goal !== goal ||
-        answer.pending
-      )
-        return { status: "Preparing the trip plan…", ready: false };
-      const p = answer.plan;
-      if (!p.reachable) return { status: p.reason, ready: false };
+      const p = m.plan,
+        key = m.key;
       if (this._tripURLKey !== key) {
         if (this._tripURL) URL.revokeObjectURL(this._tripURL);
         this._tripURL = URL.createObjectURL(
@@ -287,7 +480,7 @@ export function withUIPass(Base, science) {
         status:
           "Depart " +
           new Date(p.start).toISOString().slice(0, 16).replace("T", " ") +
-          " UTC · snapped to 533 m grid · 15 min energy/contact samples" +
+          " UTC · DEM path · 533 m horizons · 15 min energy samples" +
           (p.incomplete ? " · search budget reached" : ""),
         ready: true,
         summary:
@@ -486,15 +679,57 @@ export function withUIPass(Base, science) {
       v.driveZoomIn = () => this.eng?.zoom(0.7);
       v.driveZoomOut = () => this.eng?.zoom(1.4);
       v.driveZoomReset = () => this.eng?.resetDriveZoom();
-      this.eng?.set({ driveTimeScale: this.state.driveTimeScale });
+      this.eng?.set({
+        driveTimeScale: this.state.driveTimeScale,
+        drivePaused: !!this.state.drivePaused,
+      });
+      v.findRover = () => this.eng?.findRover();
+      v.driveLayersOpen = !!this.state.driveLayersOpen;
+      v.toggleDriveLayers = () =>
+        this.setState({ driveLayersOpen: !this.state.driveLayersOpen });
+      if (this.state.driveLayersOpen) v.appCls += " drive-layers-open";
+      v.timeOptionsLabel = this.state.view === "drive" ? "Mission" : "Options";
+      if (this.state.view === "drive") {
+        const paused =
+          !!this.state.drivePaused || this.state.driveTimeScale === 0;
+        if (paused) v.hud.kmh = "0.0 km/h";
+        v.playing = !paused;
+        v.notPlaying = paused;
+        v.playLabel = paused ? "Resume simulation" : "Pause simulation";
+        v.togglePlay = () =>
+          this.setState({
+            drivePaused: !paused,
+            driveTimeScale:
+              this.state.driveTimeScale === 0
+                ? this._lastDriveRate || 60
+                : this.state.driveTimeScale,
+          });
+      }
+      v.commitDriveTime = (e) => {
+        if (e.key === "Enter") {
+          e.currentTarget.blur();
+          this._ovEl?.focus({ preventScroll: true });
+        }
+      };
       v.driveTimeScale = this.state.driveTimeScale;
-      v.onDriveTimeScale = (e) =>
-        this.setState({ driveTimeScale: Number(e.target.value) });
+      v.onDriveTimeScale = (e) => {
+        const value = e.target.valueAsNumber ?? Number(e.target.value);
+        if (!Number.isFinite(value) || value < 0) {
+          e.target.setCustomValidity("Enter a finite number of zero or more.");
+          e.target.reportValidity();
+          return;
+        }
+        e.target.setCustomValidity("");
+        if (value > 0) this._lastDriveRate = value;
+        this.setState({ driveTimeScale: value });
+      };
       v.toggleTurbo = () =>
         this.setState({
-          driveTimeScale: this.state.driveTimeScale === 300 ? 60 : 300,
+          driveTimeScale: Number.isFinite(this.state.driveTimeScale * 2)
+            ? this.state.driveTimeScale * 2
+            : this.state.driveTimeScale,
         });
-      v.turbo = this.state.driveTimeScale === 300;
+      v.turbo = false;
       if (this.state.view === "drive" && this._visualUTC) {
         v.timeSmall =
           new Date(this._visualUTC).toISOString().slice(11, 19) +
@@ -599,7 +834,10 @@ export function withUIPass(Base, science) {
         this.state.model === "G1"
           ? "Based on NASA LOLA terrain and JPL ephemerides. Earth in view ≠ guaranteed radio link."
           : "Ideal horizon (G0): terrain obstruction excluded. Earth in view ≠ guaranteed radio link.";
-      if (this.state.view === "drive" && this.state.surfaceDetail) {
+      v.showDriveLegend =
+        this.state.view === "drive" && this.state.layer !== "off";
+      if (v.showDriveLegend) v.appCls += " drive-analysis";
+      if (this.state.view === "drive") {
         v.showLegend = false;
         v.showLegendBox = false;
       }
@@ -671,17 +909,39 @@ export function withUIPass(Base, science) {
         originalMapClick(e);
         if (this.state.mapReach && this.state.target) this.routeHere();
       };
+      v.targetPointLabel =
+        this.state.view === "drive" ? "Destination" : "Your landing point";
       v.routeHere = () => this.routeHere();
       v.tripOpen = !!this.state.tripOpen;
       v.closeTrip = () => this.setState({ tripOpen: false });
       v.trip = v.tripOpen ? this.tripView() : {};
-      this.eng?.set({
-        tripRoute:
-          this._trip?.key === this._routeResult?.key &&
-          this._trip?.plan?.reachable
-            ? this._trip.plan.rows
-            : [],
-      });
+      if (this._navigation && this._navigation.terrainKey === this._tj?.key)
+        this.eng?.set({
+          navigation: {
+            key: this._navigation.key,
+            points: this._navigation.plan.rows,
+          },
+        });
+      v.showRouteAction =
+        !!this.state.target &&
+        (!this._navigation ||
+          this._navigation.targetKey !== this.navigationTargetKey());
+      v.navigationBusy = !!this._navBusy;
+      v.routeActionLabel = this._navBusy ? "Planning…" : "Route here";
+      v.navigationActive = !!this._navigation;
+      v.navigationStatus = this.state.navigationStatus || "";
+      v.openTrip = () => this.setState({ tripOpen: true });
+      v.routeAlert = this.state.routeAlert || "";
+      v.hasRouteAlert = !!v.routeAlert;
+      v.closeRouteAlert = () => this.setState({ routeAlert: "" });
+      if (v.tgt && (this.state.view === "drive" || this.eng?.getDriveState()))
+        v.tgt.drive = this._navBusy
+          ? "Planning from the rover…"
+          : this._navigation
+            ? "Route from rover · " +
+              this._navigation.plan.hours.toFixed(1) +
+              " h"
+            : "Choose Route here to plan from the rover.";
       v.validationFacts = science.status.horizonsMonthVerified
         ? science.status.samples +
           " samples · " +

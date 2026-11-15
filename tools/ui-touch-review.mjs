@@ -34,6 +34,14 @@ try {
   p.on("pageerror", (e) => report.errors.push(e.message));
   await p.goto(baseURL);
   await p.waitForFunction(() => window.NASALInitialReadyMs);
+  await p.evaluate(() => {
+    NASAL.setRange(
+      Date.parse("2026-11-15T00:00:00Z"),
+      Date.parse("2026-12-15T00:00:00Z"),
+    );
+    NASAL.setState({ ti: 13 });
+    NASAL._tf = 13;
+  });
   await p.getByRole("button", { name: "Drive", exact: true }).click();
   await p.waitForFunction(() => NASAL.terrReady());
   await p.waitForTimeout(1500);
@@ -82,15 +90,15 @@ try {
   await s.send("Input.dispatchTouchEvent", {
     type: "touchStart",
     touchPoints: [
-      { x: 235, y: 350, id: 1 },
-      { x: 310, y: 350, id: 2 },
+      { x: 120, y: 380, id: 1 },
+      { x: 200, y: 380, id: 2 },
     ],
   });
   await s.send("Input.dispatchTouchEvent", {
     type: "touchMove",
     touchPoints: [
-      { x: 215, y: 350, id: 1 },
-      { x: 335, y: 350, id: 2 },
+      { x: 100, y: 380, id: 1 },
+      { x: 230, y: 380, id: 2 },
     ],
   });
   await s.send("Input.dispatchTouchEvent", {
@@ -106,6 +114,23 @@ try {
     Math.abs((await p.evaluate(() => NASAL.eng.getDriveZoom())) - 0.025) < 1e-6,
   );
   report.pinch = { before: zoom, after: nextZoom, reset: 0.025 };
+  await p.getByRole("button", { name: "Map layers", exact: true }).click();
+  await p.getByTitle("Sunlight over the period", { exact: true }).click();
+  await p.waitForFunction(() => NASAL.state.layer === "sun");
+  await p.getByRole("button", { name: "Map layers", exact: true }).click();
+  await p.setViewportSize({ width: 844, height: 390 });
+  await p.waitForTimeout(500);
+  report.landscape = await p.evaluate(() => {
+    const j = document.querySelector(".joystick").getBoundingClientRect();
+    const t = document.querySelector(".time").getBoundingClientRect();
+    return { joystick: j.toJSON(), timeline: t.toJSON(), scrollY };
+  });
+  assert(report.landscape.joystick.top >= 0);
+  assert(report.landscape.joystick.bottom <= report.landscape.timeline.top);
+  assert.equal(report.landscape.scrollY, 0);
+  await p.screenshot({ path: dir + "/after-touch-landscape.png" });
+  await p.setViewportSize({ width: 390, height: 844 });
+  await p.waitForTimeout(500);
   await p.screenshot({ path: dir + "/after-touch-200m.png" });
   fs.writeFileSync(
     dir + "/touch-controls.json",

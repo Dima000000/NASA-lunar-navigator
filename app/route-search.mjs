@@ -14,6 +14,9 @@ export function* reachSteps({
   timeBinHours = 1,
   frontLimit = 6,
   maxExpansions = 200000,
+  goal = -1,
+  heuristic = () => 0,
+  edgeFor = null,
 }) {
   const NN = N * N,
     K = buckets + 1,
@@ -30,15 +33,16 @@ export function* reachSteps({
   let expanded = 0,
     prunedLabels = 0;
   const push = (id, t) => {
+    const priority = t + heuristic(cells[id]);
     let i = heap.length;
-    heap.push([id, t]);
+    heap.push([id, t, priority]);
     while (i) {
       const p = (i - 1) >> 1;
-      if (heap[p][1] <= t) break;
+      if (heap[p][2] <= priority) break;
       heap[i] = heap[p];
       i = p;
     }
-    heap[i] = [id, t];
+    heap[i] = [id, t, priority];
   };
   const pop = () => {
     const r = heap[0],
@@ -48,8 +52,8 @@ export function* reachSteps({
       while (true) {
         let j = 2 * i + 1;
         if (j >= heap.length) break;
-        if (j + 1 < heap.length && heap[j + 1][1] < heap[j][1]) j++;
-        if (last[1] <= heap[j][1]) break;
+        if (j + 1 < heap.length && heap[j + 1][2] < heap[j][2]) j++;
+        if (last[2] <= heap[j][2]) break;
         heap[i] = heap[j];
         i = j;
       }
@@ -156,6 +160,7 @@ export function* reachSteps({
       best[k] = id;
       contacts[k] = sky(k, startMs + t * 3600000).earth;
     }
+    if (k === goal) break;
     const relax = (kk, duration, driving) => {
       if (t + duration > maxHours + 1e-9) return;
       const value = integrate(energy[id], k, kk, t, duration, driving);
@@ -177,11 +182,13 @@ export function* reachSteps({
           slope[y * N + i] > vehicle.maxSlopeDeg)
       )
         continue;
-      const gradient = Math.max(slope[k], slope[kk]),
+      const edge = edgeFor?.(k, kk);
+      const gradient = Math.max(slope[k], slope[kk], edge?.slope || 0),
         speed =
           vehicle.flatSpeedKmh *
           Math.max(0.15, 1 - (0.7 * gradient) / vehicle.maxSlopeDeg);
-      relax(kk, (cellKm * Math.hypot(dx, dy)) / speed, true);
+      if (gradient > vehicle.maxSlopeDeg) continue;
+      relax(kk, (edge?.distance ?? cellKm * Math.hypot(dx, dy)) / speed, true);
     }
   }
   return {
@@ -197,7 +204,7 @@ export function* reachSteps({
     timeBinHours,
     prunedLabels,
     frontLimit,
-    incomplete: heap.length > 0,
+    incomplete: heap.length > 0 && (goal < 0 || !Number.isFinite(T[goal])),
   };
 }
 

@@ -1,0 +1,7 @@
+{
+  "fixture": "Synthetic test ridge; rendering verification only, not lunar data",
+  "baselineBluePixels": 0,
+  "behindRidgeBluePixels": 0,
+  "onFlatGroundBluePixels": 832,
+  "passed": true
+}

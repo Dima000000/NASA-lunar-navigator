@@ -68,6 +68,7 @@ export class GuidedTour {
   start() {
     this.previousFocus = document.activeElement;
     this.previousSheet = this.app.state.sheet;
+    this.previousDriveCard = this.app.state.driveCard;
     this.app.setState({ sheet: null, playing: false, driveCard: true });
     this.show(0);
   }
@@ -150,7 +151,10 @@ export class GuidedTour {
     cancelAnimationFrame(this.frame);
     this.root?.remove();
     this.root = null;
-    this.app.setState({ sheet: this.previousSheet || null });
+    this.app.setState({
+      sheet: this.previousSheet || null,
+      driveCard: this.previousDriveCard ?? false,
+    });
     this.previousFocus?.focus?.({ preventScroll: true });
   }
   destroy() {

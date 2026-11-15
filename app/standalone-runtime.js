@@ -147,7 +147,7 @@ window.mountNASAL = (Component, root) => {
           if (v) node.setAttribute(a.name, "");
           else node.removeAttribute(a.name);
         } else if (a.name === "value") {
-          if (node.value !== String(v ?? "")) node.value = String(v ?? "");
+          if (!(node.hasAttribute("data-preserve-editing")&&document.activeElement===node)&&node.value !== String(v ?? "")) node.value = String(v ?? "");
         } else {
           const str = String(v ?? "");
           if (node.getAttribute(a.name) !== str) node.setAttribute(a.name, str);

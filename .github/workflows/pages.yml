@@ -35,6 +35,14 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
       - run: node tools/verify-browser-csv.mjs
+      - name: Verify Drive controls, responsive layout and terrain occlusion
+        run: node tools/run-drive-reviews.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drive-review
+          path: work/drive-review/
+          if-no-files-found: ignore
       - name: Independently verify 100 fractional-time positions with JPL Horizons
         run: node tools/verify-visual-interpolation.mjs
       - uses: actions/upload-artifact@v4

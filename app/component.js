@@ -1,3 +1,4 @@
+import {surfacePath,modelStepSeconds} from './drive-navigation.mjs';
 import {buildCSV} from './csv-export.mjs';
 export const DRIVE_START_DISTANCE = 0.025;
 const ILLUSTRATIVE_APPROACH_AZIMUTH = 120;
@@ -42,7 +43,8 @@ window.NASALComponent = class Component extends DCLogic {
       this._lastT = now;
       const n = this._ser ? this._ser.n : 2;
       if (this._tf === undefined || this._tf === null) this._tf = s.ti;
-      this._tf += dt * (driving?(s.driveTimeScale||60)/3600:s.speed) / s.stepH;
+      if(driving&&s.drivePaused){this.renderContinuousTime?.(s.start+this._tf*s.stepH*3600000,now);return;}
+      this._tf += (driving?modelStepSeconds(dt,s.driveTimeScale??60)/3600:dt*s.speed) / s.stepH;
       if (this._tf > n - 1) this._tf = 0;
       this.renderContinuousTime?.(s.start+this._tf*s.stepH*3600000,now);
       const ti = Math.floor(this._tf);
@@ -784,7 +786,7 @@ window.NASALComponent = class Component extends DCLogic {
         const i = (s.rover.x + dem.L / 2) / dem.cell, j = (-s.rover.z + dem.L / 2) / dem.cell, hx = Math.sin(s.rover.heading), hy = -Math.cos(s.rover.heading), k = W > 300 ? 11 : 8;
         const x0 = X(i), y0 = Y(j);
         ctx.beginPath(); ctx.moveTo(x0 + hx * k, y0 + hy * k); ctx.lineTo(x0 - hx * k * 0.6 + hy * k * 0.55, y0 - hy * k * 0.6 - hx * k * 0.55); ctx.lineTo(x0 - hx * k * 0.6 - hy * k * 0.55, y0 - hy * k * 0.6 + hx * k * 0.55); ctx.closePath();
-        ctx.fillStyle = '#30D158'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = '#BF5AF2'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
       }
       if (s.mapReach && this._tj) {
         const rc = this.reach();
@@ -796,10 +798,11 @@ window.NASALComponent = class Component extends DCLogic {
           if(this._rangePrevious&&fade<1){ctx.globalAlpha=1-fade;ctx.drawImage(this._rangePrevious,0,0,W,W);}
           ctx.globalAlpha=fade;ctx.drawImage(rc.img,0,0,W,W);ctx.globalAlpha=1;
           if(fade<1&&!this._rangeFadeRAF)this._rangeFadeRAF=requestAnimationFrame(()=>{this._rangeFadeRAF=0;this.drawMaps();});
-          if (s.target && s.target.key === job.key) { const target=s.target.j*N+s.target.i; if(rc.routePointsFor&&isFinite(rc.T[target])){const points=rc.routePointsFor(target);for(let a=1;a<points.length;a++){const p=points[a-1],q=points[a];ctx.beginPath();ctx.moveTo(X(p.i),Y(p.j));ctx.lineTo(X(q.i),Y(q.j));ctx.strokeStyle=p.earth>.0005?'#30D158':'#FF9F0A';ctx.lineWidth=W>300?3:2;ctx.stroke();}}else if(isFinite(rc.T[target])){let p=target;ctx.beginPath();let first=true;while(p>=0){const a=p%N,b=(p-a)/N;if(first){ctx.moveTo(X(a),Y(b));first=false;}else ctx.lineTo(X(a),Y(b));p=rc.prev[p];}ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();} }
+          if (s.target && s.target.key === job.key && !s.navigationActive) { const target=s.target.j*N+s.target.i; if(rc.routePointsFor&&isFinite(rc.T[target])){const points=rc.routePointsFor(target);for(let a=1;a<points.length;a++){const p=points[a-1],q=points[a];ctx.beginPath();ctx.moveTo(X(p.i),Y(p.j));ctx.lineTo(X(q.i),Y(q.j));ctx.strokeStyle=p.earth>.0005?'#30D158':'#FF9F0A';ctx.lineWidth=W>300?3:2;ctx.stroke();}}else if(isFinite(rc.T[target])){let p=target;ctx.beginPath();let first=true;while(p>=0){const a=p%N,b=(p-a)/N;if(first){ctx.moveTo(X(a),Y(b));first=false;}else ctx.lineTo(X(a),Y(b));p=rc.prev[p];}ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();} }
           const ox = X(rc.o.i), oy = Y(rc.o.j); ctx.beginPath(); ctx.arc(ox, oy, W > 300 ? 6 : 4.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
         }
       }
+      const nav=this.navigationMapPoints?.();if(nav?.length){ctx.beginPath();nav.forEach((p,i)=>{if(i)ctx.lineTo(X(p.i),Y(p.j));else ctx.moveTo(X(p.i),Y(p.j));});ctx.strokeStyle='#071822';ctx.lineWidth=W>300?5:4;ctx.stroke();ctx.strokeStyle='#40A8FF';ctx.lineWidth=W>300?3:2;ctx.stroke();}
       for(const [rank,p]of (s.bestSpots||[]).entries()){const x=X(p.i*(N-1)/30),y=Y(p.j*(N-1)/30);ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fillStyle='#F2C94C';ctx.fill();ctx.fillStyle='#111';ctx.font='bold 11px Inter';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(rank+1),x,y);}
       const fs = W > 300 ? 13 : 11;
       ctx.font = '700 ' + fs + 'px -apple-system, Inter, sans-serif'; ctx.fillStyle = '#FF6961'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText('N', W - 14, 6);
@@ -1462,7 +1465,7 @@ void main(){
   col += alb*vec3(0.45, 0.55, 0.75)*0.03*(0.5 + 0.5*n.y);
   col = vec3(1.0) - exp(-col*1.7);
   col = pow(col, vec3(1.0/2.2));
-  if (uHeat > 0.5 && uSurfaceDetail < 0.5) {
+  if (uHeat > 0.5) {
     float hs = 0.45 + 0.55*clamp(dot(n, normalize(vec3(-0.45, 0.8, -0.4))), 0.0, 1.0);
     vec3 hc;
     if (vH < -1.5) { hc = mix(vec3(0.2, 0.5, 0.98), vec3(0.72, 0.9, 1.0), n2(q*4.0)*0.55); }
@@ -1475,6 +1478,9 @@ void main(){
   col = mix(col, vec3(0.018, 0.019, 0.022), smoothstep(0.82, 1.0, edge));
   gl_FragColor = vec4(col, 1.0);
 }`;
+    const ROUTE_VS=`attribute vec3 aP;attribute vec3 aPrev;attribute vec3 aNext;attribute float aSide;uniform mat4 uPV;uniform vec3 uViewport;uniform float uWidth;varying float vSide;
+void main(){vec4 p=uPV*vec4(aP,1.0),a=uPV*vec4(aPrev,1.0),b=uPV*vec4(aNext,1.0);vec2 direction=(b.xy/max(b.w,.00001)-a.xy/max(a.w,.00001))*uViewport.xy;direction/=max(length(direction),.00001);vec2 n=vec2(-direction.y,direction.x);p.xy+=n*aSide*uWidth*2.0/uViewport.xy*p.w;vSide=aSide;gl_Position=p;}`;
+    const ROUTE_FS=`precision mediump float;varying float vSide;void main(){gl_FragColor=vec4(abs(vSide)>.72?vec3(.025,.07,.1):vec3(.25,.66,1.0),1.0);}`;
     const OBJ_VS = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; uniform mat4 uPV; uniform mat4 uM;
 varying vec3 vN; varying vec3 vC; varying vec3 vW;
 void main(){ vec4 w = uM*vec4(aP, 1.0); vW = w.xyz; vN = (uM*vec4(aN, 0.0)).xyz; vC = aC; gl_Position = uPV*w; }`;
@@ -1541,7 +1547,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       }
       const P = {
         sky: prog(SKY_VS, SKY_FS), moon: prog(MOON_VS, MOON_FS), bb: prog(BB_VS, BB_FS), ter: prog(TER_VS, TER_FS),
-        obj: prog(OBJ_VS, OBJ_FS), pl: prog(PL_VS, PL_FS), du: prog(DU_VS, DU_FS)
+        route:prog(ROUTE_VS,ROUTE_FS), obj: prog(OBJ_VS, OBJ_FS), pl: prog(PL_VS, PL_FS), du: prog(DU_VS, DU_FS)
       };
       const quad = buf(new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]));
       const realMoonMeshes=window.RealMoon.meshes.map(m=>({pos:buf(m.pos),nrm:buf(m.nrm),idx:buf(m.idx,gl.ELEMENT_ARRAY_BUFFER),count:m.idx.length}));
@@ -1678,6 +1684,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         const g = groundAtW(eye[0], eye[2]) + 0.03; if (eye[1] < g) eye[1] = g;
         return { eye: eye, tgt: c.tgt, up: [0, 1, 0], fov: fovT, near: 0.004, far: 220 };
       }
+      function smoothDriveCamera(dt,now){if(!S.rover)return;const c=S.dc,R=S.rover;let dh=R.heading-c.hs;while(dh>Math.PI)dh-=2*Math.PI;while(dh< -Math.PI)dh+=2*Math.PI;c.hs+=dh*(1-Math.exp(-dt*10));if((Math.abs(R.v)>1e-7||S.keys.left||S.keys.right)&&!c.orbiting&&now>(c.manualUntil||0))c.yawTarget=0;c.yaw=lerp(c.yaw,c.yawTarget??c.yaw,1-Math.exp(-dt*10));c.pitch=lerp(c.pitch,c.pitchTarget??c.pitch,1-Math.exp(-dt*10));}
       function driveCam() {
         const R = S.rover, c = S.dc, yaw = c.hs + Math.PI + c.yaw, cp = Math.cos(c.pitch);
         const tgt = add(R.pos, [0, 0.0017, 0]);
@@ -1695,9 +1702,10 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       function initTerrain() { S.tc = { yaw: (S.tSun.az + 208) * D2R, pitch: 0.24, dist: 7.5, tgt: [0, 0.05, 0] }; }
       function initDrive() {
         if (!S.terr) return;
-        const p = S.spawn || (S.target ? gridToWorld(S.target.i, S.target.j) : [0, 0, 0]), h = (S.tSun.az + 180) * D2R;
-        S.rover = { pos: [p[0], groundAtW(p[0], p[2]), p[2]], heading: h, v: 0, batt: 80, dist: 0, sun: 1, earth: true, blocked: false, n: [0, 1, 0] };
-        S.dc = { yaw: 0, pitch: 0.2, dist: DRIVE_START_DISTANCE, hs: h };
+        const p = S.spawn || [0, 0, 0], h = (S.tSun.az + 180) * D2R;
+        S.rover = { terrainKey:S.terrKey,pos: [p[0], groundAtW(p[0], p[2]), p[2]], heading: h, v: 0, batt: 80, dist: 0, sun: 1, earth: true, blocked: false, n: [0, 1, 0] };
+        S.home??=p.slice();
+        S.dc = { yaw: 0,yawTarget:0, pitch: 0.2,pitchTarget:.2, dist: DRIVE_START_DISTANCE, hs: h };
         try { ov.focus({ preventScroll: true }); } catch (err) { }
       }
       function flyTo(lat, lon, close, done) {
@@ -1789,6 +1797,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           U(P.ter,'uTravel',S.travelOverlay?1:0); U(P.ter,'uSurfaceDetail',S.view==='drive'&&S.surfaceDetail!==false?1:0); U(P.ter, 'uShadeMix',Math.min(1,(performance.now()-(S.shadeAt||0))/250)); U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
           gl.drawElements(gl.TRIANGLES, T.g.idx.length, gl.UNSIGNED_INT, 0);
         }
+        drawNavigationGL(PV,cam);
         if (S.view === 'drive' && S.rover) {
           const R = S.rover, f0 = [Math.sin(R.heading), 0, -Math.cos(R.heading)];
           const fp = norm(sub(f0, scl(R.n, dot(f0, R.n)))), r = cross(R.n, fp);
@@ -1895,6 +1904,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         compass(F);
         if (!S.terr) return;
         const c = (S.terr.dem.N - 1) / 2, pin = gridToWorld(c, c);
+
         if (S.view === 'terrain') {
           const b = toScreen(F.PV, pin), tp = toScreen(F.PV, add(pin, [0, 0.35, 0]));
           if (b && tp) {
@@ -1916,9 +1926,10 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
             pill(S.W / 2, 92, 'Illustrative descent · ' + Math.round(alt).toLocaleString('en-US') + ' m · ' + Math.abs(S.land.vs || 0).toFixed(0) + ' m/s down', { align: 'center', size: 13, color: '#FFD60A' });
           } else if (S.lander) pill(S.W / 2, 92, 'Touchdown', { align: 'center', size: 13 });
         } else {
-          waypoint(F, pin, S.siteName, S.siteColor, true);
+          if(S.dc.dist<=.1||!S.rover||Math.hypot(S.rover.pos[0]-pin[0],S.rover.pos[2]-pin[2])>.04)waypoint(F, pin, S.siteName, S.siteColor, true);
           if (S.best) waypoint(F, gridToWorld(S.best.i, S.best.j), 'Best landing spot', '#30D158', true);
-          if (S.target) waypoint(F, gridToWorld(S.target.i, S.target.j), 'Your landing point', '#FF9F0A', true);
+          if (S.target) waypoint(F, gridToWorld(S.target.i, S.target.j), 'Destination', '#FF9F0A', true);
+        if(S.view==='drive'&&S.rover&&S.dc.dist>.1){const p=toScreen(F.PV,add(S.rover.pos,[0,.002,0]));if(p){g2.beginPath();g2.arc(p[0],p[1],7,0,Math.PI*2);g2.fillStyle='#BF5AF2';g2.fill();g2.strokeStyle='#fff';g2.lineWidth=2;g2.stroke();pill(p[0]+12,p[1]-12,'Rover',{dot:'#BF5AF2'});}}
         }
       }
 
@@ -1951,7 +1962,10 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
 
       function beginTravelLabels(F){S.referenceBoxes=[];if(!S.terr)return;const c=(S.terr.dem.N-1)/2;for(const q of [{i:c,j:c},S.target].filter(Boolean)){const p=toScreen(F.PV,gridToWorld(q.i,q.j));if(p)S.referenceBoxes.push({l:p[0]-170,r:p[0]+170,t:p[1]-65,b:p[1]+12});}}
       function referencePill(x,y,text,options){const w=String(text).length*6.2+16,box={l:x-4,r:x+w,t:y-18,b:y+8};if((S.referenceBoxes||[]).some(q=>box.l<q.r+4&&box.r>q.l-4&&box.t<q.b+4&&box.b>q.t-4))return;S.referenceBoxes.push(box);pill(x,y,text,options);}
-      function drawTripRoute(F){if(!S.terr)return;const rows=S.tripRoute||[],stride=(S.terr.dem.N-1)/30;for(let k=1;k<rows.length;k++){const a=toScreen(F.PV,add(gridToWorld(rows[k-1].i*stride,rows[k-1].j*stride),[0,.006,0])),b=toScreen(F.PV,add(gridToWorld(rows[k].i*stride,rows[k].j*stride),[0,.006,0]));if(!a||!b)continue;g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.strokeStyle='#000';g2.lineWidth=6;g2.stroke();g2.strokeStyle='#40A8FF';g2.lineWidth=3;g2.stroke();}if(S.travelOverlay)for(const p of S.travelGeoLabels||[]){const screen=toScreen(F.PV,gridToWorld(p.i,p.j));if(screen&&screen[0]>20&&screen[0]<S.W-180&&screen[1]>100&&screen[1]<S.H-200)referencePill(screen[0],screen[1],p.text,{size:10});}}
+      const routeBuffers={body:{},head:{}};
+      function uploadRoute(target,points){if(points.length<2){target.count=0;return;}const p=[],prev=[],next=[],side=[];for(let i=0;i<points.length;i++)for(const s of [-1,1]){const a=points[i],b=points[Math.max(0,i-1)],c=points[Math.min(points.length-1,i+1)];p.push(a.x,a.y,a.z);prev.push(b.x,b.y,b.z);next.push(c.x,c.y,c.z);side.push(s);}for(const [key,data]of Object.entries({p,prev,next,side})){target[key]??=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,target[key]);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.DYNAMIC_DRAW);}target.count=side.length;}
+      function drawNavigationGL(PV,cam){const nav=S.navigation;if(!S.terr||!nav?.points?.length)return;if(S.navKey!==nav.key){S.navKey=nav.key;S.navProgress=0;S.navSamples=surfacePath(S.terr.dem,nav.points);S.navBodyKey='';}const points=S.navSamples;if(points.length<2)return;let start=S.navProgress||0;const live=S.rover?{x:S.rover.pos[0],z:S.rover.pos[2]}:points[start];if(S.rover){let best=Infinity;for(let k=start;k<Math.min(points.length-1,start+80);k++){const a=points[k],b=points[k+1],dx=b.x-a.x,dz=b.z-a.z,f=clamp(((live.x-a.x)*dx+(live.z-a.z)*dz)/(dx*dx+dz*dz||1),0,1),distance=Math.hypot(live.x-a.x-dx*f,live.z-a.z-dz*f);if(distance<best-1e-7){best=distance;start=k;}}S.navProgress=start;S.navCrossTrack=best;}const next=Math.min(points.length-1,start+1),key=S.navKey+'|'+next;if(S.navBodyKey!==key){uploadRoute(routeBuffers.body,points.slice(next));S.navBodyKey=key;}const g=gridOf(live.x,live.z);S.navUnsafe=false;const end=points[next],steps=Math.max(1,Math.ceil(Math.hypot(end.i-g[0],end.j-g[1])*3)),d=S.terr.dem;for(let s=0;s<=steps;s++){const i=g[0]+(end.i-g[0])*s/steps,j=g[1]+(end.j-g[1])*s/steps,k=Math.max(0,Math.min(d.N-1,Math.round(j)))*d.N+Math.max(0,Math.min(d.N-1,Math.round(i)));if(d.slope[k]>20){S.navUnsafe=true;S.navRenderedStart=null;return;}}uploadRoute(routeBuffers.head,surfacePath(S.terr.dem,[{i:g[0],j:g[1]},points[next]]));S.navRenderedStart={x:live.x,z:live.z};S.navRenderedEnd=points.at(-1);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(-1,-1);for(const mesh of [routeBuffers.body,routeBuffers.head]){if(!mesh.count)continue;use(P.route,[['aP',mesh.p,3],['aPrev',mesh.prev,3],['aNext',mesh.next,3],['aSide',mesh.side,1]]);U(P.route,'uPV',PV);U(P.route,'uViewport',[S.W*S.dpr,S.H*S.dpr,1]);U(P.route,'uWidth',3*S.dpr);gl.drawArrays(gl.TRIANGLE_STRIP,0,mesh.count);}gl.disable(gl.POLYGON_OFFSET_FILL);gl.depthMask(true);gl.depthFunc(gl.LESS);S.navigationDraws=(S.navigationDraws||0)+1;}
+      function drawTripRoute(F){if(S.travelOverlay)for(const p of S.travelGeoLabels||[]){const screen=toScreen(F.PV,gridToWorld(p.i,p.j));if(screen&&screen[0]>20&&screen[0]<S.W-180&&screen[1]>100&&screen[1]<S.H-200)referencePill(screen[0],screen[1],p.text,{size:10});}}
       function drawTravelReference(F){if(!S.travelOverlay||!S.terr)return;const N=S.terr.dem.N,stride=(N-1)/30;g2.lineWidth=1.5;let labels=new Set();for(const line of S.travelContours||[]){const a=toScreen(F.PV,gridToWorld(line.a[0]*stride,line.a[1]*stride)),b=toScreen(F.PV,gridToWorld(line.b[0]*stride,line.b[1]*stride));if(!a||!b)continue;g2.strokeStyle='rgba(255,255,255,.6)';g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();if(!labels.has(line.hours)&&a[0]>30&&a[0]<S.W-180&&a[1]>100&&a[1]<S.H-200){referencePill(a[0],a[1],line.hours/24+' d',{size:11});labels.add(line.hours);}}const origin=S.travelOrigin||{i:(N-1)/2,j:(N-1)/2};for(let km=-8;km<=8;km+=2){for(let axis=0;axis<2;axis++){g2.beginPath();let started=false;for(let n=0;n<=16;n++){const offset=km/S.terr.dem.cell,i=axis?Math.max(0,Math.min(N-1,origin.i+offset)):n/16*(N-1),j=axis?n/16*(N-1):Math.max(0,Math.min(N-1,origin.j+offset)),p=toScreen(F.PV,gridToWorld(i,j));if(p){if(!started){g2.moveTo(p[0],p[1]);started=true;}else g2.lineTo(p[0],p[1]);if(n===8&&p[0]>0&&p[0]<S.W-180&&p[1]>100&&p[1]<S.H-200)referencePill(p[0],p[1],(km>=0?'+':'')+km+' km',{size:10});}}g2.strokeStyle='rgba(255,255,255,.16)';g2.stroke();}}}
 
       function drawDescentTrail(F,now){const points=S.descentTrail;if(!points?.length)return;const fade=S.trailEnded?Math.max(0,1-(now-S.trailEnded)/6000):1;if(!fade)return;for(let i=1;i<points.length;i++){const a=toScreen(F.PV,points[i-1].pos),b=toScreen(F.PV,points[i].pos);if(!a||!b)continue;g2.globalAlpha=fade*(i/points.length)*.8;g2.strokeStyle='#F2C94C';g2.shadowColor='#FFD60A';g2.shadowBlur=8;g2.lineWidth=2;g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();}g2.globalAlpha=fade;g2.shadowBlur=0;pill(18,S.H-220,'Illustrative descent path, not a computed trajectory',{size:11});g2.globalAlpha=1;}
@@ -1959,7 +1973,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       // ---- driving ----
       function stepDrive(now, dt) {
         const R = S.rover; if (!R || !S.terr) return;
-        const modelDt=dt*(S.driveTimeScale||60),k=S.keys,turbo=1,maxV=0.7/3600,L=S.terr.dem.L;
+        const modelDt=modelStepSeconds(dt,S.driveTimeScale??60,S.drivePaused),k=S.keys,turbo=1,maxV=0.7/3600,L=S.terr.dem.L;if(modelDt===0){R.v=0;return;}
         S.joy ||= {x:0,y:0};const jt=S.joyTarget||{x:0,y:0},blend=1-Math.exp(-dt/0.1);S.joy.x=lerp(S.joy.x,jt.x,blend);S.joy.y=lerp(S.joy.y,jt.y,blend);let thr=(k.up?1:0)-(k.down?1:0)-S.joy.y;const steer=(k.right?1:0)-(k.left?1:0)+S.joy.x;
         if (R.batt <= 0.5) thr = 0;
         if (thr) R.v += thr * 0.0001 * modelDt; else R.v *= Math.exp(-3 * dt);
@@ -1986,8 +2000,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         let elapsedH=modelDt/3600;if(R.lastScienceUTC!==undefined&&S.simUTC!==undefined&&S.simUTC!==R.lastScienceUTC){const deltaH=(S.simUTC-R.lastScienceUTC)/3600000;if(deltaH<0){R.batt=80;elapsedH=0;}else elapsedH=deltaH;}
         R.lastScienceUTC=S.simUTC;R.rate=netW/160*100/60;
         if(S.drain===false)R.batt=100;else if(elapsedH>1/60&&S.scienceAt){const samples=Math.max(1,Math.ceil(elapsedH*4)),step=elapsedH/samples;for(let a=0;a<samples;a++){const t=S.simUTC-(elapsedH-(a+.5)*step)*3600000,sky=S.scienceAt(R.pos[0],R.pos[2],t),power=1361*(149597870.7/(sky.sunDirection?.dist||149597870.7))**2*.5*.28*sky.sun-loadW;R.batt=clamp(R.batt+power*step/160*100,0,100);}}else R.batt=clamp(R.batt+netW*elapsedH/160*100,0,100);
-        let dh = R.heading - S.dc.hs; while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
-        S.dc.hs += dh * (1 - Math.exp(-dt * 3.5));
+
         if (now - S.lastCb > 200) { S.lastCb = now; cb.onRover && cb.onRover({ x: R.pos[0], z: R.pos[2], heading: R.heading, batt: R.batt, rate: R.rate, sun: R.sun, earth: R.earth, earthWhy: R.earthWhy, kmh: Math.abs(R.v) * 3600, dist: R.dist, blocked: R.blocked }); }
       }
 
@@ -2016,7 +2029,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if(S.trailEnded&&now-S.trailEnded<6000)anim=true;
         if (S.land) { stepLanding(now, dt); anim = true; }
         if (S.dust0 > 0 && now - S.dust0 < 4500) anim = true;
-        if (S.view === 'drive' && S.rover) { if(S.dc.zoomTarget)S.dc.dist=lerp(S.dc.dist,S.dc.zoomTarget,1-Math.exp(-dt*16));stepDrive(now, dt); anim = true; }
+        if (S.view === 'drive' && S.rover) { if(S.dc.zoomTarget)S.dc.dist=lerp(S.dc.dist,S.dc.zoomTarget,1-Math.exp(-dt*16));stepDrive(now, dt);smoothDriveCamera(dt,now); anim = true; }
         resize();
         if (!S.dirty && !anim) {
           if (S.view === 'region' && S.sel && lastF && now - lastOv > 33) { lastOv = now; g2.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); g2.clearRect(0, 0, S.W, S.H); drawOverlayRegion(lastF, now); }
@@ -2034,7 +2047,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
 
       // ---- input ----
       let drag = null;const touches=new Map();let pinch=0;
-      function onDown(e) { touches.set(e.pointerId,[e.clientX,e.clientY]);if(touches.size===2){const a=[...touches.values()];pinch=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);drag=null;return;} drag = { x: e.clientX, y: e.clientY, moved: false, pan: e.button === 2 || e.shiftKey }; try { ov.setPointerCapture(e.pointerId); } catch (err) { } }
+      function onDown(e) { if(S.view==='drive'){S.dc.orbiting=true;S.dc.manualUntil=performance.now()+1200;} touches.set(e.pointerId,[e.clientX,e.clientY]);if(touches.size===2){const a=[...touches.values()];pinch=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);drag=null;return;} drag = { x: e.clientX, y: e.clientY, moved: false, pan: e.button === 2 || e.shiftKey }; try { ov.setPointerCapture(e.pointerId); } catch (err) { } }
       function onMove(e) {
         if(touches.has(e.pointerId))touches.set(e.pointerId,[e.clientX,e.clientY]);
         if(touches.size===2){const a=[...touches.values()],distance=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);if(pinch>0)zoom(pinch/Math.max(1,distance));pinch=distance;return;}
@@ -2045,7 +2058,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (!drag.moved) return;
         S.fly = null;
         if (S.view === 'region') { const k = 0.0045 * Math.min(1.2, S.rc.dist); S.rc.yaw -= dx * k; S.rc.pitch = clamp(S.rc.pitch + dy * k, -1.5, 1.5); }
-        else if (S.view === 'drive') { S.dc.yaw -= dx * 0.006; S.dc.pitch = clamp(S.dc.pitch + dy * 0.004, 0.02, 1.2); }
+        else if (S.view === 'drive') { S.dc.yawTarget=(S.dc.yawTarget??S.dc.yaw)-dx*.006;S.dc.pitchTarget=clamp((S.dc.pitchTarget??S.dc.pitch)+dy*.004,.02,1.4);S.dc.manualUntil=performance.now()+1200; }
         else if (drag.pan) {
           const yw = S.tc.yaw, s = S.tc.dist * 0.0016, r = [Math.cos(yw), 0, Math.sin(yw)], f = [-Math.sin(yw), 0, Math.cos(yw)];
           S.tc.tgt = add(S.tc.tgt, add(scl(r, -dx * s), scl(f, -dy * s)));
@@ -2054,7 +2067,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         S.dirty = true;
       }
       function hitAt(x, y) { let best = null, bd = 20; for (const h of S.hits) { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h; } } return best; }
-      function onUp(e) { touches.delete(e.pointerId);if(pinch){pinch=0;drag=null;return;}
+      function onUp(e) { S.dc.orbiting=false;touches.delete(e.pointerId);if(pinch){pinch=0;drag=null;return;}
         const d = drag; drag = null; if (!d || d.moved) return;
         const rect = ov.getBoundingClientRect(), x = e.clientX - rect.left, y = e.clientY - rect.top;
         if (S.view === 'terrain' && S.terr && !S.land) {
@@ -2091,7 +2104,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       function onKey(e, on) { const m = KEYMAP[e.key]; if (!m || S.view !== 'drive'||e.target.matches('input,select,textarea')) return; e.preventDefault(); S.keys[m] = on; }
       const kd = (e) => onKey(e, true), ku = (e) => onKey(e, false), blur = () => { S.keys = {}; }, noCtx = (e) => e.preventDefault();
       ov.addEventListener('pointerdown', onDown); ov.addEventListener('pointermove', onMove); ov.addEventListener('pointerup', onUp);
-      ov.addEventListener('pointercancel', e => {touches.delete(e.pointerId);pinch=0;drag=null;}); ov.addEventListener('lostpointercapture', e => {touches.delete(e.pointerId);pinch=0;drag=null;}); ov.addEventListener('dblclick', onDbl); ov.addEventListener('wheel', onWheel, { passive: false });
+      ov.addEventListener('pointercancel', e => {S.dc.orbiting=false;touches.delete(e.pointerId);pinch=0;drag=null;}); ov.addEventListener('lostpointercapture', e => {S.dc.orbiting=false;touches.delete(e.pointerId);pinch=0;drag=null;}); ov.addEventListener('dblclick', onDbl); ov.addEventListener('wheel', onWheel, { passive: false });
       ov.addEventListener('contextmenu', noCtx); ov.addEventListener('keydown', kd); ov.addEventListener('keyup', ku); ov.addEventListener('blur', blur);
 
       return {
@@ -2102,14 +2115,14 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
           S.view = v; S.fly = null; S.keys = {};
           if (v !== 'terrain') { S.land = null; }
           if (v === 'terrain') { if (prev !== 'drive') initTerrain(); else if (S.rover) { S.tc.tgt = add(S.rover.pos, [0, 0.05, 0]); S.tc.dist = 2.5; } }
-          else if (v === 'drive') initDrive();
+          else if (v === 'drive') {if(!S.rover||S.rover.terrainKey!==S.terrKey)initDrive();else{S.dc.yawTarget=0;S.dc.zoomTarget=DRIVE_START_DISTANCE;}}
           else { const s = S.sites.find((x) => x.id === S.sel); initRegion(s || null); S.lander = null; }
           S.fade = 1; S.fadeDir = -1; S.dirty = true;
         },
         refreshMoon(){const models=window.RealMoon.meshes;for(let i=0;i<models.length;i++){const m=models[i],old=realMoonMeshes[i]||{pos:gl.createBuffer(),nrm:gl.createBuffer(),idx:gl.createBuffer()};for(const [key,data,target] of [['pos',m.pos,gl.ARRAY_BUFFER],['nrm',m.nrm,gl.ARRAY_BUFFER],['idx',m.idx,gl.ELEMENT_ARRAY_BUFFER]]){gl.bindBuffer(target,old[key]);gl.bufferData(target,data,gl.STATIC_DRAW);}old.count=m.idx.length;realMoonMeshes[i]=old;}gl.bindTexture(gl.TEXTURE_2D,moonTexture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,window.RealMoon.albedo);gl.generateMipmap(gl.TEXTURE_2D);window.RealMoon.heightImages.forEach((image,i)=>{gl.bindTexture(gl.TEXTURE_2D,heightTextures[i]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,image);});S.dirty=true;},
         terrainKey() { return S.terrKey; },
         setTerrain(dem, key) {
-          S.terrKey = key; S.land = null; S.lander = null; S.dust0 = -1; S.best = null; S.spawn = null; S.hz = null;
+          S.terrKey = key; S.land = null; S.lander = null; S.dust0 = -1; S.best = null; S.spawn = null; S.home=null;S.navigation=null;S.hz = null;
           const old = S.terr;
           S.terr = { dem: dem, g: buildTerrain(dem), bp: old ? old.bp : null, bn: old ? old.bn : null, bd: old ? old.bd : null, bi: old ? old.bi : null };
           if(old&&old.imageTexture)gl.deleteTexture(old.imageTexture);if(dem.imagery){const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,dem.imagery);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.generateMipmap(gl.TEXTURE_2D);S.terr.imageTexture=t;}
@@ -2128,7 +2141,11 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         land() { return startLanding(); },
         key(name, on) { S.keys[name] = on; },
         joystick(x,y){S.joyTarget={x,y};},
-        resetRover() { S.spawn = null; if (S.view === 'drive') initDrive(); S.dirty = true; },
+        getNavigationPath(){if(!S.navigation)return [];if(S.navKey!==S.navigation.key)return S.navigation.points;const p=S.navSamples||[],g=S.rover?gridOf(S.rover.pos[0],S.rover.pos[2]):[p[0]?.i,p[0]?.j];return [{i:g[0],j:g[1]},...p.slice((S.navProgress||0)+1)];},
+        ensureRover(){if(S.terr&&(!S.rover||S.rover.terrainKey!==S.terrKey))initDrive();},
+        getDriveState(){if(!S.rover)return null;const r=S.rover;return {x:r.pos[0],z:r.pos[2],heading:r.heading,batt:r.batt,dist:r.dist,terrainKey:S.terrKey,camera:{yaw:S.dc.yaw,followHeading:S.dc.hs,distance:S.dc.dist},routeStart:S.navRenderedStart,routeEnd:S.navRenderedEnd,routeCrossTrack:S.navCrossTrack||0,routeNeedsReplan:!!S.navUnsafe,navigationDraws:S.navigationDraws||0};},
+        findRover(){if(!S.rover)return;S.dc.orbiting=false;S.dc.yawTarget=0;S.dc.pitchTarget=.2;S.dc.zoomTarget=DRIVE_START_DISTANCE;S.dc.manualUntil=0;S.dirty=true;},
+        resetRover() { S.spawn = S.home||null; if (S.view === 'drive') initDrive(); S.dirty = true; },
         focusGrid(i,j){S.tc.tgt=gridToWorld(i,j);S.tc.dist=2.5;S.tc.pitch=.4;S.dirty=true;},
         zoom(k) { zoom(k); },
         setTravel(times,small,maxHours){if(!S.terr)return;const d=S.terr.dem,N=d.N,dat=S.terr.g.dat;for(let j=0;j<N;j++)for(let i=0;i<N;i++){const value=times[Math.round(j*(small-1)/(N-1))*small+Math.round(i*(small-1)/(N-1))];dat[(j*N+i)*4+3]=Number.isFinite(value)?value/maxHours:-1;}gl.bindBuffer(gl.ARRAY_BUFFER,S.terr.bd);gl.bufferSubData(gl.ARRAY_BUFFER,0,dat);S.dirty=true;},
@@ -2137,7 +2154,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         resetDriveZoom(){S.dc.zoomTarget=DRIVE_START_DISTANCE;},
         reset() { if (S.view === 'region') initRegion(null); else if (S.view === 'terrain') initTerrain(); else S.dc = { yaw: 0, pitch: 0.2, dist: DRIVE_START_DISTANCE, hs: S.rover ? S.rover.heading : 0 }; S.fly = null; S.dirty = true; },
         destroy() {
-          alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect();
+          for(const mesh of Object.values(routeBuffers))for(const key of ['p','prev','next','side'])if(mesh[key])gl.deleteBuffer(mesh[key]);alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect();
           ov.removeEventListener('pointerdown', onDown); ov.removeEventListener('pointermove', onMove); ov.removeEventListener('pointerup', onUp);
           ov.removeEventListener('dblclick', onDbl); ov.removeEventListener('wheel', onWheel); ov.removeEventListener('contextmenu', noCtx);
           ov.removeEventListener('keydown', kd); ov.removeEventListener('keyup', ku); ov.removeEventListener('blur', blur);

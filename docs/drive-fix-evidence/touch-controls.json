@@ -1,0 +1,38 @@
+{
+  "errors": [],
+  "drive": {
+    "metres": 252.0420232233555,
+    "modelSeconds": 1300.08,
+    "headingChange": 1.4848046658444751,
+    "scrollY": 0,
+    "joystick": "--joy-x: 0px; --joy-y: 0px;"
+  },
+  "pinch": {
+    "before": 0.025,
+    "after": 0.015384615384615387,
+    "reset": 0.025
+  },
+  "landscape": {
+    "joystick": {
+      "x": 12,
+      "y": 184,
+      "width": 100,
+      "height": 100,
+      "top": 184,
+      "right": 112,
+      "bottom": 284,
+      "left": 12
+    },
+    "timeline": {
+      "x": 12,
+      "y": 290,
+      "width": 820,
+      "height": 88,
+      "top": 290,
+      "right": 832,
+      "bottom": 378,
+      "left": 12
+    },
+    "scrollY": 0
+  }
+}

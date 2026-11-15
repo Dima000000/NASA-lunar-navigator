@@ -84,41 +84,33 @@ try {
     { timeout: 90000 },
   );
   await p.evaluate(() => {
-    const m = NASAL._routeResult,
-      entries = [...m.T]
-        .map((t, k) => ({ t, k }))
-        .filter((x) => Number.isFinite(x.t) && x.t > 1)
-        .sort((a, b) => b.t - a.t),
-      goal = entries[0].k,
-      stride = (NASAL._tj.dem.N - 1) / 30;
+    const d = NASAL._tj.dem,
+      r = NASAL.eng.getDriveState(),
+      i = Math.round((r.x + d.L / 2) / d.cell),
+      j = Math.round((-r.z + d.L / 2) / d.cell);
     NASAL.setState({
-      target: {
-        i: (goal % 31) * stride,
-        j: Math.floor(goal / 31) * stride,
-        key: NASAL._tj.key,
-      },
+      target: { i: i + 5, j: j + 5, key: NASAL._tj.key },
       travelOverlay: true,
     });
+    NASAL.routeHere();
   });
   await p.waitForFunction(
-    () =>
-      NASAL._trip?.key === NASAL._routeResult.key &&
-      NASAL._trip.plan?.hours > 1,
+    () => NASAL._navigation?.plan?.hours > 0 && !NASAL._navBusy,
     null,
-    { timeout: 15000 },
+    { timeout: 60000 },
   );
   assert(
     await p.evaluate(() =>
-      NASAL._trip.plan.steps.some((s) => s.kind === "drive"),
+      NASAL._navigation.plan.steps.some((s) => s.kind === "drive"),
     ),
   );
   report.route = await p.evaluate(() => ({
     status: NASAL.state.routeStatus,
     expanded: NASAL._routeResult.expanded,
     finite: [...NASAL._routeResult.T].filter(Number.isFinite).length,
-    trip: NASAL._trip.plan.reachable,
-    tripHours: NASAL._trip.plan.hours,
-    reason: NASAL._trip.plan.reason,
+    trip: NASAL._navigation.plan.reachable,
+    tripHours: NASAL._navigation.plan.hours,
+    navigationExpanded: NASAL._navigation.expanded,
   }));
   await p.screenshot({ path: `${dir}/after-trip-1440.png` });
   await p.evaluate(() => {

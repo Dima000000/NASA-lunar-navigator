@@ -24,20 +24,20 @@
         <sc-if value="{{hud.canSkip}}" hint-placeholder-val="{{ false }}">
           <button class="hi hbtn" onClick="{{skipEarth}}" style="color: #64D2FF">{{hud.skipLabel}}</button>
         </sc-if>
-        <span class="hi dim">{{hud.kmh}}</span><label class="drive-speed">Time <select value="{{driveTimeScale}}" onChange="{{onDriveTimeScale}}" aria-label="Drive time multiplier"><option value="1">×1</option><option value="10">×10</option><option value="60">×60</option><option value="300">×300</option></select></label>
+        <span class="hi dim">{{hud.kmh}}</span><label class="drive-speed">Time × <input type="number" min="0" step="any" data-preserve-editing="true" onKeyDown="{{commitDriveTime}}" inputmode="decimal" value="{{driveTimeScale}}" onChange="{{onDriveTimeScale}}" aria-label="Drive time multiplier"></label>
         <span class="hi dim">{{hud.dist}}</span><button class="hud-more" onClick="{{toggleDriveStatus}}" aria-expanded="{{driveStatusOpen}}" aria-label="More driving status">⋯</button>
       </div>
       <sc-if value="{{hud.hasMsg}}" hint-placeholder-val="{{ false }}">
         <div class="hmsg">{{hud.msg}}</div>
       </sc-if>
       <div class="mobile-surface-note">Fine surface texture is illustrative, not measured.</div>
-      <div class="surface-detail mat"><label><input type="checkbox" checked="{{surfaceDetail}}" onChange="{{toggleSurfaceDetail}}"> Surface detail (visual only)</label><small>Fine surface texture is illustrative, not measured.</small></div>
-      <div class="drive-zoom mat" aria-label="Rover camera zoom"><button onClick="{{driveZoomIn}}" aria-label="Zoom rover camera in">+</button><input type="range" min="-5.2983" max="3.1781" step="0.01" value="{{driveZoom}}" onInput="{{onDriveZoom}}" aria-label="Rover camera distance"><button onClick="{{driveZoomOut}}" aria-label="Zoom rover camera out">−</button><button onClick="{{driveZoomReset}}" aria-label="Reset rover camera distance">⟲</button></div>
+
+
       <div class="joystick mat" role="slider" tabindex="0" aria-label="Rover joystick: drag to drive and turn" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0" onPointerDown="{{joyDown}}" onPointerMove="{{joyMove}}" onPointerUp="{{joyUp}}" onPointerCancel="{{joyUp}}" onLostPointerCapture="{{joyUp}}"><span></span><small>Drive</small></div>
       <div class="pad">
-        <button class="turbo" aria-pressed="{{turbo}}" onClick="{{toggleTurbo}}" aria-label="Fast mode"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 6l7 6-7 6M12 6l7 6-7 6"></path></svg></button>
+        <button class="turbo" aria-pressed="{{turbo}}" onClick="{{toggleTurbo}}" aria-label="Double time multiplier"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 6l7 6-7 6M12 6l7 6-7 6"></path></svg></button>
         <button onPointerDown="{{pad.upOn}}" onPointerUp="{{pad.upOff}}" onPointerLeave="{{pad.upOff}}" onPointerCancel="{{pad.upOff}}" aria-label="Drive forward"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5l7 10H5z"></path></svg></button>
-        <button onClick="{{resetRover}}" aria-label="Return rover to the landing site"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"></path><circle cx="12" cy="11" r="2"></circle></svg></button>
+        <button onClick="{{findRover}}" aria-label="Find rover camera"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"></path><circle cx="12" cy="11" r="2"></circle></svg></button>
         <button onPointerDown="{{pad.leftOn}}" onPointerUp="{{pad.leftOff}}" onPointerLeave="{{pad.leftOff}}" onPointerCancel="{{pad.leftOff}}" aria-label="Turn left"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 12l10-7v14z"></path></svg></button>
         <button onPointerDown="{{pad.downOn}}" onPointerUp="{{pad.downOff}}" onPointerLeave="{{pad.downOff}}" onPointerCancel="{{pad.downOff}}" aria-label="Reverse"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 19L5 9h14z"></path></svg></button>
         <button onPointerDown="{{pad.rightOn}}" onPointerUp="{{pad.rightOff}}" onPointerLeave="{{pad.rightOff}}" onPointerCancel="{{pad.rightOff}}" aria-label="Turn right"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 12L9 5v14z"></path></svg></button>
@@ -45,8 +45,11 @@
     </sc-if>
   </div>
 
-  <sc-if value="{{isDrive}}"><sc-if value="{{hasTarget}}"><button class="drive-route-here btn mat" onClick="{{routeHere}}">Route here ↗</button></sc-if></sc-if>
-  <sc-if value="{{tripOpen}}"><section class="trip-panel mat" role="dialog" aria-label="Trip plan"><div class="shead"><h2 class="stitle">Trip plan</h2><button class="xb" onClick="{{closeTrip}}" aria-label="Close trip plan">×</button></div><p class="note" role="status">{{trip.status}}</p><sc-if value="{{trip.ready}}"><p class="trip-summary">{{trip.summary}}</p><sc-if value="{{travelOverlay}}"><div class="travel-gradient"></div><div class="trip-key">3D travel time · 0 → {{routeDays}} days · grey: no route found / unsearched</div></sc-if><div class="trip-bar" aria-label="Driving and waiting"><sc-for list="{{trip.steps}}" as="leg"><span style="left:{{leg.left}}%;width:{{leg.width}}%;background:{{leg.color}}" title="{{leg.label}} · {{leg.duration}}"></span></sc-for></div><div class="trip-key">Blue: drive · Yellow: wait/charge · Grey: dark</div><div class="trip-bar earth"><sc-for list="{{trip.earth}}" as="leg"><span style="left:{{leg.left}}%;width:{{leg.width}}%;background:{{leg.color}}"></span></sc-for></div><div class="trip-key">Earth in view: green · no view: grey</div><svg viewBox="0 0 600 130" role="img" aria-label="Battery percent through the trip"><path d="M8 10V110H592" stroke="#98989F" fill="none"></path><path d="{{trip.batteryPath}}" stroke="#5C9470" stroke-width="2" fill="none"></path><g fill="#98989F" font-size="11"><text x="12" y="12">100%</text><text x="12" y="108">0%</text></g></svg><div class="trip-key">{{trip.start}} → {{trip.end}}</div><a class="btn sm" href="{{trip.url}}" download="lunar-trip-plan.csv">Export trip CSV</a><details><summary>Trip steps</summary><sc-for list="{{trip.steps}}" as="leg"><p class="trip-step">{{leg.when}} — {{leg.label}} · {{leg.duration}}</p></sc-for></details><p class="note">Coarse 533 m grid — narrow obstacles not resolved. Earth in view is line of sight, not a guaranteed radio link.</p></sc-if></section></sc-if>
+  <sc-if value="{{isDrive}}"><sc-if value="{{showRouteAction}}"><button class="drive-route-here btn mat" disabled="{{navigationBusy}}" onClick="{{routeHere}}">{{routeActionLabel}} ↗</button></sc-if></sc-if>
+  <sc-if value="{{showDriveLegend}}"><aside class="drive-map-legend mat" aria-label="Current ground colour legend"><div class="ramp"></div><div class="lr"><span>{{legendLo}}</span><span>{{legendHi}}</span></div></aside></sc-if>
+  <sc-if value="{{hasRouteAlert}}"><div class="route-alert" role="alert"><div><b>Route unavailable</b><p>{{routeAlert}}</p></div><button class="xb" onClick="{{closeRouteAlert}}" aria-label="Dismiss route alert">×</button></div></sc-if>
+  <sc-if value="{{isDrive}}"><sc-if value="{{navigationActive}}"><div class="navigation-status mat"><span>{{navigationStatus}}</span><button onClick="{{openTrip}}">Trip plan ↗</button></div></sc-if></sc-if>
+  <sc-if value="{{tripOpen}}"><section class="trip-panel mat" role="dialog" aria-label="Trip plan"><div class="shead"><h2 class="stitle">Trip plan</h2><button class="xb" onClick="{{closeTrip}}" aria-label="Close trip plan">×</button></div><p class="note" role="status">{{trip.status}}</p><sc-if value="{{trip.ready}}"><p class="trip-summary">{{trip.summary}}</p><sc-if value="{{travelOverlay}}"><div class="travel-gradient"></div><div class="trip-key">3D travel time · 0 → {{routeDays}} days · grey: no route found / unsearched</div></sc-if><div class="trip-bar" aria-label="Driving and waiting"><sc-for list="{{trip.steps}}" as="leg"><span style="left:{{leg.left}}%;width:{{leg.width}}%;background:{{leg.color}}" title="{{leg.label}} · {{leg.duration}}"></span></sc-for></div><div class="trip-key">Blue: drive · Yellow: wait/charge · Grey: dark</div><div class="trip-bar earth"><sc-for list="{{trip.earth}}" as="leg"><span style="left:{{leg.left}}%;width:{{leg.width}}%;background:{{leg.color}}"></span></sc-for></div><div class="trip-key">Earth in view: green · no view: grey</div><svg viewBox="0 0 600 130" role="img" aria-label="Battery percent through the trip"><path d="M8 10V110H592" stroke="#98989F" fill="none"></path><path d="{{trip.batteryPath}}" stroke="#5C9470" stroke-width="2" fill="none"></path><g fill="#98989F" font-size="11"><text x="12" y="12">100%</text><text x="12" y="108">0%</text></g></svg><div class="trip-key">{{trip.start}} → {{trip.end}}</div><a class="btn sm" href="{{trip.url}}" download="lunar-trip-plan.csv">Export trip CSV</a><details><summary>Trip steps</summary><sc-for list="{{trip.steps}}" as="leg"><p class="trip-step">{{leg.when}} — {{leg.label}} · {{leg.duration}}</p></sc-for></details><p class="note">Route follows the display DEM; horizon samples remain 533 m. Narrow hazards are unresolved. Earth in view does not guarantee a radio link.</p></sc-if></section></sc-if>
   <sc-if value="{{showTravelLegend}}"><aside class="travel-legend mat" aria-label="Travel time legend"><b>Travel time · days</b><div class="travel-gradient"></div><div class="mission-labels"><span>0</span><span>{{routeDays}}</span></div><small>533 m grid · grey: no route found / unsearched</small></aside></sc-if>
   <div class="topr"><button class="round mat tour-help" onClick="{{startTour}}" aria-label="Start quick tour" title="Quick tour">?</button>
     <div class="seg" role="group" aria-label="View">
@@ -65,7 +68,7 @@
   <sc-if value="{{cardShown}}" hint-placeholder-val="{{ true }}">
   <aside class="card mat" aria-label="Selected place">
     <sc-if value="{{isDrive}}" hint-placeholder-val="{{ false }}">
-      <button class="chide" onClick="{{hideCard}}" aria-label="Hide place details while driving"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
+      <button class="chide" onClick="{{hideCard}}" aria-label="Hide place details while driving"><span>Close details</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
     </sc-if>
 
     <sc-if value="{{plistShown}}" hint-placeholder-val="{{ true }}">
@@ -138,7 +141,7 @@
         <sc-if value="{{isTerrain}}" hint-placeholder-val="{{ false }}">
           <div class="{{targetCls}}">
             <sc-if value="{{hasTarget}}" hint-placeholder-val="{{ false }}">
-              <div class="sh" style="margin-bottom: 4px; display: flex; align-items: center"><span class="tdot"></span>Your landing point<button class="xb" style="margin-left: auto; width: 28px; height: 28px" onClick="{{clearTarget}}" aria-label="Clear your landing point"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+              <div class="sh" style="margin-bottom: 4px; display: flex; align-items: center"><span class="tdot"></span>{{targetPointLabel}}<button class="xb" style="margin-left: auto; width: 28px; height: 28px" onClick="{{clearTarget}}" aria-label="Clear your landing point"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
               <div class="tinfo">{{targetTxt}}</div><div class="tdrive"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.5"></rect><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>{{tgt.drive}}</div>
               <div class="tgrid">
                 <div><b>{{tgt.sun}}</b><span>sunlit</span></div>
@@ -147,7 +150,7 @@
                 <div><b>{{tgt.score}}</b><span>score</span></div>
               </div>
               <p class="note" style="margin-top: 8px">{{tgt.verdict}}</p>
-              <div class="tacts"><button class="btn sm" onClick="{{routeHere}}">Route here</button><button class="btn sm pri" onClick="{{landHere}}">Land here</button><button class="btn sm" onClick="{{addTgt}}" disabled="{{addTgtDisabled}}">{{addTgtLabel}}</button></div>
+              <div class="tacts"><sc-if value="{{showRouteAction}}"><button class="btn sm" onClick="{{routeHere}}" disabled="{{navigationBusy}}">{{routeActionLabel}}</button></sc-if><button class="btn sm pri" onClick="{{landHere}}">Land here</button><button class="btn sm" onClick="{{addTgt}}" disabled="{{addTgtDisabled}}">{{addTgtLabel}}</button></div>
             </sc-if>
           </div>
         </sc-if>
@@ -213,12 +216,12 @@
       </div>
     </div>
     <div class="tside">
-      <button class="spd tmbtn" onClick="{{toggleTimeMenu}}" aria-expanded="{{timeMenu}}" aria-haspopup="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="vertical-align: -3px; margin-right: 6px"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>Options</button>
+      <button class="spd tmbtn" onClick="{{toggleTimeMenu}}" aria-expanded="{{timeMenu}}" aria-haspopup="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="vertical-align: -3px; margin-right: 6px"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>{{timeOptionsLabel}}</button>
       <sc-if value="{{timeMenu}}" hint-placeholder-val="{{ false }}">
       <div class="tmenu mat" role="menu" aria-label="Timeline options">
       <button class="spd" onClick="{{setLanding}}" title="Plan the landing at the time shown on the left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="vertical-align: -2px; margin-right: 4px"><path d="M5 21V4M5 4h11l-2 4 2 4H5"></path></svg>Land at this time</button>
       <button class="spd" onClick="{{setDepart}}" title="Plan the liftoff at the time shown on the left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="vertical-align: -2px; margin-right: 4px"><path d="M12 3v14M7 8l5-5 5 5M5 21h14"></path></svg>Lift off at this time</button>
-      <button class="spd" onClick="{{cycleSpeed}}" aria-label="Playback speed">{{speedLabel}}</button>
+      <sc-if value="{{notDrive}}"><button class="spd" onClick="{{cycleSpeed}}" aria-label="Playback speed">{{speedLabel}}</button></sc-if><sc-if value="{{isDrive}}"><label class="drive-speed">Time × <input type="number" min="0" step="any" data-preserve-editing="true" onKeyDown="{{commitDriveTime}}" value="{{driveTimeScale}}" onChange="{{onDriveTimeScale}}" aria-label="Mission time multiplier"></label>      <div class="surface-detail mat"><label><input type="checkbox" checked="{{surfaceDetail}}" onChange="{{toggleSurfaceDetail}}"> Surface detail (visual only)</label><small>Fine surface texture is illustrative, not measured.</small></div><p class="time-step-note">Very high rates use a maximum of 30 simulated seconds per frame; rover motion and clock share that step.</p><button class="spd" onClick="{{resetRover}}">Reset rover to landing site</button></sc-if>
       <button class="spd" aria-pressed="{{sheetDates}}" onClick="{{openDates}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="vertical-align: -2px; margin-right: 4px"><rect x="3.5" y="5" width="17" height="15" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>Dates</button>
       </div>
       </sc-if>
@@ -389,13 +392,14 @@
 
   <sc-if value="{{isTerrainOrDrive}}" hint-placeholder-val="{{ false }}">
   <div class="rcol">
-    <div class="layerbox mat">
+    <div class="layerbox mat"><sc-if value="{{isDrive}}"><button class="drive-layer-toggle" onClick="{{toggleDriveLayers}}" aria-pressed="{{driveLayersOpen}}" aria-label="Map layers" title="Map layers">▱</button></sc-if>
       <div class="mhead"><span>Colour the ground by</span><span class="lbtag">all places</span></div>
       <div class="seg full" role="group" aria-label="Colour the ground by (applies to all places)">
         <sc-for list="{{layers}}" as="l" hint-placeholder-count="5">
           <button class="lic" aria-pressed="{{l.on}}" onClick="{{l.pick}}" title="{{l.tip}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{l.ic}}"></path></svg><span>{{l.label}}</span></button>
         </sc-for>
       </div>
+      <sc-if value="{{isDrive}}"><button class="find-rover" onClick="{{findRover}}" aria-label="Find rover" title="Find rover">◎</button>      <div class="drive-zoom mat" aria-label="Rover camera zoom"><button onClick="{{driveZoomIn}}" aria-label="Zoom rover camera in">+</button><input type="range" min="-5.2983" max="3.1781" step="0.01" value="{{driveZoom}}" onInput="{{onDriveZoom}}" aria-label="Rover camera distance"><button onClick="{{driveZoomOut}}" aria-label="Zoom rover camera out">−</button><button onClick="{{driveZoomReset}}" aria-label="Reset rover camera distance">⟲</button></div></sc-if>
       <sc-if value="{{computing}}" hint-placeholder-val="{{ false }}">
         <div class="status"><span class="spin"></span>{{terrainStatus}}</div>
       </sc-if>
@@ -405,7 +409,7 @@
       <div class="mhead"><span>Top-down map · 16 km</span><button class="rtog" aria-pressed="{{reachOn}}" onClick="{{toggleReach}}" title="Show where the rover can drive and how long it takes"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.5"></rect><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>Range</button><button class="xb" style="width: 30px; height: 30px" onClick="{{openBigMap}}" aria-label="Enlarge map"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"></path></svg></button></div>
       <canvas class="mmc" ref="{{miniRef}}" role="img" aria-label="Top-down map of the area: light, shadow, permanently shadowed regions and steep ground" onClick="{{onMapClick}}"></canvas>
       <sc-if value="{{reachOn}}" hint-placeholder-val="{{ false }}"><div class="mleg rleg2"><span><i style="background: #5C9470"></i>&lt;1 h</span><span><i style="background: #F2C94C"></i>1–3 h</span><span><i style="background: #E3936B"></i>3–6 h</span><span><i style="background: #D9534F"></i>≥6 h</span></div></sc-if>
-      <div class="mleg"><span><i style="background: #D9D9DE"></i>Sunlit</span><span><i style="background: #3A3A3F"></i>Shadow</span><span><i style="background: #4D9BFF"></i>Published PSRs</span><span><i style="background: #C9574B"></i>Too steep</span></div>
+      <div class="mleg"><span><i style="background:#BF5AF2"></i>Rover</span><span><i style="background: #D9D9DE"></i>Sunlit</span><span><i style="background: #3A3A3F"></i>Shadow</span><span><i style="background: #4D9BFF"></i>Published PSRs</span><span><i style="background: #C9574B"></i>Too steep</span></div>
     </div>
   </sc-if>
   </div>
@@ -425,7 +429,7 @@
           </div>
           <sc-if value="{{hasTarget}}" hint-placeholder-val="{{ false }}">
             <div class="tcard">
-              <div class="sh" style="margin-bottom: 4px; display: flex; align-items: center"><span class="tdot"></span>Your landing point<button class="xb" style="margin-left: auto; width: 28px; height: 28px" onClick="{{clearTarget}}" aria-label="Clear your landing point"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+              <div class="sh" style="margin-bottom: 4px; display: flex; align-items: center"><span class="tdot"></span>{{targetPointLabel}}<button class="xb" style="margin-left: auto; width: 28px; height: 28px" onClick="{{clearTarget}}" aria-label="Clear your landing point"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
               <div class="tinfo">{{targetTxt}}</div><div class="tdrive"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.5"></rect><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>{{tgt.drive}}</div>
               <div class="tgrid">
                 <div><b>{{tgt.sun}}</b><span>sunlit</span></div>
@@ -434,7 +438,7 @@
                 <div><b>{{tgt.score}}</b><span>score</span></div>
               </div>
               <p class="note" style="margin-top: 8px">{{tgt.verdict}}</p>
-              <div class="tacts"><button class="btn sm" onClick="{{routeHere}}">Route here</button><button class="btn sm pri" onClick="{{landHere}}">Land here</button><button class="btn sm" onClick="{{addTgt}}" disabled="{{addTgtDisabled}}">{{addTgtLabel}}</button></div>
+              <div class="tacts"><sc-if value="{{showRouteAction}}"><button class="btn sm" onClick="{{routeHere}}" disabled="{{navigationBusy}}">{{routeActionLabel}}</button></sc-if><button class="btn sm pri" onClick="{{landHere}}">Land here</button><button class="btn sm" onClick="{{addTgt}}" disabled="{{addTgtDisabled}}">{{addTgtLabel}}</button></div>
             </div>
           </sc-if>
           <sc-if value="{{noTarget}}" hint-placeholder-val="{{ true }}">

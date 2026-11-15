@@ -115,6 +115,8 @@ npm run start
 
 First preparation restores checksum-verified scientific inputs; subsequent runs reuse them. `npm run build` prepares delivery files and builds the static site. Browser checks: `npx playwright install chromium`, then `npm run test:browser`; `CHROME_BIN` selects an installed Chromium/Edge browser.
 
+Drive controls, live routing, touch rotation and terrain occlusion: `node tools/run-drive-reviews.mjs` after building. See the [Drive follow-up review and evidence](docs/DRIVE_FIX_REVIEW.md).
+
 After template edits: `node tools/sync-template.mjs`. Fresh JPL queries: `node tools/verify-horizons.mjs`; actual export comparison: `node tools/verify-browser-csv.mjs`. Full NASA reconstruction additionally needs Rasterio/SpiceyPy; see `.github/workflows/nasa-data.yml`.
 
 ## License and credits

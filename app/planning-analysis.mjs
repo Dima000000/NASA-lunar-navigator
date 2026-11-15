@@ -24,8 +24,8 @@ export function buildTripPlan(q, r, sky, goal) {
       p = q.points[cell];
     return {
       cell,
-      i: cell % q.N,
-      j: Math.floor(cell / q.N),
+      i: p.i ?? cell % q.N,
+      j: p.j ?? Math.floor(cell / q.N),
       time: r.dist[id],
       energyWh: r.energyWh[id],
       lat: p.lat,
@@ -46,7 +46,7 @@ export function buildTripPlan(q, r, sky, goal) {
     const a = rows[i - 1],
       b = rows[i],
       duration = b.time - a.time,
-      drive = a.cell !== b.cell;
+      drive = a.cell !== b.cell || a.i !== b.i || a.j !== b.j;
     if (duration <= 0) continue;
     const count = Math.max(1, Math.ceil(duration / 0.25)),
       dt = duration / count;
@@ -107,6 +107,8 @@ export function buildTripPlan(q, r, sky, goal) {
     .join("");
   return {
     reachable: true,
+    gridN: q.N,
+    sizeKm: q.sizeKm ?? q.cellKm * (q.N - 1),
     rows,
     steps,
     samples,
@@ -232,8 +234,10 @@ export function tripCSV(plan) {
         [
           new Date(plan.start + r.time * 3600000).toISOString(),
           i && r.cell !== plan.rows[i - 1].cell ? "Drive" : "Wait",
-          ((r.i - 15) * 16) / 30,
-          ((r.j - 15) * 16) / 30,
+          ((r.i - ((plan.gridN || 31) - 1) / 2) * (plan.sizeKm || 16)) /
+            ((plan.gridN || 31) - 1),
+          ((r.j - ((plan.gridN || 31) - 1) / 2) * (plan.sizeKm || 16)) /
+            ((plan.gridN || 31) - 1),
           r.lat,
           r.lon,
           (r.energyWh / VEHICLE.capacityWh) * 100,

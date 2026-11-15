@@ -1181,3 +1181,525 @@
     flex-direction: row !important;
   }
 }
+
+/* Drive controls: one intentional right-hand stack, independent from the minimap. */
+.ui-pass.ui-drive .layerbox {
+  position: fixed !important;
+  right: 14px !important;
+  top: 140px !important;
+  bottom: auto !important;
+  left: auto !important;
+  transform: none !important;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-height: calc(100dvh - 320px);
+  overflow: auto;
+  scrollbar-width: none;
+  z-index: 8;
+}
+.ui-pass.ui-drive .drive-zoom {
+  position: static !important;
+  right: auto !important;
+  bottom: auto !important;
+  top: auto !important;
+  width: 50px;
+  box-sizing: border-box;
+  padding: 4px;
+  visibility: visible !important;
+}
+.ui-pass.ui-drive .drive-zoom button {
+  width: 40px;
+  min-height: 34px !important;
+  height: 34px;
+  font-size: 20px;
+}
+.ui-pass.ui-drive .drive-zoom input {
+  height: 75px;
+  width: 26px;
+  min-height: 0;
+}
+.find-rover,
+.drive-layer-toggle {
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  background: rgba(28, 28, 30, 0.9);
+  color: #bf5af2;
+  font-size: 25px;
+  cursor: pointer;
+}
+.drive-layer-toggle {
+  display: none;
+  color: #f5f5f7;
+}
+.ui-pass .drive-speed input {
+  width: 95px;
+  min-width: 0;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(118, 118, 128, 0.24);
+  color: #f5f5f7;
+  padding: 7px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.ui-pass.ui-drive .drive-route-here {
+  width: auto !important;
+  max-width: 240px !important;
+  min-width: 0 !important;
+  top: 146px !important;
+  left: 20px;
+  right: auto;
+  min-height: 40px !important;
+  padding: 10px 16px !important;
+  border-radius: 14px !important;
+  font-size: 13px !important;
+  box-sizing: border-box;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+.drive-route-here:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.navigation-status {
+  position: fixed;
+  left: 20px;
+  top: 146px;
+  z-index: 7;
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 120px));
+  font-size: 12px;
+}
+.navigation-status button {
+  font: inherit;
+  color: #64d2ff;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.route-alert {
+  position: fixed;
+  left: 50%;
+  top: 145px;
+  transform: translateX(-50%);
+  z-index: 80;
+  width: min(440px, calc(100vw - 32px));
+  box-sizing: border-box;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border: 1px solid #ff453a;
+  background: rgba(62, 15, 20, 0.98);
+  box-shadow: 0 8px 40px rgba(255, 69, 58, 0.2);
+  border-radius: 18px;
+  color: #fff;
+  animation: route-alert-in 0.25s ease-out;
+}
+.route-alert b {
+  font-size: 16px;
+}
+.route-alert p {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+.route-alert .xb {
+  flex: none;
+  color: #fff;
+}
+@keyframes route-alert-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.time-step-note {
+  font-size: 10px;
+  line-height: 1.4;
+  color: #98989f;
+  margin: 6px 0;
+  max-width: 230px;
+}
+.ui-pass.ui-drive.drive-card-open .card {
+  left: 20px !important;
+  top: 146px !important;
+  bottom: auto !important;
+  width: 340px !important;
+  max-height: calc(100dvh - 320px) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  overflow-x: hidden !important;
+}
+.ui-pass.ui-drive .chide {
+  position: relative !important;
+  float: none !important;
+  top: auto !important;
+  margin: 0 0 8px auto !important;
+  display: flex !important;
+  width: auto !important;
+  min-height: 32px;
+  height: 32px;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+.ui-pass.ui-drive .chide svg {
+  width: 12px;
+}
+.ui-pass.ui-drive .pad {
+  right: 84px !important;
+}
+.ui-pass.ui-drive .mobile-surface-note {
+  pointer-events: none;
+}
+@media (max-width: 900px) {
+  .ui-pass.ui-drive .layerbox,
+  .ui-pass.ui-drive.drive-details-open .layerbox {
+    right: 12px !important;
+    top: calc(var(--drive-hud-bottom, 194px) + 70px) !important;
+    max-height: calc(100dvh - var(--drive-hud-bottom, 194px) - 250px);
+    overflow: visible;
+    gap: 5px;
+  }
+  .ui-pass.ui-drive .drive-layer-toggle {
+    display: block;
+  }
+  .ui-pass.ui-drive .layerbox > .seg {
+    display: none !important;
+  }
+  .ui-pass.ui-drive.drive-layers-open .layerbox > .seg {
+    display: flex !important;
+    position: absolute;
+    right: 60px;
+    top: 0;
+    flex-direction: row !important;
+    background: #1c1c1e !important;
+    gap: 3px !important;
+  }
+  .ui-pass.ui-drive .layerbox > .seg button.lic {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+  .ui-pass.ui-drive .drive-zoom {
+    visibility: visible !important;
+  }
+  .ui-pass.ui-drive .drive-zoom input {
+    height: 60px;
+  }
+  .ui-pass.ui-drive .drive-zoom button {
+    min-height: 36px !important;
+    height: 36px;
+  }
+  .ui-pass.ui-drive .drive-route-here,
+  .navigation-status {
+    top: calc(var(--drive-hud-bottom, 194px) + 70px) !important;
+    left: 12px;
+    max-width: calc(100vw - 100px) !important;
+  }
+  .ui-pass.ui-drive.drive-card-open .card {
+    left: 12px !important;
+    right: 84px !important;
+    top: calc(var(--drive-hud-bottom, 194px) + 70px) !important;
+    width: auto !important;
+    max-height: calc(
+      100dvh - var(--drive-hud-bottom, 194px) - 260px
+    ) !important;
+  }
+  .ui-pass.ui-drive .mobile-surface-note {
+    top: calc(var(--drive-hud-bottom, 194px) + 112px);
+    max-width: 240px;
+  }
+  .ui-pass.ui-drive .pad {
+    right: 84px !important;
+  }
+  .route-alert {
+    top: calc(var(--drive-hud-bottom, 194px) + 12px);
+  }
+  .navigation-status {
+    font-size: 11px;
+  }
+  .ui-pass .drive-speed input {
+    width: 82px;
+  }
+  .ui-pass.ui-drive .surface-detail {
+    z-index: 9;
+  }
+}
+
+.ui-pass .tmenu .surface-detail {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  display: block !important;
+  width: auto !important;
+  padding: 8px 0 !important;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  max-width: 240px !important;
+}
+.ui-pass.ui-drive .mobile-surface-note {
+  display: block;
+  position: fixed;
+  left: 20px;
+  top: 202px;
+  bottom: auto;
+  font-size: 10px;
+  max-width: 300px;
+  color: #98989f;
+  pointer-events: none;
+}
+.ui-pass.ui-drive.drive-card-open .mobile-surface-note,
+.ui-drive:has(.trip-panel) .mobile-surface-note {
+  display: none;
+}
+.ui-pass.ui-drive:has(.navigation-status) .tip,
+.ui-pass.ui-drive:has(.drive-route-here) .tip {
+  display: none;
+}
+@media (max-width: 900px) {
+  .ui-pass.ui-drive .mobile-surface-note {
+    left: 12px;
+    top: calc(var(--drive-hud-bottom, 194px) + 112px);
+    max-width: 240px;
+  }
+  .ui-pass .tmenu .drive-speed {
+    display: flex !important;
+  }
+  .ui-pass .tmenu .surface-detail small {
+    font-size: 10px;
+  }
+  .ui-pass.ui-drive .pad {
+    right: 84px !important;
+  }
+}
+
+.drive-map-legend {
+  position: fixed;
+  z-index: 5;
+  left: 20px;
+  top: 202px;
+  width: 240px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.drive-map-legend .ramp {
+  width: 100%;
+  height: 6px;
+}
+.drive-map-legend .lr {
+  font-size: 10px;
+  gap: 12px;
+  margin-top: 5px;
+}
+.ui-pass.ui-drive.drive-analysis .mobile-surface-note,
+.ui-pass.ui-drive.drive-card-open .drive-map-legend,
+.ui-drive:has(.trip-panel) .drive-map-legend {
+  display: none;
+}
+@media (max-width: 900px) {
+  .drive-map-legend {
+    left: 12px;
+    top: calc(var(--drive-hud-bottom, 194px) + 112px);
+    width: 230px;
+  }
+}
+@media (max-width: 1000px) and (max-height: 550px) {
+  .ui-pass.ui-drive .topr {
+    top: 8px !important;
+    left: 12px !important;
+    right: 12px !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-end !important;
+  }
+  .ui-pass.ui-drive .topr > .seg {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    order: 0;
+  }
+  .ui-pass.ui-drive .topr > .round {
+    order: 1;
+  }
+  .ui-pass.ui-drive .hud {
+    top: 66px !important;
+    min-height: 36px !important;
+    padding: 6px 8px !important;
+    flex-wrap: nowrap !important;
+    font-size: 10px !important;
+    gap: 8px !important;
+  }
+  .ui-pass.ui-drive .hud .drive-speed {
+    display: flex !important;
+  }
+  .ui-pass.ui-drive .drive-speed input {
+    width: 76px;
+    min-height: 30px;
+    padding: 4px;
+  }
+  .ui-pass.ui-drive .hud .hi {
+    font-size: 10px !important;
+  }
+  .ui-pass.ui-drive .dpill {
+    top: calc(var(--drive-hud-bottom, 110px) + 8px) !important;
+    max-width: 340px !important;
+    right: auto !important;
+    min-height: 38px !important;
+    height: 38px;
+  }
+  .ui-pass.ui-drive .time > .mission-selector {
+    display: none;
+  }
+  .ui-pass.ui-drive .time {
+    padding: 8px 12px !important;
+    grid-template-columns: 36px minmax(0, 1fr) 100px;
+    gap: 4px !important;
+  }
+  .ui-pass.ui-drive .time > .playb,
+  .ui-pass.ui-drive .time > .tdate,
+  .ui-pass.ui-drive .time > .tside {
+    grid-row: 1;
+  }
+  .ui-pass.ui-drive .time > .tmain {
+    grid-row: 2;
+  }
+  .ui-pass.ui-drive .time .tdate {
+    display: flex !important;
+    gap: 8px;
+    align-items: center;
+  }
+  .ui-pass.ui-drive .time .d2 {
+    white-space: nowrap !important;
+  }
+  .ui-pass.ui-drive .time .trackw {
+    height: 22px !important;
+  }
+  .ui-pass.ui-drive .layerbox,
+  .ui-pass.ui-drive.drive-details-open .layerbox {
+    top: calc(var(--drive-hud-bottom, 110px) + 8px) !important;
+    right: 12px !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 5px;
+    max-height: none !important;
+  }
+  .ui-pass.ui-drive .drive-zoom {
+    display: flex !important;
+    flex-direction: row !important;
+    width: auto !important;
+    gap: 3px;
+    padding: 3px !important;
+  }
+  .ui-pass.ui-drive .drive-zoom input {
+    writing-mode: horizontal-tb;
+    direction: ltr;
+    height: 28px;
+    width: 105px;
+  }
+  .ui-pass.ui-drive .drive-zoom button {
+    width: 40px;
+    min-height: 40px !important;
+    height: 40px;
+  }
+  .ui-pass.ui-drive .find-rover,
+  .ui-pass.ui-drive .drive-layer-toggle {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+  .ui-pass.ui-drive.drive-layers-open .layerbox > .seg {
+    top: 50px !important;
+    right: 0 !important;
+  }
+  .ui-pass.ui-drive.app.tlc .pad {
+    bottom: 106px !important;
+    right: 12px !important;
+    grid-template-columns: repeat(3, 40px);
+    grid-template-rows: repeat(2, 40px);
+    gap: 4px;
+  }
+  .ui-pass.ui-drive .pad button {
+    width: 40px;
+    min-height: 40px !important;
+    height: 40px;
+  }
+  .ui-pass.ui-drive .joystick {
+    bottom: 106px !important;
+    width: 100px;
+    height: 100px;
+    left: 12px;
+  }
+  .ui-pass.ui-drive .joystick > span {
+    left: 29px;
+    top: 29px;
+  }
+  .ui-pass.ui-drive .drive-route-here,
+  .ui-pass.ui-drive .navigation-status {
+    top: calc(var(--drive-hud-bottom, 110px) + 56px) !important;
+  }
+  .ui-pass.ui-drive .mobile-surface-note {
+    display: none !important;
+  }
+  .ui-pass.ui-drive .drive-map-legend {
+    top: calc(var(--drive-hud-bottom, 110px) + 94px);
+    left: 140px;
+    width: 220px;
+    padding: 8px 10px;
+  }
+  .ui-pass.ui-drive.drive-card-open .card {
+    top: calc(var(--drive-hud-bottom, 110px) + 56px) !important;
+    right: auto !important;
+    width: 320px !important;
+    max-height: calc(
+      100dvh - var(--drive-hud-bottom, 110px) - 160px
+    ) !important;
+  }
+  .ui-pass.ui-drive .trip-panel {
+    bottom: 105px;
+    max-height: 60vh;
+  }
+  .ui-pass.ui-drive .route-alert {
+    top: calc(var(--drive-hud-bottom, 110px) + 8px);
+  }
+}
+
+.ui-pass .time:has(.tmenu) {
+  z-index: 25 !important;
+}
+.ui-pass .tmenu {
+  max-height: min(70dvh, 430px);
+  overflow: auto;
+  min-width: 220px;
+}
+.ui-pass .tmenu .surface-detail {
+  font-size: 12px;
+}
+
+.ui-pass.ui-drive .chide {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 2;
+  background: rgba(28, 28, 30, 0.96) !important;
+}

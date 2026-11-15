@@ -1,0 +1,133 @@
+{
+  "errors": [],
+  "checks": [
+    "Clean initial Drive; zoom and find controls share the right column",
+    "Free numeric editing survives live refresh; Enter commits, pause stops time, Mission input stays synchronised",
+    "Every Drive analytical layer can be selected while fine texture is enabled",
+    "Route starts at the live rover and stays rendered during movement and steering",
+    "Find rover restores the follow camera without resetting rover position; steering centres the view",
+    "Portrait/landscape resizing while paused keeps HUD, site pill and right column aligned",
+    "A real route over 1 km starts at the fractional rover position; changing Terrain/Drive preserves rover and route",
+    "Undrivable destination raises a visible red alert and removes the obsolete route"
+  ],
+  "routes": [
+    {
+      "points": 6,
+      "hours": 0.3877775449039072,
+      "expanded": 6,
+      "origin": {
+        "i": 240,
+        "j": 240
+      },
+      "first": {
+        "cell": 115680,
+        "i": 240,
+        "j": 240,
+        "time": 0,
+        "energyWh": 133.68948364257812,
+        "lat": -89.43990000000026,
+        "lon": -137.1476
+      },
+      "last": {
+        "cell": 118090,
+        "i": 245,
+        "j": 245,
+        "time": 0.3877775449039072,
+        "energyWh": 155.7090606689453,
+        "lat": -89.43437698126006,
+        "lon": -136.5908233555651
+      },
+      "rover": {
+        "x": 0,
+        "z": 0,
+        "heading": 7.417086595037567,
+        "batt": 83.55593020733176,
+        "dist": 0,
+        "terrainKey": "-89.4399,-137.1476,Connecting Ridge · Gläser spot 2|h2",
+        "camera": {
+          "yaw": 0,
+          "followHeading": 7.417086595037567,
+          "distance": 0.025
+        },
+        "routeStart": {
+          "x": 0,
+          "z": 0
+        },
+        "routeEnd": {
+          "i": 245,
+          "j": 245,
+          "x": 0.16666666666666607,
+          "y": -0.01180440163731575,
+          "z": -0.16666666666666607
+        },
+        "routeCrossTrack": 0,
+        "routeNeedsReplan": false,
+        "navigationDraws": 38
+      }
+    },
+    {
+      "scenario": "Real Connecting Ridge route over 1 km",
+      "points": 35,
+      "hours": 3.1226841269297307,
+      "expanded": 35,
+      "searchScope": "terrain corridor",
+      "origin": {
+        "i": 240.90226204822594,
+        "j": 240.24833329486665
+      },
+      "first": {
+        "cell": 115681,
+        "i": 240.90226204822594,
+        "j": 240.24833329486665,
+        "time": 0,
+        "energyWh": 160,
+        "lat": -89.43962613872667,
+        "lon": -137.04618874339812
+      },
+      "last": {
+        "cell": 101220,
+        "i": 210,
+        "j": 210,
+        "time": 3.1226841269297307,
+        "energyWh": 160,
+        "lat": -89.47184734122163,
+        "lon": -140.72753111261252
+      },
+      "rover": {
+        "x": 0.030075401607531055,
+        "z": -0.008277776495554695,
+        "heading": 8.141326595037564,
+        "batt": 100,
+        "dist": 0.03237823333123316,
+        "terrainKey": "-89.4399,-137.1476,Connecting Ridge · Gläser spot 2|h2",
+        "camera": {
+          "yaw": 0,
+          "followHeading": 8.141326595037562,
+          "distance": 0.025000000000000005
+        },
+        "routeStart": {
+          "x": 0.030075401607531055,
+          "z": -0.008277776495554695
+        },
+        "routeEnd": {
+          "i": 210,
+          "j": 210,
+          "x": -1,
+          "y": -0.12839890620231628,
+          "z": 1
+        },
+        "routeCrossTrack": 2.6904960617188874e-16,
+        "routeNeedsReplan": false,
+        "navigationDraws": 1861
+      }
+    }
+  ],
+  "frameTiming": {
+    "seconds": 5.001500000005959,
+    "frames": 601,
+    "fps": 120.1639508146124,
+    "p95FrameMs": 8.5,
+    "routeDraws": 1041,
+    "context": "Headless browser on the current machine, active navigation; not a weak-laptop benchmark"
+  }
+}
