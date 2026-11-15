@@ -35,6 +35,14 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
       - run: node tools/verify-browser-csv.mjs
+      - name: Independently verify 100 fractional-time positions with JPL Horizons
+        run: node tools/verify-visual-interpolation.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-interpolation-horizons
+          path: work/ui-pass-review/
+          if-no-files-found: ignore
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
