@@ -14,6 +14,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tools/bootstrap-data.py
       - run: node tools/verify-horizons.mjs
       - uses: actions/upload-artifact@v4
         if: always()
