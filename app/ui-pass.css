@@ -27,3 +27,5 @@
 .sky-panorama{margin:14px 0}.sky-panorama>b{font-size:12px}.sky-panorama svg{display:block;width:100%;margin-top:6px}.sky-panorama .note{font-size:11px;margin-top:0}
 
 .graph-hover{min-height:34px;font-size:11px;color:var(--ui-text-2);line-height:1.45;margin:6px 0;overflow-wrap:anywhere}.ui-pass .csub{line-height:1.5;font-size:12px}
+
+.surface-detail{position:absolute;z-index:5;bottom:190px;left:20px;padding:10px 12px;border-radius:14px;max-width:280px;font-size:12px}.surface-detail label{display:flex;gap:7px;align-items:center}.surface-detail small{display:block;font-size:10px;color:var(--ui-text-2);margin-top:5px}@media(max-width:900px){.surface-detail{bottom:300px;left:12px;max-width:210px}.surface-detail small{font-size:9px}}

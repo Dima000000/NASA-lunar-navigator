@@ -1429,7 +1429,7 @@ varying vec3 vW; varying vec3 vN; varying float vS; varying float vH;
 void main(){ vW = aP; vN = aN; vS = mix(aD.z,aD.x,uShadeMix); vH = aD.y; gl_Position = uPV*vec4(aP, 1.0); }`;
     const TER_FS = `precision highp float;
 varying vec3 vW; varying vec3 vN; varying float vS; varying float vH;
-uniform vec3 uSun; uniform vec3 uCam; uniform float uHeat; uniform float uHalf; uniform sampler2D uImagery; uniform float uHasImagery;
+uniform vec3 uSun; uniform vec3 uCam; uniform float uHeat; uniform float uHalf; uniform sampler2D uImagery; uniform float uHasImagery; uniform float uSurfaceDetail;
 float h12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
 float n2(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); vec2 u = f*f*(3.0 - 2.0*f);
   return mix(mix(h12(i), h12(i + vec2(1.0, 0.0)), u.x), mix(h12(i + vec2(0.0, 1.0)), h12(i + vec2(1.0, 1.0)), u.x), u.y); }
@@ -1448,14 +1448,19 @@ void main(){
   // Measured DEM normals with the actual LROC WAC 100 m observation mosaic. Acquisition shadows are fixed in the texture; lighting masks remain calculated independently.
   float observed=texture2D(uImagery,vec2(vW.x/(2.0*uHalf)+0.5,0.5-vW.z/(2.0*uHalf))).r;
   float alb=0.16*mix(1.0,0.3+1.2*observed,uHasImagery);
+  float detailFade=uSurfaceDetail*(1.0-smoothstep(0.2,0.5,camd));
+  vec2 metres=q*1000.0;float grit=n2(metres*0.4),fine=n2(metres*4.0)*(1.0-smoothstep(0.015,0.08,camd));
+  float material=(grit-0.5)*0.12+(fine-0.5)*0.04;
+  alb*=1.0+clamp(material,-0.08,0.08)*detailFade;
+  n=normalize(n+vec3(n2(metres*.4+vec2(.1,0.0))-grit,0.0,n2(metres*.4+vec2(0.0,.1))-grit)*0.35*detailFade);
   vec3 V = normalize(uCam - vW);
   float mu0 = max(dot(n, uSun), 0.0); float mu = max(dot(n, V), 0.03);
   float br = mix(2.0*mu0/(mu0 + mu), mu0, 0.35);
-  vec3 col = vec3(1.0, 0.975, 0.94)*alb*br*vS*3.0;
+  vec3 col = mix(vec3(1.0,0.975,0.94),vec3(1.0),uSurfaceDetail)*alb*br*vS*3.0;
   col += alb*vec3(0.45, 0.55, 0.75)*0.03*(0.5 + 0.5*n.y);
   col = vec3(1.0) - exp(-col*1.7);
   col = pow(col, vec3(1.0/2.2));
-  if (uHeat > 0.5) {
+  if (uHeat > 0.5 && uSurfaceDetail < 0.5) {
     float hs = 0.45 + 0.55*clamp(dot(n, normalize(vec3(-0.45, 0.8, -0.4))), 0.0, 1.0);
     vec3 hc;
     if (vH < -1.5) { hc = mix(vec3(0.2, 0.5, 0.98), vec3(0.72, 0.9, 1.0), n2(q*4.0)*0.55); }
@@ -1778,7 +1783,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (T && T.bp) {
           use(P.ter, [['aP', T.bp, 3], ['aN', T.bn, 3], ['aD', T.bd, 4]]);
           gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, T.bi);
-          U(P.ter, 'uShadeMix',Math.min(1,(performance.now()-(S.shadeAt||0))/250)); U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
+          U(P.ter,'uSurfaceDetail',S.view==='drive'&&S.surfaceDetail!==false?1:0); U(P.ter, 'uShadeMix',Math.min(1,(performance.now()-(S.shadeAt||0))/250)); U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
           gl.drawElements(gl.TRIANGLES, T.g.idx.length, gl.UNSIGNED_INT, 0);
         }
         if (S.view === 'drive' && S.rover) {

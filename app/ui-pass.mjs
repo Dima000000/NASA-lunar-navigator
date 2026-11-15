@@ -2,7 +2,7 @@ import {skyPanorama} from "./sky-panorama.mjs";
 import {interpolateVisualState} from "./visual-time.mjs";
 export function withUIPass(Base, science) {
  return class UIPass extends Base {
-  constructor(...args){super(...args);Object.assign(this.state,{driveTimeScale:60,routeDays:1});}
+  constructor(...args){super(...args);Object.assign(this.state,{driveTimeScale:60,routeDays:1,surfaceDetail:true});}
   renderContinuousTime(ms,now=performance.now()){
    this._visualUTC=ms;const site=this.selSite();if(!this.eng||!site)return;
    const st=interpolateVisualState(science.ephem,ms),topo=this.eph().topo(st,site.lat,site.lon,(this.state.obsH||2)/1000);
@@ -28,6 +28,7 @@ export function withUIPass(Base, science) {
    const questions=['When is the Sun up?','When can you see Earth?','How much sunlight each day?','How often is Earth visible each day?','When are both available?'];
    (v.chartRows||[]).forEach((c,index)=>{c.title=questions[index];c.insight=(v.cmpCols||[]).map(col=>col.name+': '+(col.rows[index===1||index===3?1:0]?.value||'')).join(' · ');for(const q of c.panels){q.kind=index;q.hover=e=>this.graphHover(e);const top=14,bottom=Number(q.yBY)-4,threshold=index===0||index===1?(top+bottom)/2:bottom-(index===2?.65:.5)*(bottom-top),x=48,width=Number(q.x1)-x;q.good='M'+x+' '+top+'h'+width+'V'+threshold+'H'+x+'Z';q.bad='M'+x+' '+threshold+'h'+width+'V'+bottom+'H'+x+'Z';}});
    v.modelNote='Based on NASA LOLA terrain and JPL ephemerides. Earth in view ≠ guaranteed radio link.';
+   v.surfaceDetail=this.state.surfaceDetail;v.toggleSurfaceDetail=()=>this.setState({surfaceDetail:!this.state.surfaceDetail});this.eng?.set({surfaceDetail:this.state.surfaceDetail});
    return v;
   }
  };
