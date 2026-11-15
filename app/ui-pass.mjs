@@ -8,6 +8,7 @@ export function withUIPass(Base, science) {
    this.eng.set({sunB:st.sun,earthB:st.earth,tSun:topo.sun,tEarth:topo.earth,simUTC:ms});
    if(this._tj?.hmap&&this.state.view!=='region'&&now-(this._continuousShadeAt||0)>250){this._continuousShadeAt=now;this.sendShade({key:this._tj.key,utc:ms,sun:science.ephem.state(ms).sun,bigMap:!!this.state.bigMap});}
   }
+  joystickEvent(event,release=false){const el=event.currentTarget;if(release){this.eng?.joystick(0,0);el.style.setProperty('--joy-x','0px');el.style.setProperty('--joy-y','0px');return;}if(event.type==='pointerdown'){this._joystickPointer=event.pointerId;el.setPointerCapture(event.pointerId);}if(!el.hasPointerCapture(event.pointerId))return;const r=el.getBoundingClientRect(),dx=(event.clientX-r.left-r.width/2)/(r.width*.4),dy=(event.clientY-r.top-r.height/2)/(r.height*.4),distance=Math.hypot(dx,dy),scale=distance>.1?Math.min(1,distance)/distance:0;this.eng?.joystick(dx*scale,dy*scale);el.style.setProperty('--joy-x',dx*scale*35+'px');el.style.setProperty('--joy-y',dy*scale*35+'px');event.preventDefault();}
   renderVals(){
    const v=super.renderVals();v.appCls+=' ui-pass'+(this.state.view==='drive'?' ui-drive':'');
    v.hud={...v.hud,rate:v.hud.rate.replace('charging ','· ').replace('draining ','· '),sun:v.hud.sun.replace('In sunlight','Sunlit'),earth:v.hud.earth==='Earth link'?'Earth in view':v.hud.earth,skipLabel:v.hud.skipLabel.replace('Skip to Earthrise (','Earthrise in ').replace(')',' →')};
@@ -20,6 +21,7 @@ export function withUIPass(Base, science) {
    this.eng?.set({driveTimeScale:this.state.driveTimeScale});
    v.driveTimeScale=this.state.driveTimeScale;v.onDriveTimeScale=e=>this.setState({driveTimeScale:Number(e.target.value)});v.toggleTurbo=()=>this.setState({driveTimeScale:this.state.driveTimeScale===300?60:300});v.turbo=this.state.driveTimeScale===300;
    if(this.state.view==='drive'&&this._visualUTC){v.timeSmall=new Date(this._visualUTC).toISOString().slice(11,19)+' UTC · ×'+this.state.driveTimeScale+' time';}
+   v.joyDown=e=>this.joystickEvent(e);v.joyMove=e=>this.joystickEvent(e);v.joyUp=e=>this.joystickEvent(e,true);
    return v;
   }
  };

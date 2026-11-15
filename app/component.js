@@ -1943,7 +1943,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       function stepDrive(now, dt) {
         const R = S.rover; if (!R || !S.terr) return;
         const modelDt=dt*(S.driveTimeScale||60),k=S.keys,turbo=1,maxV=0.7/3600,L=S.terr.dem.L;
-        let thr = (k.up ? 1 : 0) - (k.down ? 1 : 0); const steer = (k.right ? 1 : 0) - (k.left ? 1 : 0);
+        S.joy ||= {x:0,y:0};const jt=S.joyTarget||{x:0,y:0},blend=1-Math.exp(-dt/0.1);S.joy.x=lerp(S.joy.x,jt.x,blend);S.joy.y=lerp(S.joy.y,jt.y,blend);let thr=(k.up?1:0)-(k.down?1:0)-S.joy.y;const steer=(k.right?1:0)-(k.left?1:0)+S.joy.x;
         if (R.batt <= 0.5) thr = 0;
         if (thr) R.v += thr * 0.0001 * modelDt; else R.v *= Math.exp(-3 * dt);
         R.v = clamp(R.v, -maxV * 0.35, maxV); if (!thr && Math.abs(R.v) < 1e-6) R.v = 0;
@@ -2015,9 +2015,11 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       raf = requestAnimationFrame(frame);
 
       // ---- input ----
-      let drag = null;
-      function onDown(e) { drag = { x: e.clientX, y: e.clientY, moved: false, pan: e.button === 2 || e.shiftKey }; try { ov.setPointerCapture(e.pointerId); } catch (err) { } }
+      let drag = null;const touches=new Map();let pinch=0;
+      function onDown(e) { touches.set(e.pointerId,[e.clientX,e.clientY]);if(touches.size===2){const a=[...touches.values()];pinch=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);drag=null;return;} drag = { x: e.clientX, y: e.clientY, moved: false, pan: e.button === 2 || e.shiftKey }; try { ov.setPointerCapture(e.pointerId); } catch (err) { } }
       function onMove(e) {
+        if(touches.has(e.pointerId))touches.set(e.pointerId,[e.clientX,e.clientY]);
+        if(touches.size===2){const a=[...touches.values()],distance=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);if(pinch>0)zoom(pinch/Math.max(1,distance));pinch=distance;return;}
         if (!drag) { if (S.view === 'region') { const rect = ov.getBoundingClientRect(), h = hitAt(e.clientX - rect.left, e.clientY - rect.top); ov.style.cursor = h ? 'pointer' : (S.pick ? 'crosshair' : ''); } return; }
         const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
@@ -2034,7 +2036,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         S.dirty = true;
       }
       function hitAt(x, y) { let best = null, bd = 20; for (const h of S.hits) { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h; } } return best; }
-      function onUp(e) {
+      function onUp(e) { touches.delete(e.pointerId);if(pinch){pinch=0;drag=null;return;}
         const d = drag; drag = null; if (!d || d.moved) return;
         const rect = ov.getBoundingClientRect(), x = e.clientX - rect.left, y = e.clientY - rect.top;
         if (S.view === 'terrain' && S.terr && !S.land) {
@@ -2107,6 +2109,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         flyTo(lat, lon, close, done) { if (S.view !== 'region') { if (done) done(); return; } flyTo(lat, lon, close, done); },
         land() { return startLanding(); },
         key(name, on) { S.keys[name] = on; },
+        joystick(x,y){S.joyTarget={x,y};},
         resetRover() { S.spawn = null; if (S.view === 'drive') initDrive(); S.dirty = true; },
         zoom(k) { zoom(k); },
         setDriveZoom(value){S.dc.zoomTarget=clamp(value,.005,24);S.dirty=true;},
