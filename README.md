@@ -17,7 +17,16 @@
 
 ## Team — Dark Vector
 
-Dark Vector
+Lunar Landing Site Navigator was developed by **Dark Vector**:
+
+| Project author | Space Apps username |
+|---|---|
+| Andrey Stomma | @antchupick |
+| Dmitry Belousov | @dimabel |
+| Ivan Ermolaev | @ermolaevivan |
+| Gleb Naumkin | @gnaum31415 |
+
+[Team credits](AUTHORS.md) · [Dark Vector on NASA Space Apps](https://www.spaceappschallenge.org/2026/find-a-team/dark-vector/?tab=members)
 
 ## Key findings
 
