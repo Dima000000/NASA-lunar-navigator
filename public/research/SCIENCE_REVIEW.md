@@ -1,6 +1,6 @@
 # Scientific review — updated 15 November 2026
 
-This is a research and educational planner, preserving the NASAL PR interface. It is not a NASA product, a flight dynamics simulator, a certified landing assessment, or a guaranteed power/radio-link analysis.
+This is a research and educational planner, using the Dark Vector interface. It is not a NASA product, a flight dynamics simulator, a certified landing assessment, or a guaranteed power/radio-link analysis.
 
 ## 1. Independent JPL Horizons comparison
 
@@ -45,7 +45,7 @@ Vite builds a static site for GitHub Pages. Runtime science products load from `
 
 Local photographic texture: official [LROC WAC South Pole Summer Mosaic](https://data.lroc.im-ldi.com/lroc/view_rdr/WAC_ROI_SOUTH_SUMMER), **100 m/pixel**. Tile URLs and checksums are recorded in `data/lroc-tile-provenance.json`. The photograph has fixed acquisition shadows; calculated visibility uses the selected date independently. The small-scale texture is not invented. Geographic control agrees visually with LOLA, but subpixel image registration has not been certified.
 
-G1 is the default, named “LOLA relief.” Site sources and coordinate roles are linked. The original NASAL CSS is preserved. Original “demo terrain” labels have been removed from real-data views. The hypothetical rover and descent animation remain scenarios, and are described accordingly.
+G1 is the default, named “LOLA relief.” Site sources and coordinate roles are linked. The existing CSS is preserved. Original “demo terrain” labels have been removed from real-data views. The hypothetical rover and descent animation remain scenarios, and are described accordingly.
 
 The reviewed staged loader presents a measured overview and usable interface first, then a default-site background load; site grids, imagery, route atlases and ephemeris years are fetched on demand. The full measured globe upgrades on interaction. Scientific grids and yearly ephemerides use byte-preserving gzip; optional 0.1 m display quantization is audited separately. Photographs alone use grayscale JPEG. See [delivery provenance](../data/PROVENANCE.md).
 
@@ -77,7 +77,7 @@ The implemented planner supports the central brief confirmed in the official cha
 
 **The complete official 2026 challenge Details and Resources tabs were inspected in the browser on 14 November 2026 after automated requests had returned HTTP 502. Core objectives are covered: custom/curated sites and comparisons, flexible dates, Sun/Earth positions relative to the horizon, visibility-duration metrics, 2D/3D views and temporal exploration. Resources recommend Quickmap, Moon Trek, JPL Horizons and the CSA Moon Exploration portal. No exclusive data whitelist is stated in those tabs; non-U.S.-Government data sources require compliance with their individual use conditions. Team/event submission forms, deadlines and required attachments have not been submitted or separately audited.** This is an open submission gate; no blanket “all rules satisfied” claim is made.
 
-Scientific sources are NASA/JPL NAIF, NASA LOLA/PGDA, NASA SVS and LROC; journal papers provide comparison values and research coordinates. The runtime elevation, ephemeris, PSR and global colour arrays were **rebuilt directly from authoritative NASA/JPL archives** in a successful GitHub Actions run, then tested against fresh JPL tables and a real browser CSV export. Official URLs, complete-download hashes and extracted COG-window hashes are in `data/direct-source-audit.json`. Local LROC imagery was downloaded directly from the official service. Earlier development used an attributed scientific mirror; its runtime arrays have been replaced. No application code from the data mirror is used. The original interface is the user-specified NASAL PR. [Detailed provenance](../data/PROVENANCE.md).
+Scientific sources are NASA/JPL NAIF, NASA LOLA/PGDA, NASA SVS and LROC; journal papers provide comparison values and research coordinates. The runtime elevation, ephemeris, PSR and global colour arrays were **rebuilt directly from authoritative NASA/JPL archives** in a successful GitHub Actions run, then tested against fresh JPL tables and a real browser CSV export. Official URLs, complete-download hashes and extracted COG-window hashes are in `data/direct-source-audit.json`. Local LROC imagery was downloaded directly from the official service. Earlier development used an attributed scientific mirror; its runtime arrays have been replaced. No application code from the data mirror is used. The application and interface are maintained by Dark Vector. [Detailed provenance](../data/PROVENANCE.md).
 
 Remaining submission gates: team/event-specific project-submission checks; physical low-end laptop testing; physical mission/vehicle validation beyond this educational model. The 10 m Shackleton publication consistency check and direct NASA runtime-data rebuild are complete.
 

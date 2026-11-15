@@ -1,6 +1,6 @@
 # Direct NASA/JPL data provenance — 14 November 2026
 
-All runtime scientific raster/vector arrays have been rebuilt directly from authoritative archives. The successful run is [Rebuild authoritative NASA data](https://github.com/Dima000000/NASA-lunar-navigator/actions/runs/43625400632). The [retrieval audit](direct-source-audit.json) records original URLs, byte counts, download hashes and the hashes/bounds of extracted 20 m COG windows. No scientific runtime arrays from a third-party mirror remain in this release. An earlier prototype used an attributed mirror; its historical source-tree and archived reference metadata remain for traceability, not as runtime inputs. No application code from that mirror is used.
+All runtime scientific raster/vector arrays have been rebuilt directly from authoritative archives. The direct-source audit records the authoritative rebuild. The [retrieval audit](direct-source-audit.json) records original URLs, byte counts, download hashes and the hashes/bounds of extracted 20 m COG windows. No scientific runtime arrays from a third-party mirror remain in this release. An earlier prototype used an attributed mirror; its historical source-tree and archived reference metadata remain for traceability, not as runtime inputs. No application code from that mirror is used.
 
 | Runtime data | Authoritative input and processing |
 |---|---|
@@ -16,9 +16,9 @@ Sphere radius 1,737,400 m; planetocentric latitude, east-positive longitude. Pol
 
 Selected-site horizon profiles use finite rays to 300 km, 0.5° azimuth sampling. Catalogue map/route atlases use 533 m cells and 5° azimuth sampling; narrow obstacles may be missed. Custom-point spatial atlases trace measured terrain to 300 km; finite azimuth/radial sampling can miss narrow obstacles. A 15° landing and 20° rover cutoff are scenario assumptions, not NASA safety requirements. Vehicle battery/panel/load/speed and the descent animation are hypothetical; geometric Earth visibility is not a guaranteed radio link.
 
-Coordinate roles and citations are in catalog.json and each meta.json. Research points are not NASA-approved landing points. Publications supply comparison facts, not copied article images/text. Original interface: [NASAL PR #1](https://github.com/gleb31415/NASAL/pull/1), f0732335864ab7c93a63a95542f48bda4a3d43b6; CSS retained. Font: Inter, bundled SIL OFL.
+Coordinate roles and citations are in catalog.json and each meta.json. Research points are not NASA-approved landing points. Publications supply comparison facts, not copied article images/text. Application and interface: Dark Vector. Font: Inter, bundled SIL OFL.
 
-Credits: NASA/GSFC LOLA science team; NASA SVS / Ernie Wright; LROC team / Speyerer et al.; NASA/JPL NAIF and Horizons; cited research authors; original NASAL interface authors. NASA data use implies no NASA endorsement. The official challenge Details/Resources tabs have been checked; they do not state an exclusive data whitelist. Team/event submission requirements are separate. See the [scientific review](../research/SCIENCE_REVIEW.md).
+Credits: NASA/GSFC LOLA science team; NASA SVS / Ernie Wright; LROC team / Speyerer et al.; NASA/JPL NAIF and Horizons; cited research authors. NASA data use implies no NASA endorsement. The official challenge Details/Resources tabs have been checked; they do not state an exclusive data whitelist. Team/event submission requirements are separate. See the [scientific review](../research/SCIENCE_REVIEW.md).
 
 
 ## Review update — 15 November 2026
