@@ -87,7 +87,7 @@ flowchart LR
   G --> H[CSV and independent JPL comparison]
 ```
 
-Loading, yearly ephemerides, CSV export, routing and workers are separate modules. `app/component.js` is inherited from the team prototype; further formatting and renderer/UI/rover extraction are planned as isolated changes.
+Loading, yearly ephemerides, CSV export, routing and workers are separate modules. `app/component.js` contains the team’s prototype renderer; further formatting and renderer/UI/rover extraction are planned as isolated changes.
 
 ## AI use
 
@@ -116,4 +116,4 @@ After template edits: `node tools/sync-template.mjs`. Fresh JPL queries: `node t
 
 **Code: [MIT](LICENSE)**, Dark Vector contributors; see [NOTICE](NOTICE). Data/fonts retain their own terms; Inter uses SIL OFL in `public/fonts/`. Papers supply comparison facts, not redistributed article text or images.
 
-NASA/GSFC LOLA; NASA SVS / Ernie Wright; LROC / Speyerer et al.; JPL NAIF/Horizons; Gläser et al.; Saha et al.; CLS study DOI 10.1029/2025JE009434. UI based on [team prototype gleb31415/NASAL PR #1](https://github.com/gleb31415/NASAL/pull/1), with permission for MIT release. This repository is canonical; the earlier repository is a prototype.
+NASA/GSFC LOLA; NASA SVS / Ernie Wright; LROC / Speyerer et al.; JPL NAIF/Horizons; Gläser et al.; Saha et al.; CLS study DOI 10.1029/2025JE009434.
