@@ -274,3 +274,5 @@ test("delivery URLs and hashes are portable across Windows and Linux", () => {
     );
   }
 });
+
+import "./ui-analysis.test.mjs";

@@ -47,11 +47,13 @@ const step = (name) => {
 };
 function pageErrors(p) {
   p.on("pageerror", (e) => report.errors.push(e.message));
+  p.on("console",m=>{if(m.type()==="error"&&m.text().includes("NASAL render:"))report.errors.push(m.text());});
 }
 try {
   const c = await b.newContext({ viewport: { width: 1440, height: 1000 } }),
     p = await c.newPage();
   pageErrors(p);
+  await p.addInitScript(()=>localStorage.setItem("lunar-navigator-tour-v1","done"));
   const network = [],
     session = await c.newCDPSession(p);
   await session.send("Network.enable");
