@@ -61,13 +61,21 @@ try {
     distance: NASAL.state.rover.dist,
     time: NASAL._visualUTC,
   }));
-  await p.waitForTimeout(19000);
+  await p.waitForFunction(
+    (distance) => NASAL.state.rover.dist - distance >= 0.205,
+    start.distance,
+    { timeout: 120000 },
+  );
   await s.send("Input.dispatchTouchEvent", {
     type: "touchMove",
     touchPoints: [{ x: x + 32, y: y - 32, id: 1 }],
   });
   const heading = await p.evaluate(() => NASAL.state.rover.heading);
-  await p.waitForTimeout(2000);
+  await p.waitForFunction(
+    (heading) => Math.abs(NASAL.state.rover.heading - heading) > 0.3,
+    heading,
+    { timeout: 30000 },
+  );
   await s.send("Input.dispatchTouchEvent", {
     type: "touchEnd",
     touchPoints: [],
@@ -105,7 +113,9 @@ try {
     type: "touchEnd",
     touchPoints: [],
   });
-  await p.waitForTimeout(500);
+  await p.waitForFunction(() => NASAL.eng.getDriveZoom() < 0.025, null, {
+    timeout: 30000,
+  });
   const nextZoom = await p.evaluate(() => NASAL.eng.getDriveZoom());
   assert(nextZoom < zoom);
   await p.getByRole("button", { name: "Reset rover camera distance" }).click();

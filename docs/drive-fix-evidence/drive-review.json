@@ -24,7 +24,7 @@
         "i": 240,
         "j": 240,
         "time": 0,
-        "energyWh": 133.68948364257812,
+        "energyWh": 132.89968872070312,
         "lat": -89.43990000000026,
         "lon": -137.1476
       },
@@ -41,7 +41,7 @@
         "x": 0,
         "z": 0,
         "heading": 7.417086595037567,
-        "batt": 83.55593020733176,
+        "batt": 83.06230267652118,
         "dist": 0,
         "terrainKey": "-89.4399,-137.1476,Connecting Ridge · Gläser spot 2|h2",
         "camera": {
@@ -62,52 +62,52 @@
         },
         "routeCrossTrack": 0,
         "routeNeedsReplan": false,
-        "navigationDraws": 38
+        "navigationDraws": 39
       }
     },
     {
       "scenario": "Real Connecting Ridge route over 1 km",
       "points": 35,
-      "hours": 3.1226841269297307,
+      "hours": 3.1226624859359986,
       "expanded": 35,
       "searchScope": "terrain corridor",
       "origin": {
-        "i": 240.90226204822594,
-        "j": 240.24833329486665
+        "i": 240.9017997264446,
+        "j": 240.24815386941611
       },
       "first": {
         "cell": 115681,
-        "i": 240.90226204822594,
-        "j": 240.24833329486665,
+        "i": 240.9017997264446,
+        "j": 240.24815386941611,
         "time": 0,
         "energyWh": 160,
-        "lat": -89.43962613872667,
-        "lon": -137.04618874339812
+        "lat": -89.43962633686182,
+        "lon": -137.04624067104743
       },
       "last": {
         "cell": 101220,
         "i": 210,
         "j": 210,
-        "time": 3.1226841269297307,
+        "time": 3.1226624859359986,
         "energyWh": 160,
         "lat": -89.47184734122163,
         "lon": -140.72753111261252
       },
       "rover": {
-        "x": 0.030075401607531055,
-        "z": -0.008277776495554695,
-        "heading": 8.141326595037564,
+        "x": 0.030059990881486563,
+        "z": -0.008271795647204313,
+        "heading": 8.141216595037562,
         "batt": 100,
-        "dist": 0.03237823333123316,
+        "dist": 0.03236115966697541,
         "terrainKey": "-89.4399,-137.1476,Connecting Ridge · Gläser spot 2|h2",
         "camera": {
           "yaw": 0,
-          "followHeading": 8.141326595037562,
-          "distance": 0.025000000000000005
+          "followHeading": 8.14121659503756,
+          "distance": 0.02500000000000001
         },
         "routeStart": {
-          "x": 0.030075401607531055,
-          "z": -0.008277776495554695
+          "x": 0.030059990881486563,
+          "z": -0.008271795647204313
         },
         "routeEnd": {
           "i": 210,
@@ -116,18 +116,18 @@
           "y": -0.12839890620231628,
           "z": 1
         },
-        "routeCrossTrack": 2.6904960617188874e-16,
+        "routeCrossTrack": 5.142511599293407e-16,
         "routeNeedsReplan": false,
-        "navigationDraws": 1861
+        "navigationDraws": 1430
       }
     }
   ],
   "frameTiming": {
-    "seconds": 5.001500000005959,
+    "seconds": 5.00350000000298,
     "frames": 601,
-    "fps": 120.1639508146124,
+    "fps": 120.11591885672871,
     "p95FrameMs": 8.5,
-    "routeDraws": 1041,
+    "routeDraws": 1040,
     "context": "Headless browser on the current machine, active navigation; not a weak-laptop benchmark"
   }
 }

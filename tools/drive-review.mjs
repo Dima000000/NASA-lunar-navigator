@@ -235,7 +235,18 @@ try {
   await p.screenshot({ path: `${out}/rover-marker.png` });
   const located = await p.evaluate(() => NASAL.eng.getDriveState());
   await p.getByRole("button", { name: "Find rover", exact: true }).click();
-  await p.waitForTimeout(800);
+  await p.waitForFunction(
+    () => {
+      const r = NASAL.eng.getDriveState();
+      return (
+        Math.abs(r.camera.distance - 0.025) < 0.001 &&
+        Math.abs(r.camera.yaw) < 0.02 &&
+        Math.abs(r.camera.followHeading - r.heading) < 0.05
+      );
+    },
+    null,
+    { timeout: 30000 },
+  );
   const found = await p.evaluate(() => NASAL.eng.getDriveState());
   assert(Math.abs(found.camera.distance - 0.025) < 0.001);
   assert(Math.abs(found.camera.yaw) < 0.02);
@@ -258,7 +269,20 @@ try {
     [390, 844],
   ]) {
     await p.setViewportSize({ width, height });
-    await p.waitForTimeout(450);
+    await p.waitForFunction(
+      () => {
+        const hud = document.querySelector(".hud").getBoundingClientRect(),
+          pill = document.querySelector(".dpill").getBoundingClientRect(),
+          zoom = document.querySelector(".drive-zoom").getBoundingClientRect(),
+          layer = document.querySelector(".layerbox").getBoundingClientRect();
+        return (
+          (pill.bottom <= hud.top || pill.top >= hud.bottom) &&
+          zoom.left >= layer.left - 1
+        );
+      },
+      null,
+      { timeout: 20000 },
+    );
     const boxes = await p.evaluate(() => {
       const r = (e) => e.getBoundingClientRect().toJSON();
       return {
@@ -321,7 +345,11 @@ try {
   await p.screenshot({ path: `${out}/long-route.png` });
   await p.getByRole("button", { name: "Terrain", exact: true }).click();
   await p.getByRole("button", { name: "Drive", exact: true }).click();
-  await p.waitForTimeout(300);
+  await p.waitForFunction(
+    (draws) => NASAL.eng.getDriveState().navigationDraws > draws,
+    longRoute.rover.navigationDraws,
+    { timeout: 20000 },
+  );
   const returned = await p.evaluate(() => NASAL.eng.getDriveState());
   assert(
     Math.hypot(returned.x - longRoute.rover.x, returned.z - longRoute.rover.z) <
