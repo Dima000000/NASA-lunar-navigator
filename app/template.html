@@ -178,6 +178,7 @@
       <div class="d1">{{dateBig}}</div>
       <div class="d2">{{timeSmall}}</div>
     </div>
+    <div class="mission-selector"><div class="mission-labels"><span>Landing · {{missionStartLabel}}</span><span>Liftoff · {{missionEndLabel}}</span></div><div class="mission-selection" aria-label="Mission dates"><span class="mission-span" style="left:{{missionStartPct}}%;width:{{missionWidth}}%"></span><button class="mission-handle landing" style="left:{{missionStartPct}}%" onPointerDown="{{missionLandingPointer}}" onPointerMove="{{missionLandingPointer}}" onPointerUp="{{missionLandingPointer}}" onKeyDown="{{missionLandingKey}}" aria-label="Drag landing date; arrow keys move one hour" title="{{missionStartLabel}}">L</button><button class="mission-handle liftoff" style="left:{{missionEndPct}}%" onPointerDown="{{missionLiftoffPointer}}" onPointerMove="{{missionLiftoffPointer}}" onPointerUp="{{missionLiftoffPointer}}" onKeyDown="{{missionLiftoffKey}}" aria-label="Drag liftoff date; arrow keys move one hour" title="{{missionEndLabel}}">↑</button></div><details><summary>Mission dates · UTC</summary><div class="mission-fields"><label>Landing<input class="inp" type="datetime-local" value="{{missionStart}}" onChange="{{onMissionStart}}"></label><label>Liftoff<input class="inp" type="datetime-local" value="{{missionEnd}}" onChange="{{onMissionEnd}}"></label></div><p class="note">{{missionError}}</p></details></div>
     <div class="tmain">
       <div class="evrow">
         <sc-for list="{{events}}" as="ev" hint-placeholder-count="3">
