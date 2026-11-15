@@ -1,0 +1,76 @@
+{
+  "date": "2026-11-15T10:53:28.583Z",
+  "environment": "Headless Edge on this Windows host; mobile is viewport/touch emulation, not physical-device or low-end hardware validation",
+  "profiles": [
+    {
+      "mobile": false,
+      "deviceScaleFactor": 1,
+      "play": {
+        "mode": "play",
+        "frames": 1198,
+        "meanFPS": 119.79401029948505,
+        "meanFrameMs": 8.347662771285474,
+        "p95FrameMs": 8.400000000001455,
+        "maxFrameMs": 16.800000000000182,
+        "longTasks": [],
+        "modelSeconds": 216190.08,
+        "driveMetres": 0,
+        "scrollY": 0,
+        "rangeUpdates": 16,
+        "rangeStillVisible": true
+      },
+      "drive": {
+        "mode": "drive",
+        "frames": 1200,
+        "meanFPS": 119.99160058795889,
+        "meanFrameMs": 8.333916666666664,
+        "p95FrameMs": 8.400000000001455,
+        "maxFrameMs": 8.700000000000728,
+        "longTasks": [],
+        "modelSeconds": 600.54,
+        "driveMetres": 114.02963093934943,
+        "scrollY": 0,
+        "rangeUpdates": 1,
+        "rangeStillVisible": true
+      },
+      "sevenDayMs": 5697
+    },
+    {
+      "mobile": true,
+      "deviceScaleFactor": 3,
+      "play": {
+        "mode": "play",
+        "frames": 1199,
+        "meanFPS": 119.8928064316141,
+        "meanFrameMs": 8.340783986655547,
+        "p95FrameMs": 8.5,
+        "maxFrameMs": 16.700000000000728,
+        "longTasks": [],
+        "modelSeconds": 216192.24,
+        "driveMetres": 0,
+        "scrollY": 0,
+        "rangeUpdates": 19,
+        "rangeStillVisible": true
+      },
+      "drive": {
+        "mode": "drive",
+        "frames": 1200,
+        "meanFPS": 119.994000299985,
+        "meanFrameMs": 8.33375,
+        "p95FrameMs": 8.5,
+        "maxFrameMs": 8.600000000002183,
+        "longTasks": [],
+        "modelSeconds": 600.528,
+        "driveMetres": 114.02963211122092,
+        "scrollY": 0,
+        "rangeUpdates": 1,
+        "rangeStillVisible": true
+      },
+      "sevenDayMs": 5753
+    }
+  ],
+  "tour": [
+    "First visit, keyboard next/back/escape, persisted dismissal, reload and manual replay pass"
+  ],
+  "errors": []
+}

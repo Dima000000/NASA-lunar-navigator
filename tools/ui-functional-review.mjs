@@ -149,6 +149,7 @@ try {
     (start) => NASAL.state.start === start + 3600000,
     oldStart,
   );
+  await p.waitForFunction(() => NASAL.state.bestSpots.length === 0);
   assert.equal(await p.evaluate(() => NASAL.state.bestSpots.length), 0);
   assert.equal(
     await p.evaluate(() => NASAL.series().times[0]),

@@ -1,0 +1,59 @@
+{
+  "errors": [],
+  "screens": [
+    "after-drive-1920.png",
+    "after-drive-1440.png",
+    "after-drive-1280.png",
+    "after-drive-1024.png",
+    "after-drive-768.png",
+    "after-drive-390.png",
+    "after-compare-1440.png",
+    "after-compare-390.png"
+  ],
+  "checks": [
+    "Seven-day route worker and best-five spot worker complete",
+    "Mission dates feed analysis and invalidate previous spot rankings"
+  ],
+  "route": {
+    "status": "Time + energy route ready · Pareto labels, conservative cell slopes",
+    "expanded": 186271,
+    "finite": 297,
+    "trip": true,
+    "tripHours": 166.8615906401526
+  },
+  "best": [
+    {
+      "score": 0.87,
+      "slope": 8.91599178314209,
+      "lat": -89.43990000000026,
+      "lon": -137.1476
+    },
+    {
+      "score": 0.87,
+      "slope": 9.20229721069336,
+      "lat": -89.45748820584436,
+      "lon": -137.1476
+    },
+    {
+      "score": 0.7283333333333333,
+      "slope": 14.55160903930664,
+      "lat": -89.31657426342429,
+      "lon": -114.43944578863683
+    },
+    {
+      "score": 0.7106944444444444,
+      "slope": 11.769299507141113,
+      "lat": -89.53334093160169,
+      "lon": -150.2175159926197
+    },
+    {
+      "score": 0.7088888888888889,
+      "slope": 14.858485221862793,
+      "lat": -89.4112754714768,
+      "lon": -114.29376357553674
+    }
+  ],
+  "runtime": {
+    "glError": ""
+  }
+}

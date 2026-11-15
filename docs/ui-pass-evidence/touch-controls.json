@@ -1,0 +1,15 @@
+{
+  "errors": [],
+  "drive": {
+    "metres": 251.164033229274,
+    "modelSeconds": 1299.072,
+    "headingChange": 1.4786472123425902,
+    "scrollY": 0,
+    "joystick": "--joy-x: 0px; --joy-y: 0px;"
+  },
+  "pinch": {
+    "before": 0.025,
+    "after": 0.015625000000000003,
+    "reset": 0.025
+  }
+}
