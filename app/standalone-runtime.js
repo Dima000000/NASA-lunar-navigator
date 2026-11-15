@@ -101,7 +101,7 @@ window.mountNASAL = (Component, root) => {
     const attrs = [...node.attributes]
         .filter((a) => a.value.includes("{{"))
         .map((a) => ({
-          name: a.name.replace(/^data-bind-/, ""),
+          name: (()=>{const name=a.name.replace(/^data-bind-/, "");return node.namespaceURI==="http://www.w3.org/2000/svg"&&name==="viewbox"?"viewBox":name;})(),
           value: a.value,
         })),
       children = [...node.childNodes].map(compile),

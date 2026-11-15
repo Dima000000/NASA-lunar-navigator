@@ -84,3 +84,6 @@
 @media(pointer:coarse){.ui-pass.ui-drive .drive-zoom{bottom:184px!important}}
 
 @media(min-width:901px){.ui-pass.ui-drive .drive-zoom{bottom:300px!important}}
+
+.tour-card{font-family:Inter,system-ui,-apple-system,sans-serif;color:#f5f5f7}.tour-card button{font-family:inherit}
+.ui-pass .rleg .rl{gap:5px;flex-wrap:wrap}.ui-pass .rleg .rl>span{min-width:0}.ui-pass .rleg{min-width:0}

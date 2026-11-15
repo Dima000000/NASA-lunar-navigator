@@ -1,5 +1,6 @@
 import {buildCSV} from './csv-export.mjs';
 export const DRIVE_START_DISTANCE = 0.025;
+const ILLUSTRATIVE_APPROACH_AZIMUTH = 120;
 
 window.NASALComponent = class Component extends DCLogic {
   constructor(...args) {
@@ -1925,7 +1926,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       function startLanding() {
         const goal = S.target || S.best;
         if (!S.terr || !goal) return false;
-        const T = gridToWorld(goal.i, goal.j), a = (S.tSun.az + 120) * D2R, dh = [Math.sin(a), 0, -Math.cos(a)];
+        const T = gridToWorld(goal.i, goal.j), a = ILLUSTRATIVE_APPROACH_AZIMUTH * D2R, dh = [Math.sin(a), 0, -Math.cos(a)];
         S.descentTrail=[];S.trailEnded=0;
         S.land = { t0: performance.now(), T: T, P0: add(T, add(scl(dh, 2.8), [0, 2.1, 0])), P1: add(T, add(scl(dh, 1.2), [0, 1.3, 0])), P2: add(T, add(scl(dh, 0.12), [0, 0.45, 0])), P3: add(T, [0, 0.13, 0]), yaw: a, lastY: null, vs: 0 };
         S.dust0 = -1; S.landLit = Math.max(0.03, shadeAtW(T[0], T[2]));
