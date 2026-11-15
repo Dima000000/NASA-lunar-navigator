@@ -81,7 +81,7 @@ onmessage = async ({ data: q }) => {
       postMessage({type:'trip',key:q.key,goal:q.goal,plan:buildTripPlan(lastRoute.q,lastRoute.r,lastRoute.sky,q.goal)});return;
     }
     if (q.type === "route") {
-      const sky=makeSky(q);
+      const N=q.N,sky=makeSky(q);
       const generation=++routeGeneration;
       const steps = reachSteps({
         N,

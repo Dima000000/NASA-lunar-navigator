@@ -11,9 +11,9 @@ export function buildTripPlan(q,r,sky,goal){
   const count=Math.max(1,Math.ceil(duration/.25)),dt=duration/count;let energy=a.energyWh;
   for(let j=0;j<count;j++){
    const f=(j+.5)/count,cell=f<.5?a.cell:b.cell,light=sky(cell,q.start+(a.time+duration*f)*3600000),earth=light.earth>.0005;
-   energy=batteryAfter(energy,light.sun,dt,drive,VEHICLE,light.sunDistanceKm);
+   const energyStart=energy;energy=batteryAfter(energy,light.sun,dt,drive,VEHICLE,light.sunDistanceKm);
    const t0=a.time+j*dt,t1=t0+dt,kind=drive?'drive':light.sun>.0005?'charge':'dark';
-   const last=steps.at(-1);if(last&&last.kind===kind){last.end=t1;last.energyEnd=energy;}else steps.push({kind,start:t0,end:t1,energyStart:energy,energyEnd:energy});
+   const last=steps.at(-1);if(last&&last.kind===kind){last.end=t1;last.energyEnd=energy;}else steps.push({kind,start:t0,end:t1,energyStart,energyEnd:energy});
    const band=earthBands.at(-1);if(band&&band.visible===earth)band.end=t1;else earthBands.push({start:t0,end:t1,visible:earth});
    if(earth)earthHours+=dt;
    samples.push({time:t1,battery:energy/VEHICLE.capacityWh*100,earth});

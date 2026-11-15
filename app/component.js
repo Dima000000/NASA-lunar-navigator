@@ -944,7 +944,7 @@ window.NASALComponent = class Component extends DCLogic {
       tgt = { sun: this.pct(H.sun[v]), earth: this.pct(H.earth[v]), slope: sl.toFixed(0) + '°', score: sc < 0 ? '—' : sc.toFixed(2),
         verdict: sl > 15 ? 'Outside the 15° landing scenario limit. Try flatter ground nearby.' : (sc >= (H.best ? H.best.score * 0.9 : 1) ? 'Excellent — about as good as the best spot nearby.' : (sc >= 0.5 ? 'Workable, but the white-ring spot gets more sun/Earth time.' : 'Poor: little sunlight or Earth contact over the period.')) };
       tgt.drive = '';
-      { const rc = this.reach(); if (rc) { const k = tv.j * d.N + tv.i, tt = rc.T[k]; let pl = 0, p = k; while (rc.prev[p] >= 0) { const q = rc.prev[p], a = p % d.N, b = (p - a) / d.N, a2 = q % d.N, b2 = (q - a2) / d.N; pl += Math.hypot(a - a2, b - b2) * d.cell; p = q; } const fromW = rc.o.from === 'rover' ? 'the rover' : (rc.o.from === 'landing' ? 'the landing site' : 'the best landing spot'); if(rc.routePointsFor&&isFinite(tt)){const pts=rc.routePointsFor(k);pl=0;for(let a=1;a<pts.length;a++)pl+=Math.hypot(pts[a].i-pts[a-1].i,pts[a].j-pts[a-1].j)*d.cell;} tgt.drive = isFinite(tt) && tt <= 24 ? (tt < 0.02 ? 'You are here' : 'Drive from ' + fromW + ': ' + this.fmtH(tt) + ' · ' + pl.toFixed(1) + ' km route') : 'No drivable route from ' + fromW + ' within 24 h (slopes over 20° block the way)'; } }
+      { const rc = this.reach(); if (rc) { const k = tv.j * d.N + tv.i, tt = rc.T[k]; let pl = 0, p = k; while (rc.prev[p] >= 0) { const q = rc.prev[p], a = p % d.N, b = (p - a) / d.N, a2 = q % d.N, b2 = (q - a2) / d.N; pl += Math.hypot(a - a2, b - b2) * d.cell; p = q; } const fromW = rc.o.from === 'rover' ? 'the rover' : (rc.o.from === 'landing' ? 'the landing site' : 'the best landing spot'); if(rc.routePointsFor&&isFinite(tt)){const pts=rc.routePointsFor(k);pl=0;for(let a=1;a<pts.length;a++)pl+=Math.hypot(pts[a].i-pts[a-1].i,pts[a].j-pts[a-1].j)*d.cell;} tgt.drive = isFinite(tt) && tt <= (rc.maxHours||24) ? (tt < 0.02 ? 'You are here' : 'Drive from ' + fromW + ': ' + this.fmtH(tt) + ' · ' + pl.toFixed(1) + ' km route') : 'No drivable route from ' + fromW + ' within '+(rc.maxHours||24)+' h (20° slope limit; scenario assumption)'; } }
     }
 
     // charts page
@@ -1948,6 +1948,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (t > 10.5) { S.trailEnded=now;S.land = null; S.spawn = add(L.T, [0.012, 0, 0.012]); cb.onLanded && cb.onLanded(); }
       }
 
+      function drawTripRoute(F){if(!S.terr)return;const rows=S.tripRoute||[],stride=(S.terr.dem.N-1)/30;for(let k=1;k<rows.length;k++){const a=toScreen(F.PV,add(gridToWorld(rows[k-1].i*stride,rows[k-1].j*stride),[0,.006,0])),b=toScreen(F.PV,add(gridToWorld(rows[k].i*stride,rows[k].j*stride),[0,.006,0]));if(!a||!b)continue;g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.strokeStyle='#000';g2.lineWidth=6;g2.stroke();g2.strokeStyle='#40A8FF';g2.lineWidth=3;g2.stroke();}if(S.travelOverlay)for(const p of S.travelGeoLabels||[]){const screen=toScreen(F.PV,gridToWorld(p.i,p.j));if(screen&&screen[0]>20&&screen[0]<S.W-180&&screen[1]>100&&screen[1]<S.H-200)pill(screen[0],screen[1],p.text,{size:10});}}
       function drawTravelReference(F){if(!S.travelOverlay||!S.terr)return;const N=S.terr.dem.N,stride=(N-1)/30;g2.lineWidth=1.5;let labels=new Set();for(const line of S.travelContours||[]){const a=toScreen(F.PV,gridToWorld(line.a[0]*stride,line.a[1]*stride)),b=toScreen(F.PV,gridToWorld(line.b[0]*stride,line.b[1]*stride));if(!a||!b)continue;g2.strokeStyle='rgba(255,255,255,.6)';g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();if(!labels.has(line.hours)&&a[0]>30&&a[0]<S.W-180&&a[1]>100&&a[1]<S.H-200){pill(a[0],a[1],line.hours/24+' d',{size:11});labels.add(line.hours);}}const origin=S.travelOrigin||{i:(N-1)/2,j:(N-1)/2};for(let km=-8;km<=8;km+=2){for(let axis=0;axis<2;axis++){g2.beginPath();let started=false;for(let n=0;n<=16;n++){const offset=km/S.terr.dem.cell,i=axis?Math.max(0,Math.min(N-1,origin.i+offset)):n/16*(N-1),j=axis?n/16*(N-1):Math.max(0,Math.min(N-1,origin.j+offset)),p=toScreen(F.PV,gridToWorld(i,j));if(p){if(!started){g2.moveTo(p[0],p[1]);started=true;}else g2.lineTo(p[0],p[1]);if(n===8&&p[0]>0&&p[0]<S.W-180&&p[1]>100&&p[1]<S.H-200)pill(p[0],p[1],(km>=0?'+':'')+km+' km',{size:10});}}g2.strokeStyle='rgba(255,255,255,.16)';g2.stroke();}}}
 
       function drawDescentTrail(F,now){const points=S.descentTrail;if(!points?.length)return;const fade=S.trailEnded?Math.max(0,1-(now-S.trailEnded)/6000):1;if(!fade)return;for(let i=1;i<points.length;i++){const a=toScreen(F.PV,points[i-1].pos),b=toScreen(F.PV,points[i].pos);if(!a||!b)continue;g2.globalAlpha=fade*(i/points.length)*.8;g2.strokeStyle='#F2C94C';g2.shadowColor='#FFD60A';g2.shadowBlur=8;g2.lineWidth=2;g2.beginPath();g2.moveTo(a[0],a[1]);g2.lineTo(b[0],b[1]);g2.stroke();}g2.globalAlpha=fade;g2.shadowBlur=0;pill(18,S.H-220,'Illustrative descent path, not a computed trajectory',{size:11});g2.globalAlpha=1;}
@@ -2023,7 +2024,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         g2.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); g2.clearRect(0, 0, S.W, S.H);
         if (S.view === 'region') { const F = drawRegion(); drawOverlayRegion(F, now); lastF = F; }
-        else { const cam = S.view === 'drive' && S.rover ? driveCam() : terrCam(); const F = drawGround(cam, now); drawOverlayGround(F, now); drawTravelReference(F); drawDescentTrail(F,now); lastF = null; }
+        else { const cam = S.view === 'drive' && S.rover ? driveCam() : terrCam(); const F = drawGround(cam, now); drawOverlayGround(F, now); drawTripRoute(F); drawTravelReference(F); drawDescentTrail(F,now); lastF = null; }
         if (S.fade > 0) { g2.fillStyle = 'rgba(0,0,0,' + S.fade.toFixed(3) + ')'; g2.fillRect(0, 0, S.W, S.H); }
       }
       raf = requestAnimationFrame(frame);
@@ -2084,10 +2085,10 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
       }
       function onWheel(e) { e.preventDefault(); S.fly = null; zoom(Math.exp(clamp(e.deltaY * 0.0012, -0.5, 0.5))); }
       const KEYMAP = { ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
-      function onKey(e, on) { const m = KEYMAP[e.key]; if (!m || S.view !== 'drive') return; e.preventDefault(); S.keys[m] = on; }
+      function onKey(e, on) { const m = KEYMAP[e.key]; if (!m || S.view !== 'drive'||e.target.matches('input,select,textarea')) return; e.preventDefault(); S.keys[m] = on; }
       const kd = (e) => onKey(e, true), ku = (e) => onKey(e, false), blur = () => { S.keys = {}; }, noCtx = (e) => e.preventDefault();
       ov.addEventListener('pointerdown', onDown); ov.addEventListener('pointermove', onMove); ov.addEventListener('pointerup', onUp);
-      ov.addEventListener('pointercancel', () => { drag = null; }); ov.addEventListener('dblclick', onDbl); ov.addEventListener('wheel', onWheel, { passive: false });
+      ov.addEventListener('pointercancel', e => {touches.delete(e.pointerId);pinch=0;drag=null;}); ov.addEventListener('lostpointercapture', e => {touches.delete(e.pointerId);pinch=0;drag=null;}); ov.addEventListener('dblclick', onDbl); ov.addEventListener('wheel', onWheel, { passive: false });
       ov.addEventListener('contextmenu', noCtx); ov.addEventListener('keydown', kd); ov.addEventListener('keyup', ku); ov.addEventListener('blur', blur);
 
       return {
