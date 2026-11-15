@@ -30,6 +30,7 @@
       <sc-if data-bind-value="{{hud.hasMsg}}" data-bind-hint-placeholder-val="{{ false }}">
         <div class="hmsg">{{hud.msg}}</div>
       </sc-if>
+      <div class="mobile-surface-note">Fine surface texture is illustrative, not measured.</div>
       <div class="surface-detail mat"><label><input type="checkbox" data-bind-checked="{{surfaceDetail}}" data-bind-onChange="{{toggleSurfaceDetail}}"> Surface detail (visual only)</label><small>Fine surface texture is illustrative, not measured.</small></div>
       <div class="drive-zoom mat" aria-label="Rover camera zoom"><button data-bind-onClick="{{driveZoomIn}}" aria-label="Zoom rover camera in">+</button><input type="range" min="-5.2983" max="3.1781" step="0.01" data-bind-value="{{driveZoom}}" data-bind-onInput="{{onDriveZoom}}" aria-label="Rover camera distance"><button data-bind-onClick="{{driveZoomOut}}" aria-label="Zoom rover camera out">−</button><button data-bind-onClick="{{driveZoomReset}}" aria-label="Reset rover camera distance">⟲</button></div>
       <div class="joystick mat" role="slider" tabindex="0" aria-label="Rover joystick: drag to drive and turn" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0" data-bind-onPointerDown="{{joyDown}}" data-bind-onPointerMove="{{joyMove}}" data-bind-onPointerUp="{{joyUp}}" data-bind-onPointerCancel="{{joyUp}}" data-bind-onLostPointerCapture="{{joyUp}}"><span></span><small>Drive</small></div>

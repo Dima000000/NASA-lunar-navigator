@@ -26,6 +26,13 @@ export function withUIPass(Base, science) {
     }
     componentDidUpdate() {
       super.componentDidUpdate();
+      const root = document.querySelector(".ui-drive"),
+        hud = root?.querySelector(".hud");
+      if (hud) {
+        const bottom = hud.getBoundingClientRect().bottom + "px";
+        if (root.style.getPropertyValue("--drive-hud-bottom") !== bottom)
+          root.style.setProperty("--drive-hud-bottom", bottom);
+      }
       if (this._bestBasis && this._bestBasis !== this.bestBasis()) {
         this._bestBasis = null;
         this._bestJob = (this._bestJob || 0) + 1;

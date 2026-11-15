@@ -1118,3 +1118,41 @@
     width: 200px;
   }
 }
+
+.mobile-surface-note {
+  display: none;
+}
+@media (max-width: 900px) {
+  .ui-pass.ui-drive .surface-detail {
+    display: none;
+  }
+  .ui-pass.ui-drive .mobile-surface-note {
+    display: block;
+    position: fixed;
+    left: 12px;
+    top: calc(var(--drive-hud-bottom, 194px) + 70px);
+    font-size: 10px;
+    color: #98989f;
+    max-width: 240px;
+    pointer-events: none;
+  }
+  .ui-pass.ui-drive .dpill {
+    top: calc(var(--drive-hud-bottom, 194px) + 12px) !important;
+  }
+  .ui-pass.ui-drive.drive-details-open .surface-detail {
+    display: block;
+    position: fixed;
+    top: calc(var(--drive-hud-bottom, 194px) + 70px) !important;
+    bottom: auto !important;
+    max-width: 200px;
+  }
+  .ui-pass.ui-drive.drive-details-open .mobile-surface-note {
+    display: none;
+  }
+  .ui-pass.ui-drive.drive-details-open .layerbox {
+    top: calc(var(--drive-hud-bottom, 194px) + 70px) !important;
+  }
+  .ui-pass.ui-drive.drive-card-open .card {
+    top: calc(var(--drive-hud-bottom, 194px) + 70px) !important;
+  }
+}
