@@ -32,6 +32,7 @@ try {
     "drive-review.mjs",
     "drive-occlusion-review.mjs",
     "ui-touch-review.mjs",
+    "roam-review.mjs",
   ])
     await new Promise((resolve, reject) => {
       const log = fs.createWriteStream(out + "/" + script + ".txt"),

@@ -83,6 +83,21 @@ try {
     touchPoints: [],
   });
   await p.waitForTimeout(600);
+  // Letting go of the joystick must stop the rover (a residual throttle used to keep it rolling), and phones have a Stop button.
+  await p.waitForFunction(() => NASAL.eng.getDriveState().kmh === 0, null, {
+    timeout: 30000,
+  });
+  const parkedAt = await p.evaluate(() => NASAL.eng.getDriveState().dist);
+  await p.waitForTimeout(700);
+  assert.equal(
+    await p.evaluate(() => NASAL.eng.getDriveState().dist),
+    parkedAt,
+  );
+  assert(await p.locator(".drive-stop").isVisible());
+  await p.waitForFunction(
+    (d) => Math.abs(NASAL.state.rover.dist - d) < 1e-9,
+    parkedAt,
+  );
   report.drive = await p.evaluate(
     ({ start, heading }) => ({
       metres: (NASAL.state.rover.dist - start.distance) * 1000,

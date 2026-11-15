@@ -1,6 +1,8 @@
 import "./standalone-runtime.js";
 import "./ui-pass.css";
 import {withUIPass} from "./ui-pass.mjs";
+import { withRoaming } from "./roam-terrain.mjs";
+import { withRoverControl } from "./rover-control.mjs";
 import "./component.js";
 import { loadRealMoon } from "./real-moon.js";
 import { loadScience, enhancedComponent } from "./science-runtime.mjs";
@@ -45,7 +47,13 @@ try {
   // Science's terrain adapter attaches only after the quick overview is available.
   window.SCIENCE.attachMoon(window.RealMoon);
   window.mountNASAL(
-    withUIPass(enhancedComponent(window.NASALComponent, window.SCIENCE), window.SCIENCE),
+    withRoverControl(
+      withRoaming(
+        withUIPass(enhancedComponent(window.NASALComponent, window.SCIENCE), window.SCIENCE),
+        window.SCIENCE,
+      ),
+      window.SCIENCE,
+    ),
     document
       .getElementById("app-template")
       .content.firstElementChild.cloneNode(true),

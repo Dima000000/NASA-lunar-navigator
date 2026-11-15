@@ -10,8 +10,8 @@ onmessage = ({ data: q }) => {
         for (let x = 0; x < q.Nc; x++) {
           const i = x * q.stride,
             j = y * q.stride,
-            xx = (-q.L / 2 + i * q.cell) * 1000,
-            yy = (-q.L / 2 + j * q.cell) * 1000,
+            xx = ((q.ox || 0) - q.L / 2 + i * q.cell) * 1000,
+            yy = ((q.oy || 0) - q.L / 2 + j * q.cell) * 1000,
             v = (xx * xx + yy * yy) / (4 * R_M * R_M),
             a = 1 / (1 + v),
             u = f.up.map(

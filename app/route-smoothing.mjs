@@ -158,7 +158,8 @@ function subdivide(pts, maxLen) {
  * geometry would be slower than allowed or run the battery flat (caller keeps the grid route).
  * `light(point, ms)` returns {sun, sunDistanceKm} for a fractional grid point.
  */
-export function smoothTrip(dem, rows, { start, maxHours, light, vehicle = VEHICLE, initialWh }) {
+// `allowDepleted` keeps re-timing through an empty battery (slope-only fallback routes).
+export function smoothTrip(dem, rows, { start, maxHours, light, vehicle = VEHICLE, initialWh, allowDepleted = false }) {
   if (!rows?.length) return null;
   // Split into driving runs separated by waits (same position, time advances).
   const runs = [],
@@ -209,7 +210,7 @@ export function smoothTrip(dem, rows, { start, maxHours, light, vehicle = VEHICL
       const f = (s + 0.5) / steps,
         l = light(f < 0.5 ? pa : pb, start + (t + duration * f) * 3600000);
       value = batteryAfter(value, l.sun, dt, driving, vehicle, l.sunDistanceKm);
-      if (value <= 0) return 0;
+      if (value <= 0 && !allowDepleted) return 0;
     }
     return value;
   };
@@ -221,7 +222,7 @@ export function smoothTrip(dem, rows, { start, maxHours, light, vehicle = VEHICL
         here = vertices.at(-1);
       if (depart > time + 1e-9) {
         energy = integrate(here, here, time, depart - time, false);
-        if (energy <= 0) return null;
+        if (energy <= 0 && !allowDepleted) return null;
         time = depart;
         // A wait: same vertex index, later time.
         labels.push({ v: vertices.length - 1, time, energyWh: energy });
@@ -232,7 +233,7 @@ export function smoothTrip(dem, rows, { start, maxHours, light, vehicle = VEHICL
       if (!Number.isFinite(hours)) return null;
       if (hours < 1e-9) continue;
       energy = integrate(g[k - 1], g[k], time, hours, true);
-      if (energy <= 0) return null;
+      if (energy <= 0 && !allowDepleted) return null;
       time += hours;
       add(g[k], time, energy);
     }
@@ -242,7 +243,7 @@ export function smoothTrip(dem, rows, { start, maxHours, light, vehicle = VEHICL
 }
 
 // Worker helper: smooth a reachable grid plan; returns the grid plan unchanged on failure.
-export function smoothPlan(q, geometry, ephem, plan, vehicle = VEHICLE) {
+export function smoothPlan(q, geometry, ephem, plan, vehicle = VEHICLE, { allowDepleted = false, maxHours = q.maxHours } = {}) {
   if (!plan?.reachable || plan.rows.length < 3) return plan;
   try {
     const ids = new Map(),
@@ -259,10 +260,11 @@ export function smoothPlan(q, geometry, ephem, plan, vehicle = VEHICLE) {
       };
     const s = smoothTrip(q.dem, plan.rows, {
       start: q.start,
-      maxHours: q.maxHours,
+      maxHours,
       light,
       vehicle,
       initialWh: plan.rows[0].energyWh,
+      allowDepleted,
     });
     if (!s || s.vertices.length < 2) return plan;
     const L = s.labels,
@@ -291,6 +293,9 @@ export function smoothPlan(q, geometry, ephem, plan, vehicle = VEHICLE) {
     if (!smooth.reachable) return plan;
     smooth.smoothed = true;
     smooth.gridHours = plan.hours;
+    // Carry the honest fallback flags across (see navigation-worker).
+    for (const key of ["needsCharging", "chargingStops", "depleted", "energyVerified", "note"])
+      if (key in plan) smooth[key] = plan[key];
     return smooth;
   } catch (e) {
     return plan;

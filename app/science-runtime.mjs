@@ -171,11 +171,12 @@ export async function loadScience(moon) {
       product: p,
     };
   };
+  // Roaming windows (Drive) are crops of the same site-centred grid, shifted by (ox, oy) km.
   const geoFor = (dem, i, j) =>
     pointAt(
       { lat: dem.lat, lon: dem.lon },
-      -dem.L / 2 + i * dem.cell,
-      -dem.L / 2 + j * dem.cell,
+      (dem.ox || 0) - dem.L / 2 + i * dem.cell,
+      (dem.oy || 0) - dem.L / 2 + j * dem.cell,
     );
   const maskFor = (dem) => {
     if (!sourceMask) return null;
@@ -242,10 +243,7 @@ export async function loadScience(moon) {
   let horizonWorker,
     horizonJob = 0;
   const customKey = (site, height) => site.lat + "|" + site.lon + "|" + height;
-  const prepareCustom = async (site, height) => {
-    const key = customKey(site, height);
-    if (custom.has(key)) return custom.get(key);
-    await Promise.all([moon.ensureLocal(), loadMask()]);
+  const startHorizonWorker = () => {
     if (!horizonWorker) {
       horizonWorker = new Worker(
         new URL("./horizon-worker.mjs", import.meta.url),
@@ -261,6 +259,7 @@ export async function loadScience(moon) {
         if (!job || m.type === "progress") return;
         customJobs.delete(m.job);
         if (m.type === "error") job.reject(Error(m.message));
+        else if (m.type === "window") job.resolve(m);
         else {
           Object.assign(job.dem, {
             customAtlas: {
@@ -281,6 +280,33 @@ export async function loadScience(moon) {
         customJobs.clear();
       };
     }
+  };
+  // Drive roaming: build the next terrain window (heights, slopes, PSR mask, horizon atlas) off the main thread.
+  let psrSent = false;
+  const roamWindow = async (request) => {
+    await Promise.all([moon.ensureLocal(), loadMask()]);
+    startHorizonWorker();
+    if (!psrSent) {
+      psrSent = true;
+      const data = new Uint8Array(psrImage.width * psrImage.height);
+      for (let k = 0; k < data.length; k++)
+        data[k] = sourceMask[k * 4] >= 128 ? 1 : 0;
+      horizonWorker.postMessage(
+        { type: "psr", mask: { w: psrImage.width, h: psrImage.height, data } },
+        [data.buffer],
+      );
+    }
+    const job = ++horizonJob;
+    return new Promise((resolve, reject) => {
+      customJobs.set(job, { resolve, reject, window: true });
+      horizonWorker.postMessage({ ...request, type: "window", job });
+    });
+  };
+  const prepareCustom = async (site, height) => {
+    const key = customKey(site, height);
+    if (custom.has(key)) return custom.get(key);
+    await Promise.all([moon.ensureLocal(), loadMask()]);
+    startHorizonWorker();
     const dem = baseLocal(site),
       job = ++horizonJob;
     return new Promise((resolve, reject) => {
@@ -351,6 +377,7 @@ export async function loadScience(moon) {
   };
   return {
     prepareCustom,
+    roamWindow,
     customKey,
     custom,
     attachMoon,
@@ -751,46 +778,55 @@ export function enhancedComponent(Base, S) {
         threshold = this.visThr();
       let count = 0;
       for (let k = 0; k < ser.n; k += step) count++;
-      for (let j = 0; j < jb.Nc; j++)
-        for (let i = 0; i < jb.Nc; i++) {
-          const index = j * jb.Nc + i,
-            ii = i * jb.stride,
-            jj = j * jb.stride,
-            loc = S.geoFor(jb.dem, ii, jj),
-            ground = jb.dem.centerHeightM + jb.dem.h[jj * jb.dem.N + ii] * 1000,
-            profile = jb.hmap.subarray(index * jb.B, (index + 1) * jb.B);
-          let run = 0;
-          for (let k = 0; k < ser.n; k += step) {
-            const p = S.ephem.topo(
-                ser.st[k],
-                loc.lat,
-                loc.lon,
-                (ground + height) / 1000,
-              ),
-              sv =
-                discFraction(
-                  p.sun.el - horizonValue(profile, p.sun.az),
-                  p.sun.rad,
-                ) >= threshold,
-              ev =
-                discFraction(
-                  p.earth.el - horizonValue(profile, p.earth.az),
-                  p.earth.rad,
-                ) >= threshold;
-            if (sv) {
-              sun[index]++;
-              run = 0;
-            } else {
-              run += step * ser.stepH;
-              mrun[index] = Math.max(mrun[index], run);
-            }
-            if (ev) earth[index]++;
-          }
-          sun[index] /= count;
-          earth[index] /= count;
-        }
+      for (let index = 0; index < Nv; index++) {
+        const node = this.heatNode(jb, index, ser, step, count, threshold, height);
+        sun[index] = node[0];
+        earth[index] = node[1];
+        mrun[index] = node[2];
+      }
       this._hacc = { key, sun, earth, mrun, per: (ser.n - 1) * ser.stepH };
       return this._hacc;
+    }
+    // One horizon-atlas node of the period statistics: [Sun fraction, Earth fraction, longest dark run in hours].
+    heatNode(jb, index, ser, step, count, threshold, height) {
+      const i = index % jb.Nc,
+        j = Math.floor(index / jb.Nc),
+        ii = i * jb.stride,
+        jj = j * jb.stride,
+        loc = S.geoFor(jb.dem, ii, jj),
+        ground = jb.dem.centerHeightM + jb.dem.h[jj * jb.dem.N + ii] * 1000,
+        profile = jb.hmap.subarray(index * jb.B, (index + 1) * jb.B);
+      let run = 0,
+        sun = 0,
+        earth = 0,
+        longest = 0;
+      for (let k = 0; k < ser.n; k += step) {
+        const p = S.ephem.topo(
+            ser.st[k],
+            loc.lat,
+            loc.lon,
+            (ground + height) / 1000,
+          ),
+          sv =
+            discFraction(
+              p.sun.el - horizonValue(profile, p.sun.az),
+              p.sun.rad,
+            ) >= threshold,
+          ev =
+            discFraction(
+              p.earth.el - horizonValue(profile, p.earth.az),
+              p.earth.rad,
+            ) >= threshold;
+        if (sv) {
+          sun++;
+          run = 0;
+        } else {
+          run += step * ser.stepH;
+          longest = Math.max(longest, run);
+        }
+        if (ev) earth++;
+      }
+      return [sun / count, earth / count, longest];
     }
     heat() {
       const h = super.heat();
@@ -952,6 +988,8 @@ export function enhancedComponent(Base, S) {
           hmap: jb.hmap,
           lat: d.lat,
           lon: d.lon,
+          ox: d.ox || 0,
+          oy: d.oy || 0,
           L: d.L,
           cell: d.cell,
           centerHeightM: d.centerHeightM,
