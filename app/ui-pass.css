@@ -92,3 +92,5 @@
 @media(max-width:900px){.ui-pass.ui-drive.drive-card-open .card{left:12px!important;right:12px!important;top:260px!important;bottom:180px!important;width:auto!important}.ui-pass.ui-drive .hud{min-height:66px}.ui-pass.ui-drive .dpill{top:206px!important}}
 
 .science-summary{font-size:12px;line-height:1.5;margin-top:12px;color:#c7c7cc}.science-summary ul{padding-left:18px;margin:6px 0 12px}.science-summary li{margin:4px 0}
+
+.travel-legend{position:fixed;left:20px;bottom:270px;z-index:5;width:240px;border-radius:16px;padding:12px;font-size:12px}.travel-legend small{font-size:10px;color:#98989f}@media(max-width:900px){.travel-legend{left:12px;top:260px;bottom:auto;width:200px}}
