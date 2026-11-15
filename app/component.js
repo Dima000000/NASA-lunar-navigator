@@ -1192,7 +1192,7 @@ window.NASALComponent = class Component extends DCLogic {
       msg: rv.batt <= 0.5 ? 'Battery empty — play time forward until the Sun returns' : (rv.blocked ? 'Too steep to climb here — try another way' : ''),
       hasMsg: rv.batt <= 0.5 || !!rv.blocked
     };
-    const tips = { region: 'Drag to turn the Moon · scroll to zoom · click a pin', terrain: 'Drag to orbit · scroll to zoom · click the ground to choose a landing spot', drive: 'Drive with W A S D or the arrow keys · drag to look around · battery is illustrative' };
+    const tips = { region: 'Drag to turn the Moon · scroll to zoom · click a pin', terrain: 'Drag to orbit · scroll to zoom · click the ground to choose a landing spot', drive: 'Surface: neutral grey regolith (LROC WAC). Lighting computed for the selected date.' };
 
     // sky chart & details
     const track = (azA, elA) => { const k = Math.max(1, Math.ceil(n / 320)); let d = ''; for (let i = 0; i < n; i += k) { const p = pxy(azA[i], elA[i]); d += (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); } return d; };
@@ -1359,7 +1359,7 @@ float vn(vec3 x){ vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
     const SKY_FS = `precision highp float;
 varying vec2 vUV;
 uniform vec3 uR; uniform vec3 uU; uniform vec3 uF; uniform vec3 uSunDir;
-uniform float uTan; uniform float uAsp; uniform float uGround;
+uniform float uTan; uniform float uAsp; uniform float uGround; uniform float uDrive;
 ` + NOISE + `
 void main(){
   vec3 d = normalize(uF + vUV.x*uTan*uAsp*uR + vUV.y*uTan*uU);
@@ -1381,7 +1381,7 @@ void main(){
     vec3 sd = normalize(vec3(uSunDir.x, 0.0, uSunDir.z) + vec3(0.0001, 0.0, 0.0));
     float lit = pow(max(dot(hd, sd), 0.0), 2.0)*clamp(uSunDir.y*25.0 + 0.6, 0.0, 1.0);
     vec3 gc = vec3(0.018,0.019,0.022) + vec3(0.07,0.064,0.056)*lit*smoothstep(-0.25, 0.0, d.y);
-    col = mix(col, gc, g);
+    col = mix(col, mix(gc,vec3(0.003),uDrive), g);
   }
   gl_FragColor = vec4(col, 1.0);
 }`;
@@ -1392,7 +1392,7 @@ void main(){
 void main(){ vUV = aP; vec3 w = uC + (uRt*aP.x + uUp*aP.y)*uSize; vW = w; gl_Position = uPV*vec4(w, 1.0); }`;
     const BB_FS = `precision highp float;
 varying vec2 vUV; varying vec3 vW;
-uniform float uMode; uniform vec3 uSunL; uniform vec3 uCamPos; uniform float uGround; uniform float uSpin;
+uniform float uMode; uniform vec3 uSunL; uniform vec3 uCamPos; uniform float uGround; uniform float uSpin; uniform float uDrive;
 ` + NOISE + `
 void main(){
   vec3 dir = normalize(vW - uCamPos);
@@ -1402,7 +1402,7 @@ void main(){
     float core = 1.0 - smoothstep(0.06, 0.075, r);
     float glow = 0.55*exp(-r*9.0) + 0.16*exp(-r*3.0);
     float streak = 0.22*exp(-abs(vUV.y)*80.0)*exp(-abs(vUV.x)*2.5);
-    vec3 c = vec3(1.0, 0.97, 0.9)*core*3.0 + vec3(1.0, 0.85, 0.6)*(glow + streak)*(1.0 - smoothstep(0.85, 1.0, r));
+    vec3 c = mix(vec3(1.0,0.97,0.9),vec3(1.0),uDrive)*core*3.0 + mix(vec3(1.0,0.85,0.6),vec3(1.0),uDrive)*(glow + streak)*(1.0 - smoothstep(0.85, 1.0, r));
     gl_FragColor = vec4(c*hz, 1.0);
   } else {
     float rr = r/0.88;
@@ -1432,7 +1432,7 @@ varying vec3 vW; varying vec3 vN; varying float vS; varying float vH;
 void main(){ vW = aP; vN = aN; vS = aD.x; vH = aD.y; gl_Position = uPV*vec4(aP, 1.0); }`;
     const TER_FS = `precision highp float;
 varying vec3 vW; varying vec3 vN; varying float vS; varying float vH;
-uniform vec3 uSun; uniform vec3 uCam; uniform float uHeat; uniform float uHalf; uniform sampler2D uImagery; uniform float uHasImagery;
+uniform vec3 uSun; uniform vec3 uCam; uniform float uHeat; uniform float uHalf; uniform sampler2D uImagery; uniform float uHasImagery; uniform float uDrive;
 float h12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
 float n2(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); vec2 u = f*f*(3.0 - 2.0*f);
   return mix(mix(h12(i), h12(i + vec2(1.0, 0.0)), u.x), mix(h12(i + vec2(0.0, 1.0)), h12(i + vec2(1.0, 1.0)), u.x), u.y); }
@@ -1450,12 +1450,14 @@ void main(){
   float dk = 1.0 - smoothstep(0.25, 2.5, camd);
   // Measured DEM normals with the actual LROC WAC 100 m observation mosaic. Acquisition shadows are fixed in the texture; lighting masks remain calculated independently.
   float observed=texture2D(uImagery,vec2(vW.x/(2.0*uHalf)+0.5,0.5-vW.z/(2.0*uHalf))).r;
-  float alb=0.16*mix(1.0,0.3+1.2*observed,uHasImagery);
+  float alb=mix(0.16,0.12,uDrive)*mix(1.0,0.3+1.2*observed,uHasImagery);
   vec3 V = normalize(uCam - vW);
   float mu0 = max(dot(n, uSun), 0.0); float mu = max(dot(n, V), 0.03);
   float br = mix(2.0*mu0/(mu0 + mu), mu0, 0.35);
-  vec3 col = vec3(1.0, 0.975, 0.94)*alb*br*vS*3.0;
-  col += alb*vec3(0.45, 0.55, 0.75)*0.03*(0.5 + 0.5*n.y);
+  // Drive: neutral regolith tint, white sunlight; LROC supplies grayscale brightness.
+  vec3 tint = mix(vec3(1.0,0.975,0.94),pow(vec3(0.55,0.54,0.52)/0.54,vec3(2.2)),uDrive);
+  vec3 col = tint*alb*br*vS*3.0;
+  col += alb*mix(vec3(0.45,0.55,0.75)*0.03,vec3(0.0015),uDrive)*(0.5 + 0.5*n.y);
   col = vec3(1.0) - exp(-col*1.7);
   col = pow(col, vec3(1.0/2.2));
   if (uHeat > 0.5) {
@@ -1467,7 +1469,7 @@ void main(){
     col = mix(col, hc*hs, 0.72*(1.0 - 0.5*dk)) + col*0.25;
   }
   float edge = max(abs(vW.x), abs(vW.z))/uHalf;
-  col = mix(col, vec3(0.018, 0.019, 0.022), smoothstep(0.82, 1.0, edge));
+  col = mix(col, mix(vec3(0.018,0.019,0.022),vec3(0.004),uDrive), smoothstep(0.82, 1.0, edge));
   gl_FragColor = vec4(col, 1.0);
 }`;
     const OBJ_VS = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; uniform mat4 uPV; uniform mat4 uM;
@@ -1734,7 +1736,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND);
         use(P.sky, [['aP', quad, 2]]);
         U(P.sky, 'uR', B.r); U(P.sky, 'uU', B.u); U(P.sky, 'uF', B.f); U(P.sky, 'uTan', Math.tan(cam.fov / 2)); U(P.sky, 'uAsp', S.W / S.H);
-        U(P.sky, 'uGround', ground ? 1 : 0); U(P.sky, 'uSunDir', sunDir);
+        U(P.sky,'uDrive',S.view === 'drive' ? 1 : 0); U(P.sky, 'uGround', ground ? 1 : 0); U(P.sky, 'uSunDir', sunDir);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
       function drawBB(PV, cam, B, dir, ang, mode, ground, sunDir, dist) {
@@ -1743,7 +1745,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (mode === 0) gl.blendFunc(gl.ONE, gl.ONE); else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         use(P.bb, [['aP', quad, 2]]);
         U(P.bb, 'uPV', PV); U(P.bb, 'uC', c); U(P.bb, 'uRt', B.r); U(P.bb, 'uUp', B.u); U(P.bb, 'uSize', dist * Math.tan(ang) / (mode === 0 ? 0.07 : 0.88));
-        U(P.bb, 'uMode', mode); U(P.bb, 'uCamPos', cam.eye); U(P.bb, 'uGround', ground ? 1 : 0); U(P.bb, 'uSpin', performance.now() * 0.00003);
+        U(P.bb,'uDrive',S.view === 'drive' ? 1 : 0); U(P.bb, 'uMode', mode); U(P.bb, 'uCamPos', cam.eye); U(P.bb, 'uGround', ground ? 1 : 0); U(P.bb, 'uSpin', performance.now() * 0.00003);
         U(P.bb, 'uSunL', norm([dot(sunDir, B.r), dot(sunDir, B.u), -dot(sunDir, dir)]));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         gl.disable(gl.BLEND);
@@ -1781,7 +1783,7 @@ void main(){ vec2 q = gl_PointCoord*2.0 - 1.0; float r = dot(q, q); if (r > 1.0)
         if (T && T.bp) {
           use(P.ter, [['aP', T.bp, 3], ['aN', T.bn, 3], ['aD', T.bd, 4]]);
           gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, T.bi);
-          U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
+          U(P.ter, 'uPV', PV); U(P.ter, 'uSun', sunDir); U(P.ter, 'uCam', cam.eye); U(P.ter, 'uHeat', S.heatOn && S.view !== 'drive' ? 1 : 0); U(P.ter,'uDrive',S.view === 'drive' ? 1 : 0); U(P.ter, 'uHalf', T.dem.L / 2);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,T.imageTexture||moonTexture);gl.uniform1i(P.ter.u.uImagery,0);U(P.ter,'uHasImagery',T.imageTexture?1:0);
           gl.drawElements(gl.TRIANGLES, T.g.idx.length, gl.UNSIGNED_INT, 0);
         }
         if (S.view === 'drive' && S.rover) {
